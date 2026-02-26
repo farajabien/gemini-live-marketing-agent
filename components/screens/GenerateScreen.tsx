@@ -56,7 +56,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const [format, setFormat] = useState<"video" | "carousel">("video");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [totalCost, setTotalCost] = useState<number>(0);
   const [isLoadingPlan, setIsLoadingPlan] = useState(!!initialPlanId);
+
   const [plan, setPlan] = useState<VideoPlan | null>(null);
   const [planId, setPlanId] = useState<string | null>(initialPlanId || null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"saving" | "saved" | null>(null);
@@ -326,6 +328,8 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
     }
 
     setIsGenerating(true);
+    setTotalCost(0);
+
 
     try {
       let strategyContext: any = undefined;
@@ -404,7 +408,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         setStatusText("Parsing Narrative Intent...");
         console.log("Generating in VERBATIM MODE - preserving exact script");
 
-        generatedPlan = await generateVideoPlanWithOptions(
+        const { plan: verbatimPlan, cost: verbatimCost } = await generateVideoPlanWithOptions(
           scriptToUse, // Use cleaned script
           format,
           "30s", // Default duration, auto-determined by scene count
@@ -420,6 +424,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
           settings,
           [] // No images support for now
         );
+        generatedPlan = verbatimPlan;
+        setTotalCost(prev => prev + verbatimCost);
+
         
       } else {
       // STANDARD MODE: AI rewrites and generates everything
@@ -428,7 +435,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
       setStatusText("Synthesizing Story Beats...");
         console.log("Refining idea...");
         const { refineIdea } = await import("@/lib/ai/generation");
-        const { refinedPrompt, thumbnailPrompt } = await refineIdea(idea, format, settings, strategyContext);
+        const { refinedPrompt, thumbnailPrompt, cost: refineCost } = await refineIdea(idea, format, settings, strategyContext);
+        setTotalCost(prev => prev + refineCost);
+
         
         setStatusText("Assembling Storyboard...");
         
@@ -438,7 +447,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         console.log("Generating plan with refined context...");
         // Updated call signature to support passing visualMode options
         // generateVideoPlanWithOptions(idea, format, duration, options, settings, images)
-        generatedPlan = await generateVideoPlanWithOptions(
+        const { plan: standardPlan, cost: standardCost } = await generateVideoPlanWithOptions(
             refinedPrompt, 
             format, 
             "30s", // Default duration, auto-determined by scene count
@@ -446,6 +455,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
             settings, 
             imagesPayload
         );
+        generatedPlan = standardPlan;
+        setTotalCost(prev => prev + standardCost);
+
       }
 
       // Persist selected output settings into plan object for display
@@ -600,7 +612,8 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   return (
     <>
       {/* Generation Loading Dialog */}
-      <GenerationDialog isOpen={isGenerating} statusText={statusText} />
+      <GenerationDialog isOpen={isGenerating} statusText={statusText} cost={totalCost} />
+
       
       <div className="w-full max-w-full">
         {isModal && (

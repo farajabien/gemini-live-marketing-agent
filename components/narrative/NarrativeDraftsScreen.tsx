@@ -169,7 +169,9 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   const { user, isLoading: isAuthLoading, refreshToken } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  const [totalCost, setTotalCost] = useState<number>(0);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
+
   const [generationFormat, setGenerationFormat] = useState<ContentFormat>("linkedin-post");
   const [generationCount, setGenerationCount] = useState(3);
   const [preferredAngle, setPreferredAngle] = useState<string>("");
@@ -290,7 +292,9 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   const handleGenerateContent = async () => {
     if (!refreshToken) return;
     setIsGenerating(true);
+    setTotalCost(0);
     setProgressMessage("Starting content generation...");
+
 
     try {
       const response = await fetch("/api/narrative/generate-content", {
@@ -327,7 +331,11 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
               const eventData = JSON.parse(line.slice(6));
               if (eventData.type === "progress") {
                 setProgressMessage(eventData.message);
+                if (eventData.totalCost !== undefined) {
+                  setTotalCost(eventData.totalCost);
+                }
               } else if (eventData.type === "success") {
+
                 setProgressMessage(null);
                 setIsGenerating(false);
                 return;
@@ -517,12 +525,21 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
       {/* Progress */}
       {isGenerating && progressMessage && (
         <div className="mb-6 p-4 bg-blue-900/20 border border-blue-800 rounded-2xl">
-          <div className="flex items-center gap-3">
-            <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-            <p className="text-sm text-blue-400 font-semibold">{progressMessage}</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <p className="text-sm text-blue-400 font-semibold">{progressMessage}</p>
+            </div>
+            {totalCost > 0 && (
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/50">Est. Cost</span>
+                <span className="text-sm font-mono font-bold text-blue-400">${totalCost.toFixed(4)}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
+
 
       {/* Tabs */}
       <Tabs defaultValue="queue" className="w-full">

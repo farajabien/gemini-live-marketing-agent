@@ -91,10 +91,13 @@ export const maxDuration = 60; // Max allowed for hobby/pro on Vercel
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   
+  let totalCost = 0;
+
   // Helper to send progress updates
   const sendProgress = (controller: ReadableStreamDefaultController, message: string) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'progress', message })}\n\n`));
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'progress', message, totalCost })}\n\n`));
   };
+
 
   const sendError = (controller: ReadableStreamDefaultController, error: string) => {
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error })}\n\n`));
@@ -139,13 +142,15 @@ export async function POST(request: NextRequest) {
         console.log("[Series] Formalizing mega-prompt for user:", userId);
         sendProgress(controller, "Analyzing your idea and creating series structure...");
         
-        const formalizeText = await withRetry(() => generateText(
+        const { text: formalizeText, cost: formalizeCost } = await withRetry(() => generateText(
           FORMALIZE_SERIES_PROMPT(megaPrompt),
           "You are a JSON generator. Respond with ONLY valid JSON.",
           "gpt-4o",
           0.3,
           true
         ));
+        totalCost += formalizeCost;
+
         
         // Safe JSON extraction for formalizeText
         let formalizedJson: SeriesMetadata;
@@ -177,7 +182,7 @@ export async function POST(request: NextRequest) {
         sendProgress(controller, `Generating scripts for all ${formalizedJson.episodes.length} episodes...`);
         
         const generationPromises = formalizedJson.episodes.map(async (episode, index) => {
-          const scriptText = await withRetry(() => generateText(
+          const { text: scriptText, cost: scriptCost } = await withRetry(() => generateText(
             GENERATE_EPISODE_SCRIPT_PROMPT(
               episode.title,
               episode.beats,
@@ -189,6 +194,8 @@ export async function POST(request: NextRequest) {
             0.3,
             true
           ));
+          totalCost += scriptCost;
+
           
           try {
             let episodeJsonMatch = scriptText.match(/\{[\s\S]*\}/);

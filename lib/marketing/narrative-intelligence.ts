@@ -24,7 +24,9 @@ export interface ExtractedPositioning {
     after: string; // Desired transformed state
   };
   title: string; // A concise, punchy title for this strategy
+  cost: number;
 }
+
 
 export interface ContentAngles {
   painAngles: string[]; // Ways to frame the problem
@@ -32,7 +34,9 @@ export interface ContentAngles {
   mechanismAngles: string[]; // Ways to frame your solution
   identityAngles: string[]; // Ways to frame the identity shift
   outcomeAngles: string[]; // Ways to frame the after-state
+  cost: number;
 }
+
 
 export interface NarrativeStrength {
   specificityScore: number; // 0-100: How specific is the audience/problem?
@@ -40,7 +44,9 @@ export interface NarrativeStrength {
   tensionStrength: number; // 0-100: How strong is the before/after contrast?
   contrastScore: number; // 0-100: How vivid is the transformation?
   overallScore: number; // 0-100: Weighted average
+  cost: number;
 }
+
 
 // === AI Extraction Functions ===
 
@@ -75,12 +81,19 @@ OUTPUT JSON ONLY:
 Be specific. Be concrete. Extract from the inputs provided. Ensure all fields are populated with specific strategic insights based on the brand's unique approach and audience.
 `;
 
-  const response = await generateText(
+  const { text: response, cost } = await generateText(
     prompt,
     "You are a narrative strategist. Output JSON only.",
     "gpt-4o",
     0.6
   );
+
+  return { ...parsePositioning(response), cost };
+}
+
+
+function parsePositioning(response: string): ExtractedPositioning {
+
 
   console.log("[Narrative Intelligence] Raw positioning response:", response);
 
@@ -97,7 +110,8 @@ Be specific. Be concrete. Extract from the inputs provided. Ensure all fields ar
   }
 }
 
-export async function extractContentAngles(input: NarrativeInput): Promise<ContentAngles> {
+export async function extractContentAngles(input: NarrativeInput): Promise<ContentAngles & { cost: number }> {
+
   const prompt = `
 You are a content strategist. Generate specific content angles from this narrative.
 
@@ -144,12 +158,14 @@ OUTPUT JSON ONLY:
 Make each angle concrete and specific to THIS audience and problem.
 `;
 
-  const response = await generateText(
+  const { text: response, cost } = await generateText(
     prompt,
     "You are a content strategist. Output JSON only.",
     "gpt-4o",
     0.7
   );
+
+
 
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -162,7 +178,19 @@ Make each angle concrete and specific to THIS audience and problem.
   }
 }
 
-export async function scoreNarrativeStrength(input: NarrativeInput): Promise<NarrativeStrength> {
+function parseAngles(response: string, cost: number): ContentAngles & { cost: number } {
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    return { ...JSON.parse(jsonMatch[0]), cost };
+  } catch (e) {
+    console.error("Failed to parse angles. Raw response:", response);
+    throw new Error("Failed to extract content angles");
+  }
+}
+
+export async function scoreNarrativeStrength(input: NarrativeInput): Promise<NarrativeStrength & { cost: number }> {
+
   const prompt = `
 You are a narrative quality analyst. Score the clarity and strength of this narrative.
 
@@ -215,12 +243,14 @@ OUTPUT JSON ONLY:
 Be honest. Score based on the actual inputs provided.
 `;
 
-  const response = await generateText(
+  const { text: response, cost } = await generateText(
     prompt,
     "You are a narrative analyst. Output JSON only.",
     "gpt-4o",
     0.5
   );
+
+
 
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -237,8 +267,9 @@ Be honest. Score based on the actual inputs provided.
       );
     }
 
-    return scores;
+    return { ...scores, cost };
   } catch (e) {
+
     console.error("Failed to parse strength scores. Raw response:", response);
     console.error("Error details:", e);
     throw new Error("Failed to score narrative strength");
@@ -266,12 +297,15 @@ export async function analyzeNarrative(input: NarrativeInput) {
       hasAngles: !!angles,
       hasStrength: !!strength
     });
-    return {
+    const result = {
       positioning,
       angles,
       narrativeStrength: strength,
+      totalCost: positioning.cost + angles.cost + strength.cost
     };
+    return result;
   } catch (error: any) {
+
     console.error("Failed to analyze narrative:", error);
     // Re-throw with original message to preserve context
     throw new Error(error.message || "Failed to complete narrative analysis");
@@ -299,18 +333,21 @@ OUTPUT JSON ONLY:
 }
 `;
 
-  const response = await generateText(
+  const { text: response, cost } = await generateText(
     prompt,
     "You are a brand strategist. Output JSON only.",
     "gpt-4o",
     0.7
   );
 
+
+
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found");
-    return JSON.parse(jsonMatch[0]);
+    return { ...JSON.parse(jsonMatch[0]), cost };
   } catch (e) {
+
     console.error("Failed to generate smart title. Raw response:", response);
     throw new Error("Failed to generate smart title");
   }

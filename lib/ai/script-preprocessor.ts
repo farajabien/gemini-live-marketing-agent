@@ -82,12 +82,13 @@ Exact narration text for third scene.
 Output the cleaned script now:`;
 
   try {
-    const cleanedScript = await generateText(
+    const { text: cleanedScript } = await generateText(
       prompt,
       "You are a script formatting expert. Return ONLY the cleaned script, no explanations.",
       "gpt-4o",
       0.3 // Low temperature for consistent formatting
     );
+
 
     // Extract script from markdown code blocks if present
     const scriptMatch = cleanedScript.match(/```(?:markdown|text)?\n?([\s\S]*?)```/);

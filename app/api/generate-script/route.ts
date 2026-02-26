@@ -43,10 +43,11 @@ export async function POST(req: NextRequest) {
     `;
 
     // 2. Call GitHub Models via our client helper
-    const generatedScript = await generateText(
+    const { text: generatedScript } = await generateText(
       prompt,
       "You are an expert video copywriter specializing in high-conversion scripts for social media (TikTok, Reels, LinkedIn)."
     );
+
 
     if (!generatedScript) {
       throw new Error("AI returned empty response.");

@@ -99,9 +99,12 @@ Return ONLY valid JSON:
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
+  let totalCost = 0;
+
   const sendProgress = (controller: ReadableStreamDefaultController, message: string) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "progress", message })}\n\n`));
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "progress", message, totalCost })}\n\n`));
   };
+
 
   const sendError = (controller: ReadableStreamDefaultController, error: string) => {
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error })}\n\n`));
@@ -201,7 +204,7 @@ export async function POST(request: NextRequest) {
 
         sendProgress(controller, `Generating ${count} ${format} suggestions...`);
 
-        const contentText = await withRetry(() =>
+        const { text: contentText, cost } = await withRetry(() =>
           generateText(
             GENERATE_CONTENT_PROMPT(
               {
@@ -222,6 +225,9 @@ export async function POST(request: NextRequest) {
             0.7 // Higher temperature for creative content
           )
         );
+        totalCost += cost;
+
+
 
         sendProgress(controller, "Parsing content suggestions...");
 

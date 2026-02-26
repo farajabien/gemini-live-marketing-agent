@@ -36,7 +36,8 @@ export async function generateSocialMetadata(plan: VideoPlan): Promise<SocialCap
     }
   `;
 
-  const response = await generateText(prompt, "You are a social media copywriter. Output valid JSON only.", "gpt-4o", 0.7);
+  const { text: response } = await generateText(prompt, "You are a social media copywriter. Output valid JSON only.", "gpt-4o", 0.7);
+
   
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);

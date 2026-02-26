@@ -52,7 +52,9 @@ const _schema = i.schema({
       contentTags: i.json().optional(), // { primaryAngle: string, specificAngles: string[], hookType: string, emotionalTone: string }
       // === Performance Tracking ===
       metrics: i.json().optional(), // { posted: boolean, postedAt: number, platform: string, videoUrl: string, metrics24h: { views, likes, shares, saves, comments }, metrics7d: { views, likes, shares, saves, comments }, boosted: boolean, organic: boolean }
+      totalCost: i.number().optional(),
     }),
+
     voices: i.entity({
       voice_id: i.string().unique().indexed(),
       name: i.string(),
@@ -71,6 +73,7 @@ const _schema = i.schema({
       status: i.string(), // 'draft' | 'generating' | 'complete'
       createdAt: i.number().indexed(),
       updatedAt: i.number(),
+      totalCost: i.number().optional(),
     }),
     episodes: i.entity({
       episodeNumber: i.number().indexed(),
@@ -84,6 +87,7 @@ const _schema = i.schema({
       duration: i.number().optional(), // Video duration in seconds
       createdAt: i.number().indexed(),
       updatedAt: i.number(),
+      totalCost: i.number().optional(),
     }),
     narratives: i.entity({
       title: i.string(),
@@ -131,6 +135,7 @@ const _schema = i.schema({
       currentWizardStep: i.number().optional(),
       createdAt: i.number().indexed(),
       updatedAt: i.number(),
+      totalCost: i.number().optional(),
     }),
     contentPieces: i.entity({
       title: i.string(),

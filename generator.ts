@@ -35,7 +35,7 @@ export async function generateDraftFromAngle(input: DraftGenerationInput): Promi
     outputFormat: outputFormat,
   };
 
-  const videoPlan = await generateVideoPlanWithOptions(
+  const { plan: videoPlan } = await generateVideoPlanWithOptions(
     input.angle,
     input.format,
     "30s", 
@@ -68,14 +68,16 @@ export async function generateDraftFromAngle(input: DraftGenerationInput): Promi
     }
   `;
   
-  const captionResponse = await generateText(captionPrompt, "You are a copywriter. Output JSON only.", "gpt-4o", 0.7);
+  const { text: captionResponse } = await generateText(captionPrompt, "You are a copywriter. Output JSON only.", "gpt-4o", 0.7);
   let captions = { linkedin: "", twitter: "", instagram: "" };
   
   try {
      const jsonMatch = captionResponse.match(/\{[\s\S]*\}/);
      if (jsonMatch) {
-        captions = JSON.parse(jsonMatch[0]);
+        const { sanitizeJson } = await import("@/lib/ai/json-utils");
+        captions = JSON.parse(sanitizeJson(jsonMatch[0]));
      }
+
   } catch (e) {
       console.error("Failed to parse captions:", e);
       // Fallback

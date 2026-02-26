@@ -5,9 +5,11 @@ import { useEffect } from "react";
 interface GenerationDialogProps {
   isOpen: boolean;
   statusText: string;
+  cost?: number;
 }
 
-export function GenerationDialog({ isOpen, statusText }: GenerationDialogProps) {
+
+export function GenerationDialog({ isOpen, statusText, cost }: GenerationDialogProps) {
   // Prevent background scroll when dialog is open
   useEffect(() => {
     if (isOpen) {
@@ -50,7 +52,14 @@ export function GenerationDialog({ isOpen, statusText }: GenerationDialogProps) 
             <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
               {statusText}
             </p>
+            {cost !== undefined && cost > 0 && (
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <span className="text-[10px] font-black text-red-500/50 uppercase tracking-widest">Est. Cost</span>
+                <span className="text-sm font-mono font-bold text-red-500">${cost.toFixed(4)}</span>
+              </div>
+            )}
           </div>
+
 
           {/* Progress Indicators */}
           <div className="flex flex-col gap-2 w-full">

@@ -20,7 +20,8 @@ export async function createBrandNarrative(
 
     if (isNewFormat) {
       // NEW: Full narrative intelligence analysis
-      analysis = await analyzeNarrative(input as NarrativeInput);
+      const { positioning: p, angles: a, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(input as NarrativeInput);
+      analysis = { positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
     } else {
       // LEGACY: Old positioning system
       legacyPositioning = await generateBrandPositioning(input as PositioningInput);
@@ -54,6 +55,7 @@ export async function createBrandNarrative(
           aiPositioning: analysis!.positioning,
           angles: analysis!.angles,
           narrativeStrength: analysis!.narrativeStrength,
+          totalCost: analysis!.totalCost || 0,
           // Version history
           versions: [{
             timestamp: Date.now(),
@@ -266,8 +268,10 @@ export async function regeneratePositioning(
 
     // Run analysis
     console.log(`[Action] Regenerating narrative for id: ${narrativeId}`);
-    const analysis = await analyzeNarrative(narrativeInput);
+    const { positioning: p, angles: a, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(narrativeInput);
+    const analysis = { positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
     console.log("[Action] Analysis result:", JSON.stringify(analysis.positioning, null, 2));
+
 
     // Track version change
     const versions = narrative.versions || [];
@@ -298,10 +302,12 @@ export async function regeneratePositioning(
         aiPositioning: analysis.positioning,
         angles: analysis.angles,
         narrativeStrength: analysis.narrativeStrength,
+        totalCost: (narrative.totalCost || 0) + analysis.totalCost,
         versions: updatedVersions,
         updatedAt: Date.now(),
       })
     ]);
+
 
     // Also update brandPositioning entity for compatibility
     const posData = await adminDb.query({

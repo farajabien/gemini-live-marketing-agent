@@ -145,8 +145,10 @@ Return ONLY a JSON array with this structure (no markdown, no code fences):
 
 If a segment should be silent, use an empty string for voiceoverText.`;
 
-      const rawText = await generateText(prompt, systemPrompt, "gpt-4o", 0.7);
-      const jsonStr = rawText.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
+      const { text: rawText } = await generateText(prompt, systemPrompt, "gpt-4o", 0.7);
+      const { sanitizeJson } = await import("@/lib/ai/json-utils");
+      const jsonStr = sanitizeJson(rawText.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim());
+
       const refinedRaw: Array<{ id: number; voiceoverText: string }> = JSON.parse(jsonStr);
 
       refinedSegments = refinedRaw.map((r) => {

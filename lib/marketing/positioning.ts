@@ -42,7 +42,8 @@ export async function generateBrandPositioning(input: PositioningInput): Promise
     }
   `;
 
-  const response = await generateText(prompt, "You are a brand strategist. Output JSON only.", "gpt-4o", 0.7);
+  const { text: response } = await generateText(prompt, "You are a brand strategist. Output JSON only.", "gpt-4o", 0.7);
+
   
   try {
      const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -76,7 +77,8 @@ export async function generateContentPillars(positioning: BrandPositioning, inpu
     ]
   `;
   
-  const response = await generateText(prompt, "You are a content strategist. Output JSON array only.", "gpt-4o", 0.7);
+  const { text: response } = await generateText(prompt, "You are a content strategist. Output JSON array only.", "gpt-4o", 0.7);
+
 
   try {
      const jsonMatch = response.match(/\[[\s\S]*\]/);

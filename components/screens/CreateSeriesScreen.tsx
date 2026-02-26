@@ -14,7 +14,9 @@ export function CreateSeriesScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  const [totalCost, setTotalCost] = useState<number>(0);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+
 
   const handleCreateSeries = async () => {
     if (!user || !refreshToken) {
@@ -30,6 +32,8 @@ export function CreateSeriesScreen() {
     setIsCreating(true);
     setError(null);
     setProgressMessage(null);
+    setTotalCost(0);
+
 
     try {
       const response = await fetch("/api/series/create", {
@@ -64,7 +68,11 @@ export function CreateSeriesScreen() {
             
             if (data.type === "progress") {
               setProgressMessage(data.message);
+              if (data.totalCost !== undefined) {
+                setTotalCost(data.totalCost);
+              }
             } else if (data.type === "success") {
+
               const { seriesId } = data.data;
               router.push(`/series/${seriesId}`);
               return;
@@ -147,12 +155,21 @@ export function CreateSeriesScreen() {
 
             {isCreating && progressMessage && (
               <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                <div className="flex items-start gap-3">
-                  <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">{progressMessage}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">{progressMessage}</p>
+                  </div>
+                  {totalCost > 0 && (
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/50">Est. Cost</span>
+                      <span className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">${totalCost.toFixed(4)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
+
 
 
             <button

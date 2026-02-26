@@ -45,16 +45,15 @@ export type GenerationOptions = VerbatimGenerationOptions | StandardGenerationOp
  */
 export async function generateVideoPlanWithOptions(
   idea: string,
-  // Fix argument order/types to match usage in GenerateScreen.tsx logic
   formatOrPrompt: "video" | "carousel" | string,
   durationOrThumbnail: "30s" | "60s" | string = "30s", 
   optionsOrFormat: GenerationOptions | "video" | "carousel" = {},
   settingsOrImages: ContentSettings | ReferenceImage[] = DEFAULT_SETTINGS,
   imagesArg: ReferenceImage[] | ContentSettings = []
-): Promise<VideoPlan> {
+): Promise<{ plan: VideoPlan; cost: number }> {
+    let totalCost = 0;
+
     // Handle overloaded arguments to support both calling conventions
-    // Case 1: Called from GenerateScreen.tsx (Standard Mode - Legacy Call)
-    // generateVideoPlanWithOptions(refinedPrompt, thumbnailPrompt, duration, format, imagesPayload, settings)
     if (typeof optionsOrFormat === 'string') {
         const refinedPrompt = idea;
         const thumbnailPrompt = formatOrPrompt as string;
@@ -63,49 +62,37 @@ export async function generateVideoPlanWithOptions(
         const images = settingsOrImages as ReferenceImage[];
         const settings = imagesArg as unknown as ContentSettings;
 
-        // Implementation for Standard Mode (Legacy flow)
-        // Default to 'image' if not specified in this legacy path
         return generatePlanFromRefinedPrompt(refinedPrompt, thumbnailPrompt, duration, format, images, settings, 'image');
     }
 
-    // Case 2: Called from GenerateScreen.tsx (New Flow & Verbatim)
-    // generateVideoPlanWithOptions(idea, format, duration, { verbatimMode: true ... }, settings, images)
     const format = formatOrPrompt as "video" | "carousel";
     const duration = durationOrThumbnail as "30s" | "60s";
     const options = optionsOrFormat as GenerationOptions;
     const settings = settingsOrImages as ContentSettings;
     const images = imagesArg as ReferenceImage[];
 
-  // Verbatim Mode: Use the new pipeline
   if (options.verbatimMode) {
     const verbatimOptions = options as VerbatimGenerationOptions;
-
-    console.log("Generating in VERBATIM MODE - preserving exact script text");
-
-    // Generate verbatim plan (preserves exact text, generates visual prompts)
     const verbatimResult = await generateVerbatimPlan(
       idea,
       verbatimOptions.sceneChunkOptions,
       verbatimOptions.strategy,
-      format // Pass format to enable carousel-specific chunking
+      format
     );
+    totalCost += verbatimResult.cost;
 
-    // Enhance scenes with sub-scenes for dynamic multi-visual sequences (VIDEOS ONLY)
-    // Carousels should map 1 scene = 1 slide, do not split into sub-scenes!
     let enhancedScenes = verbatimResult.scenes;
     if (format === "video") {
-        console.log("[Generation] Enhancing scenes with multi-visual sub-scenes...");
         enhancedScenes = await enhanceScenesWithSubScenes(verbatimResult.scenes);
     }
 
-    // Generate thumbnail prompt separately
-    const thumbnailPrompt = await generateThumbnailPromptForVerbatim(idea, verbatimResult.title);
+    const { text: thumbnailPrompt, cost: thumbnailCost } = await generateThumbnailPromptForVerbatim(idea, verbatimResult.title);
+    totalCost += thumbnailCost;
 
-    // Build the final VideoPlan
     const videoPlan: VideoPlan = {
       title: verbatimResult.title,
       tone: verbatimOptions.tone || "neutral",
-      scenes: enhancedScenes, // Use enhanced scenes with sub-scenes
+      scenes: enhancedScenes,
       estimatedDuration: verbatimResult.estimatedDuration,
       type: format,
       thumbnailPrompt,
@@ -117,7 +104,6 @@ export async function generateVideoPlanWithOptions(
       audience: settings.audience,
       goal: settings.goal,
       outputFormat: settings.outputFormat,
-      // Pass strategy fields to the plan
       problem: options.strategy?.problem,
       solution: options.strategy?.solution,
       voice: options.strategy?.voice,
@@ -125,25 +111,32 @@ export async function generateVideoPlanWithOptions(
       pillars: options.strategy?.pillars,
     };
     
-    return videoPlan;
+    return { plan: videoPlan, cost: totalCost };
   }
-  
-  // Standard Mode: Use existing flow
+
   const standardOptions = options as StandardGenerationOptions;
   const visualMode = standardOptions.visualMode || "image";
   const seamlessMode = standardOptions.seamlessMode || false;
 
-  const { refinedPrompt, thumbnailPrompt } = await refineIdea(idea, format, settings, standardOptions.strategy);
-  return generatePlanFromRefinedPrompt(refinedPrompt, thumbnailPrompt, duration, format, images, settings, visualMode, seamlessMode, standardOptions.strategy);
+  const { refinedPrompt, thumbnailPrompt, cost: refineCost } = await refineIdea(idea, format, settings, standardOptions.strategy);
+  totalCost += refineCost;
+  const planResult = await generatePlanFromRefinedPrompt(refinedPrompt, thumbnailPrompt, duration, format, images, settings, visualMode, seamlessMode, standardOptions.strategy);
+  totalCost += planResult.cost;
+  return { plan: planResult.plan, cost: totalCost + planResult.cost };
 }
+
 
 /**
  * Generate a thumbnail prompt for verbatim content
  */
-async function generateThumbnailPromptForVerbatim(script: string, title: string): Promise<string> {
+async function generateThumbnailPromptForVerbatim(script: string, title: string): Promise<{ text: string; cost: number }> {
+
   const promptTemplate = VISUAL_PROMPTS.VERBATIM_THUMBNAIL(script, title);
   const prompt = injectStyleConstraint(promptTemplate, VISUAL_STYLE_CONSTRAINT);
-  return await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+  const { text, cost } = await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+  return { text, cost };
+
+
 }
 
 async function refineIdea(
@@ -151,7 +144,8 @@ async function refineIdea(
   format: "video" | "carousel",
   settings: ContentSettings,
   strategy?: StrategyContext
-): Promise<{ refinedPrompt: string; thumbnailPrompt: string }> {
+): Promise<{ refinedPrompt: string; thumbnailPrompt: string; cost: number }> {
+
   const context = buildPromptContext(settings);
   const strategyContext = strategy ? buildStrategyContext(strategy) : "";
 
@@ -169,15 +163,19 @@ async function refineIdea(
   2. Thumbnail prompt (visual description)
   `;
 
-  const rawText = await generateText(prompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+  const { text: rawText, cost } = await generateText(prompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+
+
 
   const [refinedPrompt, thumbnailPrompt] = rawText.split(/(?:\n2\.|\nThumbnail prompt:)/).map(s => s.trim());
 
   return {
     refinedPrompt: refinedPrompt || idea,
     thumbnailPrompt: thumbnailPrompt || `Stylized flat illustration thumbnail for: ${idea}. Bold colors, clean design, magazine style.`,
+    cost,
   };
 }
+
 
 /**
  * Split out the actual plan generation from refined prompt
@@ -192,7 +190,8 @@ async function generatePlanFromRefinedPrompt(
     visualMode: "image" | "broll" | "gif_voice" | "text_motion" = "image",
     seamlessMode: boolean = false,
     strategy?: StrategyContext
-): Promise<VideoPlan> {
+): Promise<{ plan: VideoPlan; cost: number }> {
+
     
     // Customize prompt based on visual mode
     let visualPromptInstruction = "visualPrompt: Detailed cinematic description of the scene visuals. Do NOT include the scene's caption/voiceover text as burnt-in text in the image. Contextual text (e.g. signs) is allowed.";
@@ -248,7 +247,9 @@ async function generatePlanFromRefinedPrompt(
     RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN. NO EXPLANATIONS.
     `;
 
-    const response = await generateText(prompt, "You are a JSON generator. Output only valid JSON.", "gpt-4o", 0.3);
+    const { text: response, cost } = await generateText(prompt, "You are a JSON generator. Output only valid JSON.", "gpt-4o", 0.3);
+
+
     
     try {
         // Clean the response - remove markdown, whitespace, etc.
@@ -280,8 +281,7 @@ async function generatePlanFromRefinedPrompt(
         } else if (typeof visualConsistency !== 'string') {
              visualConsistency = String(visualConsistency || "");
         }
-
-        return {
+        const videoPlan: VideoPlan = {
             ...planData,
             visualConsistency,
             type: format,
@@ -298,6 +298,8 @@ async function generatePlanFromRefinedPrompt(
             positioning: strategy?.positioning,
             pillars: strategy?.pillars,
         };
+
+        return { plan: videoPlan, cost };
     } catch (e) {
         console.error("Failed to parse plan JSON:", e);
         console.error("Raw AI response:", response.substring(0, 1000));

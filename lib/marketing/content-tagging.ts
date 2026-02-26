@@ -58,12 +58,13 @@ OUTPUT JSON ONLY:
 Be specific and accurate based on the actual script content.
 `;
 
-  const response = await generateText(
+  const { text: response } = await generateText(
     prompt,
     "You are a content analyst. Output JSON only.",
     "gpt-4o",
     0.5
   );
+
 
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);

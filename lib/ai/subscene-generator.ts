@@ -104,7 +104,9 @@ Generate the ${subSceneCount} visual prompts now:`;
       0.7
     );
 
-    const response = await Promise.race([aiPromise, timeoutPromise]) as string;
+    const result = await Promise.race([aiPromise, timeoutPromise]);
+    const response = typeof result === 'string' ? result : (result as any).text;
+
 
     console.log(`[SubScenes] AI response received (${response.length} chars)`);
 

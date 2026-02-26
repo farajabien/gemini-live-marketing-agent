@@ -59,9 +59,12 @@ RULES:
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
+  let totalCost = 0;
+
   const sendProgress = (controller: ReadableStreamDefaultController, message: string) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "progress", message })}\n\n`));
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "progress", message, totalCost })}\n\n`));
   };
+
 
   const sendError = (controller: ReadableStreamDefaultController, error: string) => {
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error })}\n\n`));
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
         sendProgress(controller, "Synthesizing your founder narrative...");
 
         // Call AI to synthesize narrative
-        const synthesisText = await withRetry(() =>
+        const { text: synthesisText, cost } = await withRetry(() =>
           generateText(
             SYNTHESIZE_PROMPT(title, answers),
             "You are a JSON generator. Respond with ONLY valid JSON.",
@@ -132,6 +135,9 @@ export async function POST(request: NextRequest) {
             0.4
           )
         );
+        totalCost += cost;
+
+
 
         sendProgress(controller, "Parsing narrative structure...");
 

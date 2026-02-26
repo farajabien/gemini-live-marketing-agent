@@ -325,7 +325,8 @@ export async function generateVisualPromptsForVerbatimScenes(
   fullScript: string,
   strategy?: StrategyContext,
   visualHints?: Array<string | undefined>
-): Promise<{ visualPrompts: string[]; visualConsistency: string; title: string }> {
+): Promise<{ visualPrompts: string[]; visualConsistency: string; title: string; cost: number }> {
+
   let promptTemplate = VISUAL_PROMPTS.VERBATIM_VISUAL_GENERATION(fullScript, scenes, scenes.length);
 
   // If user provided visual hints, include them in the prompt
@@ -346,7 +347,9 @@ export async function generateVisualPromptsForVerbatimScenes(
   const prompt = injectStyleConstraint(promptTemplate, VISUAL_STYLE_CONSTRAINT);
 
   try {
-    const rawText = await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+    const { text: rawText, cost } = await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+
+
     
     // Extract JSON from response
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
@@ -376,7 +379,8 @@ export async function generateVisualPromptsForVerbatimScenes(
       parsed.visualPrompts = parsed.visualPrompts.slice(0, scenes.length);
     }
     
-    return parsed;
+    return { ...parsed, cost };
+
   } catch (parseError) {
     console.error("Failed to parse visual prompts:", parseError);
     
@@ -387,9 +391,11 @@ export async function generateVisualPromptsForVerbatimScenes(
       visualPrompts: scenes.map((scene) => 
         `Flat 2D illustration, magazine style: Visual representation of "${scene.substring(0, 80)}..." Bold colors, clean lines, stylized characters.`
       ),
+      cost: 0,
     };
   }
 }
+
 
 // ============================================================================
 // Main Verbatim Pipeline
@@ -401,7 +407,9 @@ export interface VerbatimPlanResult {
   visualConsistency: string;
   estimatedDuration: number;
   originalScript: string;
+  cost: number;
 }
+
 
 /**
  * Generate a video plan from verbatim script.
@@ -413,6 +421,8 @@ export async function generateVerbatimPlan(
   strategy?: StrategyContext,
   format?: "video" | "carousel"
 ): Promise<VerbatimPlanResult> {
+  let totalCost = 0;
+
   // Use carousel-specific chunking if format is carousel and no custom options provided
   const chunkOptions = options || (format === "carousel" ? CAROUSEL_CHUNK_OPTIONS : DEFAULT_CHUNK_OPTIONS);
 
@@ -443,6 +453,8 @@ export async function generateVerbatimPlan(
     visualPrompts = result.visualPrompts;
     visualConsistency = result.visualConsistency;
     title = result.title;
+    totalCost += result.cost;
+
     console.log(`[Verbatim] ✅ Visual prompts generated successfully.`);
   } catch (error) {
     console.error(`[Verbatim] ❌ Visual prompt generation failed:`, error);
@@ -468,7 +480,10 @@ export async function generateVerbatimPlan(
 
   let sceneTitles: string[] = [];
   try {
-    const rawTitles = await generateText(sceneTitlesPrompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+    const { text: rawTitles, cost: titlesCost } = await generateText(sceneTitlesPrompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+    totalCost += titlesCost;
+
+
     const jsonMatch = rawTitles.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       sceneTitles = JSON.parse(sanitizeJson(jsonMatch[0]));
@@ -498,8 +513,10 @@ export async function generateVerbatimPlan(
     visualConsistency,
     estimatedDuration,
     originalScript: tidyPunctuation(script),
+    cost: totalCost,
   };
 }
+
 
 /**
  * Extract a short key phrase from scene text for text overlay
