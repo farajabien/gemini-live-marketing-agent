@@ -1,0 +1,382 @@
+/**
+ * Firebase Admin SDK Wrapper
+ *
+ * Server-side Firebase operations for API routes and server components.
+ * Replaces InstantDB Admin SDK functionality.
+ */
+
+import { initializeApp, getApps, cert, type ServiceAccount, App } from 'firebase-admin/app';
+import { getAuth, type Auth } from 'firebase-admin/auth';
+import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
+
+// Initialize Firebase Admin SDK
+let adminApp: App;
+let adminAuth: Auth;
+let firestoreAdminDb: Firestore;
+
+/**
+ * Initialize Firebase Admin SDK with service account credentials
+ */
+function initializeFirebaseAdmin() {
+  if (getApps().length === 0) {
+    // Parse the private key - handle both escaped and unescaped newlines
+    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error(
+        'Missing Firebase Admin credentials. Please set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY'
+      );
+    }
+
+    const serviceAccount: ServiceAccount = {
+      projectId,
+      clientEmail,
+      privateKey,
+    };
+
+    adminApp = initializeApp({
+      credential: cert(serviceAccount),
+      projectId,
+    });
+  } else {
+    adminApp = getApps()[0];
+  }
+
+  adminAuth = getAuth(adminApp);
+  firestoreAdminDb = getFirestore(adminApp);
+
+  return { app: adminApp, auth: adminAuth, db: firestoreAdminDb };
+}
+
+// Lazy initialization - only initialize when first accessed
+let app: App | null = null;
+let auth: Auth | null = null;
+let firestoreDb: Firestore | null = null;
+
+function ensureInitialized() {
+  if (!app) {
+    const result = initializeFirebaseAdmin();
+    app = result.app;
+    auth = result.auth;
+    firestoreDb = result.db;
+  }
+  return { app, auth, db: firestoreDb };
+}
+
+// Helper to get firestore db
+function getDb(): Firestore {
+  ensureInitialized();
+  return firestoreDb!;
+}
+
+/**
+ * Query builder compatible with InstantDB Admin query pattern
+ */
+interface AdminQueryConfig {
+  where?: Record<string, any>;
+  order?: Record<string, 'asc' | 'desc'>;
+  limit?: number;
+}
+
+interface AdminQuery {
+  [collection: string]: {
+    $?: AdminQueryConfig;
+    [subcollection: string]?: any;
+  };
+}
+
+/**
+ * Execute a query against Firestore
+ */
+async function executeQuery(queryObj: AdminQuery): Promise<any> {
+  ensureInitialized();
+  const results: Record<string, any[]> = {};
+
+  for (const [collectionName, config] of Object.entries(queryObj)) {
+    if (!config) continue;
+
+    const queryConfig = config.$;
+    let collectionRef = getDb().collection(collectionName);
+    let query: FirebaseFirestore.Query = collectionRef;
+
+    if (queryConfig) {
+      // Apply where clauses
+      if (queryConfig.where) {
+        for (const [field, value] of Object.entries(queryConfig.where)) {
+          query = query.where(field, '==', value);
+        }
+      }
+
+      // Apply order by
+      if (queryConfig.order) {
+        for (const [field, direction] of Object.entries(queryConfig.order)) {
+          query = query.orderBy(field, direction === 'desc' ? 'desc' : 'asc');
+        }
+      }
+
+      // Apply limit
+      if (queryConfig.limit) {
+        query = query.limit(queryConfig.limit);
+      }
+    }
+
+    // Execute query
+    const snapshot = await query.get();
+    results[collectionName] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Handle subcollections if specified
+    for (const [key, subConfig] of Object.entries(config)) {
+      if (key === '$') continue;
+
+      // For each document, fetch the subcollection
+      const docsWithSub = await Promise.all(
+        results[collectionName].map(async (doc) => {
+          const subCollectionRef = firestoreDb
+            .collection(collectionName)
+            .doc(doc.id)
+            .collection(key);
+
+          const subSnapshot = await subCollectionRef.get();
+          const subDocs = subSnapshot.docs.map(subDoc => ({
+            id: subDoc.id,
+            ...subDoc.data(),
+          }));
+
+          return {
+            ...doc,
+            [key]: subDocs,
+          };
+        })
+      );
+
+      results[collectionName] = docsWithSub;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Transaction operation interface
+ */
+interface TransactionOperation {
+  collection: string;
+  id: string;
+  action: 'set' | 'update' | 'delete';
+  data?: any;
+}
+
+/**
+ * Execute a batch transaction
+ */
+async function executeTransaction(operations: TransactionOperation[]): Promise<void> {
+  ensureInitialized();
+  const batch = getDb().batch();
+
+  for (const op of operations) {
+    const docRef = getDb().collection(op.collection).doc(op.id);
+
+    switch (op.action) {
+      case 'set':
+        batch.set(docRef, { ...op.data, id: op.id }, { merge: true });
+        break;
+      case 'update':
+        batch.update(docRef, op.data);
+        break;
+      case 'delete':
+        batch.delete(docRef);
+        break;
+    }
+  }
+
+  await batch.commit();
+}
+
+/**
+ * Transaction builder for InstantDB-style tx API
+ */
+class TransactionBuilder {
+  private operations: TransactionOperation[] = [];
+
+  [collection: string]: any;
+
+  constructor() {
+    // Create a proxy to handle dynamic collection names
+    return new Proxy(this, {
+      get(target, prop: string) {
+        // If it's a method on the class, return it
+        if (prop in target) {
+          return (target as any)[prop];
+        }
+
+        // Otherwise, treat it as a collection name
+        return {
+          [prop]: (id: string) => ({
+            update: (data: any) => {
+              target.operations.push({
+                collection: prop,
+                id,
+                action: 'set',
+                data,
+              });
+              return target;
+            },
+            set: (data: any) => {
+              target.operations.push({
+                collection: prop,
+                id,
+                action: 'set',
+                data,
+              });
+              return target;
+            },
+            delete: () => {
+              target.operations.push({
+                collection: prop,
+                id,
+                action: 'delete',
+              });
+              return target;
+            },
+          }),
+        }[prop](id);
+      },
+    });
+  }
+
+  getOperations(): TransactionOperation[] {
+    return this.operations;
+  }
+}
+
+/**
+ * Create transaction operations
+ */
+function createTx() {
+  return new TransactionBuilder();
+}
+
+/**
+ * Verify an authentication token
+ */
+async function verifyAuthToken(token: string) {
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    return {
+      id: decodedToken.uid,
+      email: decodedToken.email,
+      ...decodedToken,
+    };
+  } catch (error) {
+    console.error('Error verifying auth token:', error);
+    return null;
+  }
+}
+
+/**
+ * Create a custom token for a user
+ */
+async function createCustomToken(uid: string): Promise<string> {
+  return await adminAuth.createCustomToken(uid);
+}
+
+/**
+ * Get a user by ID
+ */
+async function getUserById(uid: string) {
+  try {
+    const userRecord = await adminAuth.getUser(uid);
+    return userRecord;
+  } catch (error) {
+    console.error('Error getting user:', error);
+    return null;
+  }
+}
+
+/**
+ * Export admin interface compatible with InstantDB Admin SDK
+ */
+export const adminDb = {
+  query: executeQuery,
+  transact: async (operations: any[]) => {
+    // Convert InstantDB-style operations to our format
+    const converted: TransactionOperation[] = [];
+
+    for (const op of operations) {
+      // InstantDB operations are in the format: tx.collection[id].update(data)
+      // We need to extract collection, id, and data from the operation
+      // This is a simplified conversion - may need refinement based on actual usage
+      if (typeof op === 'object' && op !== null) {
+        converted.push(op);
+      }
+    }
+
+    await executeTransaction(converted);
+  },
+  auth: {
+    verifyToken: verifyAuthToken,
+    createCustomToken,
+    getUser: getUserById,
+  },
+  tx: createTx(),
+  get db() {
+    ensureInitialized();
+    return firestoreDb!;
+  },
+};
+
+/**
+ * Firestore server-side helpers
+ */
+export const serverDb = {
+  collection: (name: string) => {
+    ensureInitialized();
+    return getDb().collection(name);
+  },
+  doc: (collectionName: string, docId: string) => {
+    ensureInitialized();
+    return getDb().collection(collectionName).doc(docId);
+  },
+  batch: () => {
+    ensureInitialized();
+    return getDb().batch();
+  },
+  FieldValue,
+};
+
+/**
+ * Generate a unique ID
+ */
+export function generateId(): string {
+  return crypto.randomUUID();
+}
+
+// Export with lazy initialization
+export const db = {
+  get instance() {
+    ensureInitialized();
+    return firestoreDb!;
+  },
+};
+
+export const adminAuthExport = {
+  get instance() {
+    ensureInitialized();
+    return auth!;
+  },
+};
+
+export const appExport = {
+  get instance() {
+    ensureInitialized();
+    return app!;
+  },
+};
+
+export { FieldValue };
+export { generateId as id };

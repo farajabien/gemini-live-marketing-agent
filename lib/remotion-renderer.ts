@@ -58,23 +58,18 @@ export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
   } else {
     const bundleStartTime = Date.now();
     console.log("[Remotion] 🎬 Starting bundle step (first time or code changed)...");
-    bundleLocation = await bundle({
+    bundleLocation = await bundle(
       entryPoint,
-      webpackOverride: (config) => {
-        // Inject environment variables into the bundle
-        config.plugins = [
-          ...(config.plugins || []),
-          new (require("webpack").DefinePlugin)({
-            "process.env.NEXT_PUBLIC_INSTANT_APP_ID": JSON.stringify(process.env.NEXT_PUBLIC_INSTANT_APP_ID),
-            "process.env.NEXT_PUBLIC_APP_URL": JSON.stringify(process.env.NEXT_PUBLIC_APP_URL),
-          }),
-        ];
-        return {
-          ...config,
-          cache: { type: 'filesystem' },
-        };
-      },
-    });
+      () => {},
+      {
+        webpackOverride: (config) => {
+          return {
+            ...config,
+            cache: { type: 'filesystem' },
+          };
+        },
+      }
+    );
 
     // Cache the bundle location and timestamp
     cachedBundleLocation = bundleLocation;

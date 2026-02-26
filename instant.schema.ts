@@ -8,7 +8,7 @@ const _schema = i.schema({
       path: i.string().unique().indexed(),
       url: i.string(),
     }),
-       $users: i.entity({
+    $users: i.entity({
       email: i.string().unique().indexed().optional(),
       imageURL: i.string().optional(),
       planId: i.string().optional(), // 'free' | 'pro'

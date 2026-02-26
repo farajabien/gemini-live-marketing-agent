@@ -1,18 +1,12 @@
-import { init, id } from "@instantdb/react";
-import schema from "@/instant.schema";
-
-// ID for app: jibu-delivery
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-
 /**
- * InstantDB client initialization
+ * Database Client - Migrated to Firebase
  *
- * Note: InstantDB uses localStorage and IndexedDB for caching query results.
- * If you encounter JSON parse errors, use the storage utilities from @/lib/storage-utils
- * to clear corrupted storage.
- *
- * The useStorageInit hook in app layout handles automatic error recovery.
+ * This file now re-exports Firebase Firestore functionality.
+ * Kept for backward compatibility with existing imports.
  */
+
+import { useFirestoreQuery, generateId } from "@/lib/firebase-client";
+
 // Mock for E2E testing
 const isE2E = process.env.NEXT_PUBLIC_IS_E2E === "true";
 
@@ -20,7 +14,7 @@ const db = isE2E
   ? {
       useAuth: () => ({
         isLoading: false,
-        user: { id: "mock-user-id", email: "[EMAIL_ADDRESS]", isGuest: false },
+        user: { id: "mock-user-id", email: "test@example.com", isGuest: false },
         error: null,
       }),
       useQuery: () => ({ isLoading: false, error: null, data: {} }),
@@ -31,6 +25,15 @@ const db = isE2E
         signInWithMagicCode: async () => {},
       },
     } as any
-  : init({ appId: APP_ID, schema });
+  : {
+      useQuery: useFirestoreQuery,
+      // Note: useAuth is now in hooks/use-auth.ts
+    };
+
+// Generate unique IDs
+const id = generateId;
+
+// Legacy export for compatibility
+const APP_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!;
 
 export { db, id, APP_ID };

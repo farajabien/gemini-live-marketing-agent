@@ -190,7 +190,17 @@ export function CreateSeriesScreen() {
 
             <textarea
               className="w-full resize-none rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#0d101b] p-6 text-base text-slate-900 dark:text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 min-h-[300px] leading-relaxed transition-all shadow-inner font-mono"
-              placeholder="Example:\\n\\nCreate a 3-episode series about...\\n\\nEpisode 1: [First episode description]\\nEpisode 2: [Second episode]\\nEpisode 3: [Third episode]\\n\\nStyle: [Visual style]\\nTone: [Narrative tone]\\nDuration: [Target length]"
+              placeholder={`Example:
+
+Create a 3-episode series about...
+
+Episode 1: [First episode description]
+Episode 2: [Second episode]
+Episode 3: [Third episode]
+
+Style: [Visual style]
+Tone: [Narrative tone]
+Duration: [Target length]`}
               value={megaPrompt}
               maxLength={5000}
               onChange={(e) => setMegaPrompt(e.target.value)}

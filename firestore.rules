@@ -1,0 +1,181 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocumentOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function willBeOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if isOwner(userId);
+
+      // Users can update their own data
+      allow update: if isOwner(userId);
+
+      // Only system (via Admin SDK) can create users
+      allow create: if false;
+
+      // Users can delete their own account
+      allow delete: if isOwner(userId);
+
+      // Linked guest users subcollection
+      match /linkedGuestUsers/{guestId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Video Plans collection
+    match /videoPlans/{planId} {
+      // Users can read their own plans
+      allow read: if isDocumentOwner();
+
+      // Users can create plans they own
+      allow create: if willBeOwner();
+
+      // Users can update their own plans
+      allow update: if isDocumentOwner();
+
+      // Users can delete their own plans
+      allow delete: if isDocumentOwner();
+    }
+
+    // Voices collection (public read, system write)
+    match /voices/{voiceId} {
+      allow read: if true;
+      allow write: if false; // Only via Admin SDK
+    }
+
+    // Series collection
+    match /series/{seriesId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+
+      // Episodes subcollection
+      match /episodes/{episodeId} {
+        allow read: if isDocumentOwner();
+        allow create: if willBeOwner();
+        allow update: if isDocumentOwner();
+        allow delete: if isDocumentOwner();
+      }
+    }
+
+    // Episodes collection (top-level)
+    match /episodes/{episodeId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Narratives collection
+    match /narratives/{narrativeId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+
+      // Content pieces subcollection
+      match /contentPieces/{pieceId} {
+        allow read: if isAuthenticated();
+        allow create: if willBeOwner();
+        allow update: if isDocumentOwner();
+        allow delete: if isDocumentOwner();
+      }
+
+      // Brand positioning subcollection
+      match /brandPositioning/{positioningId} {
+        allow read: if isDocumentOwner();
+        allow create: if willBeOwner();
+        allow update: if isDocumentOwner();
+        allow delete: if isDocumentOwner();
+      }
+
+      // Content pillars subcollection
+      match /contentPillars/{pillarId} {
+        allow read: if isDocumentOwner();
+        allow create: if willBeOwner();
+        allow update: if isDocumentOwner();
+        allow delete: if isDocumentOwner();
+      }
+
+      // Content drafts subcollection
+      match /contentDrafts/{draftId} {
+        allow read: if isDocumentOwner();
+        allow create: if willBeOwner();
+        allow update: if isDocumentOwner();
+        allow delete: if isDocumentOwner();
+      }
+    }
+
+    // Series Narratives collection
+    match /seriesNarratives/{narrativeId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Content Pieces collection (top-level)
+    match /contentPieces/{pieceId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Brand Positioning collection (top-level)
+    match /brandPositioning/{positioningId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Content Pillars collection (top-level)
+    match /contentPillars/{pillarId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Content Drafts collection (top-level)
+    match /contentDrafts/{draftId} {
+      allow read: if isDocumentOwner();
+      allow create: if willBeOwner();
+      allow update: if isDocumentOwner();
+      allow delete: if isDocumentOwner();
+    }
+
+    // Files collection
+    match /files/{fileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

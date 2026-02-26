@@ -1,0 +1,213 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "videoPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "videoPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "series",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "episodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seriesId", "order": "ASCENDING" },
+        { "fieldPath": "episodeNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "episodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seriesId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "narratives",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "narratives",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "seriesNarratives",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentPieces",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentPieces",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentDrafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentDrafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "contentPillars",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "brandPositioning",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "narrativeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "videoPlans",
+      "fieldPath": "scenes",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "videoPlans",
+      "fieldPath": "pillars",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "videoPlans",
+      "fieldPath": "socialMetadata",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "videoPlans",
+      "fieldPath": "contentTags",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "videoPlans",
+      "fieldPath": "metrics",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "narratives",
+      "fieldPath": "aiPositioning",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "narratives",
+      "fieldPath": "angles",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "narratives",
+      "fieldPath": "narrativeStrength",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "narratives",
+      "fieldPath": "versions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "narratives",
+      "fieldPath": "narrativeAngles",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "seriesNarratives",
+      "fieldPath": "characterDynamics",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "seriesNarratives",
+      "fieldPath": "plotBeats",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "episodes",
+      "fieldPath": "visualPrompts",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contentDrafts",
+      "fieldPath": "slides",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contentDrafts",
+      "fieldPath": "visualPrompts",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contentDrafts",
+      "fieldPath": "captions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contentPillars",
+      "fieldPath": "angles",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "voices",
+      "fieldPath": "labels",
+      "indexes": []
+    }
+  ]
+}

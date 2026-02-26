@@ -1,9 +1,12 @@
-import { init, id } from "@instantdb/admin";
-import schema, { AppSchema } from "@/instant.schema";
+/**
+ * Admin Database Client - Migrated to Firebase
+ *
+ * This file now re-exports Firebase Admin SDK functionality.
+ * Kept for backward compatibility with existing imports.
+ */
 
-export const adminDb = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  adminToken: process.env.INSTANT_APP_ADMIN_TOKEN!,
-  schema,
-});
-export { id };
+import { adminDb, generateId, serverDb } from "@/lib/firebase-admin";
+
+// Re-export for compatibility
+export { adminDb, serverDb };
+export { generateId as id };
