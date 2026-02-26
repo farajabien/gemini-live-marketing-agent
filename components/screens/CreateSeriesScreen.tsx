@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { db } from "@/lib/instant-client";
 import { Header } from "@/components/Header";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export function CreateSeriesScreen() {
@@ -16,6 +18,13 @@ export function CreateSeriesScreen() {
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [selectedNarrativeId, setSelectedNarrativeId] = useState<string | null>(null);
+
+  // Fetch narratives
+  const { data: narrativesData } = (db as any).useQuery(
+    user ? { seriesNarratives: { $: { where: { "owner.id": user.id } } } } : null
+  );
+  const narratives = (narrativesData?.seriesNarratives || []) as any[];
 
 
   const handleCreateSeries = async () => {
@@ -42,7 +51,7 @@ export function CreateSeriesScreen() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${refreshToken}`
         },
-        body: JSON.stringify({ megaPrompt }),
+        body: JSON.stringify({ megaPrompt, seriesNarrativeId: selectedNarrativeId }),
       });
 
       if (!response.ok || !response.body) {
@@ -137,6 +146,47 @@ export function CreateSeriesScreen() {
                 {megaPrompt.length} / 5000 CHARS
               </div>
             </div>
+
+            {/* Narrative Selection */}
+            {narratives.length > 0 && (
+              <div className="mb-6">
+                <label className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300 mb-3 block">
+                  Select Story Architecture (Optional)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setSelectedNarrativeId(null)}
+                    className={cn(
+                      "p-4 rounded-2xl border text-left transition-all",
+                      !selectedNarrativeId 
+                        ? "border-blue-500 bg-blue-500/10" 
+                        : "border-slate-200 dark:border-white/10 hover:border-blue-500/50"
+                    )}
+                  >
+                    <div className="font-bold text-sm">None (Raw AI)</div>
+                    <div className="text-[10px] text-slate-500 uppercase">Standard prompt only</div>
+                  </button>
+                  {narratives.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => setSelectedNarrativeId(n.id)}
+                      className={cn(
+                        "p-4 rounded-2xl border text-left transition-all",
+                        selectedNarrativeId === n.id 
+                          ? "border-purple-500 bg-purple-500/10" 
+                          : "border-slate-200 dark:border-white/10 hover:border-purple-500/50"
+                      )}
+                    >
+                      <div className="font-bold text-sm line-clamp-1">{n.title}</div>
+                      <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[12px]">auto_stories</span>
+                        {n.genre} architecture
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <textarea
               className="w-full resize-none rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#0d101b] p-6 text-base text-slate-900 dark:text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 min-h-[300px] leading-relaxed transition-all shadow-inner font-mono"

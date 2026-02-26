@@ -258,8 +258,29 @@ export interface Series {
   visualConsistency: string; // Character/style guide
   episodeCount: number;
   status: SeriesStatus;
+  seriesNarrativeId?: string; // Link to narrative architecture
   createdAt: number;
   updatedAt: number;
+}
+
+export interface SeriesNarrative {
+  id: string;
+  title: string;
+  genre: string;
+  worldSetting: string;
+  conflictType: string;
+  protagonistArchetype: string;
+  centralTheme: string;
+  narrativeTone: string;
+  visualStyle: string;
+  episodeHooks: string;
+  
+  characterDynamics?: any;
+  plotBeats?: string[];
+  
+  createdAt: number;
+  updatedAt: number;
+  totalCost?: number;
 }
 
 export interface Episode {

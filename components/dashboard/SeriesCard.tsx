@@ -112,13 +112,15 @@ export function SeriesCard({ series }: SeriesCardProps) {
             
             <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="px-2 py-1 bg-slate-100 dark:bg-[#232948] rounded flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">layers</span>
-                    {series.episodeCount} Episodes
-                </span>
-                <span className="px-2 py-1 bg-slate-100 dark:bg-[#232948] rounded flex items-center gap-1">
                     <span className="material-symbols-outlined text-[12px]">style</span>
                     Consistent
                 </span>
+                {series.seriesNarrativeId && (
+                    <span className="px-2 py-1 bg-purple-500/10 text-purple-600 rounded flex items-center gap-1 font-bold">
+                        <span className="material-symbols-outlined text-[12px]">auto_stories</span>
+                        Architected
+                    </span>
+                )}
             </div>
         </div>
       </Link>

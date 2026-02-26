@@ -61,6 +61,13 @@ export function DashboardScreen() {
               limit: 50,
             },
           },
+          seriesNarratives: {
+            $: {
+              where: { "owner.id": user.id },
+              order: { createdAt: "desc" },
+              limit: 50,
+            },
+          },
           narratives: {
             $: {
               where: { "owner.id": user.id },
@@ -100,6 +107,7 @@ export function DashboardScreen() {
   const allNarratives = ((data as any)?.narratives || []) as (FounderNarrative & {
     contentPieces?: ContentPiece[];
   })[];
+  const allSeriesNarratives = ((data as any)?.seriesNarratives || []) as any[];
 
   // Aggregate all content pieces from all narratives
   const allContentPieces = allNarratives
@@ -133,7 +141,7 @@ export function DashboardScreen() {
   const videoCount = allPlans.filter((p) => p.type === "video").length;
   const carouselCount = allPlans.filter((p) => p.type === "carousel").length;
   const seriesCount = allSeries.length;
-  const narrativeCount = allNarratives.length;
+  const narrativeCount = allNarratives.length + allSeriesNarratives.length;
 
   const availableMediaFormats = new Set<string>();
   if (allSeries.length > 0) availableMediaFormats.add("series");
@@ -294,11 +302,11 @@ export function DashboardScreen() {
 
           {/* 1. NARRATIVES TAB */}
           <TabsContent value="narratives" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            {allNarratives.length === 0 ? (
+            {allNarratives.length === 0 && allSeriesNarratives.length === 0 ? (
               <EmptyState
                 icon="edit_note"
                 title="Define your first narrative"
-                description="Answer 8 questions about your startup. Get AI content that sounds like you."
+                description="Answer 10 questions about your startup. Get AI content that sounds like you."
                 action={
                   <Button
                     asChild
@@ -329,6 +337,24 @@ export function DashboardScreen() {
                       queuedCount={queued}
                       approvedCount={approved}
                       mediaCount={mediaCount}
+                    />
+                  );
+                })}
+
+                {allSeriesNarratives.map((sn) => {
+                  const mediaCount = allSeries.filter(s => s.seriesNarrativeId === sn.id).length;
+                  
+                  return (
+                    <NarrativeCard
+                      key={sn.id}
+                      narrative={{
+                        ...sn,
+                        type: 'series'
+                      }}
+                      queuedCount={0}
+                      approvedCount={0}
+                      mediaCount={mediaCount}
+                      isSeriesNarrative={true}
                     />
                   );
                 })}

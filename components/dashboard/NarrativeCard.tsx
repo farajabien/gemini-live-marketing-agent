@@ -5,20 +5,23 @@ import { db } from "@/lib/instant-client";
 import { tx } from "@instantdb/react";
 import Link from "next/link";
 import { Edit, MoreHorizontal, FileText, CheckCircle2, PlayCircle, ChevronRight, Trash2, Pencil } from "lucide-react";
-import type { FounderNarrative } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { FounderNarrative, SeriesNarrative } from "@/lib/types";
 
 interface NarrativeCardProps {
-    narrative: FounderNarrative;
+    narrative: any; // Using any to handle both FounderNarrative and SeriesNarrative
     queuedCount?: number;
     approvedCount?: number;
     mediaCount?: number;
+    isSeriesNarrative?: boolean;
 }
 
 export function NarrativeCard({ 
   narrative, 
   queuedCount = 0, 
   approvedCount = 0,
-  mediaCount = 0 
+  mediaCount = 0,
+  isSeriesNarrative = false
 }: NarrativeCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -31,7 +34,8 @@ export function NarrativeCard({
     setIsDeleting(true);
     try {
         type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        await (db as DbWithTransact).transact([tx.narratives[narrative.id].delete()]);
+        const table = isSeriesNarrative ? tx.seriesNarratives : tx.narratives;
+        await (db as DbWithTransact).transact([table[narrative.id].delete()]);
     } catch (err) {
         console.error("Delete failed:", err);
         setIsDeleting(false);
@@ -44,7 +48,8 @@ export function NarrativeCard({
     const newTitle = prompt("Enter new title:", narrative.title);
     if (newTitle && newTitle !== narrative.title) {
         type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        (db as DbWithTransact).transact([tx.narratives[narrative.id].update({ title: newTitle })]);
+        const table = isSeriesNarrative ? tx.seriesNarratives : tx.narratives;
+        (db as DbWithTransact).transact([table[narrative.id].update({ title: newTitle })]);
     }
     setShowMenu(false);
   };
@@ -52,16 +57,27 @@ export function NarrativeCard({
   return (
     <div className="relative group">
         <Link
-            href={`/narrative/${narrative.id}`}
-            className="block p-7 rounded-[2rem] bg-white dark:bg-[#0c0d15] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-2xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-slate-50 dark:hover:bg-[#11121d] relative overflow-hidden"
+            href={isSeriesNarrative ? `/series-narrative/${narrative.id}` : `/narrative/${narrative.id}`}
+            className={cn(
+                "block p-7 rounded-[2rem] bg-white dark:bg-[#0c0d15] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-2xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-slate-50 dark:hover:bg-[#11121d] relative overflow-hidden",
+                isSeriesNarrative && "border-purple-500/20"
+            )}
         >
             {/* Glossy Backdrop Effect */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full -mr-10 -mt-10 group-hover:bg-blue-600/10 transition-colors" />
+            <div className={cn(
+                "absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full -mr-10 -mt-10 group-hover:opacity-80 transition-all duration-700",
+                isSeriesNarrative ? "bg-purple-600/10 group-hover:bg-purple-600/20" : "bg-blue-600/5 group-hover:bg-blue-600/10"
+            )} />
             
             <div className="flex items-start justify-between mb-8 relative z-10">
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-blue-500 border border-blue-500/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                        <FileText size={22} className="group-hover:text-blue-400" />
+                    <div className={cn(
+                        "h-12 w-12 rounded-2xl flex items-center justify-center border transition-all duration-500 group-hover:scale-110 group-hover:rotate-3",
+                        isSeriesNarrative 
+                            ? "bg-gradient-to-br from-purple-600/20 to-pink-600/20 text-purple-500 border-purple-500/10 group-hover:text-purple-400" 
+                            : "bg-gradient-to-br from-blue-600/20 to-purple-600/20 text-blue-500 border-blue-500/10 group-hover:text-blue-400"
+                    )}>
+                        {isSeriesNarrative ? <PlayCircle size={22} /> : <FileText size={22} />}
                     </div>
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -72,7 +88,7 @@ export function NarrativeCard({
                                     ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
                                     : "text-slate-400 bg-slate-500/10 border-slate-500/20"
                             }`}>
-                                {narrative.status === "wizard" ? "Drafting" : narrative.status}
+                                {isSeriesNarrative ? "Series Architecture" : (narrative.status === "wizard" ? "Drafting" : narrative.status)}
                             </span>
                         </div>
                     </div>
@@ -115,9 +131,9 @@ export function NarrativeCard({
                 <h3 className="text-xl font-black leading-tight tracking-tight group-hover:text-blue-400 transition-colors">
                     {narrative.title}
                 </h3>
-                {narrative.oneLiner && (
+                {(narrative.oneLiner || narrative.genre) && (
                     <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed line-clamp-2">
-                        {narrative.oneLiner}
+                        {isSeriesNarrative ? `${narrative.genre} • ${narrative.narrativeTone}` : narrative.oneLiner}
                     </p>
                 )}
             </div>

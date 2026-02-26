@@ -74,6 +74,7 @@ const _schema = i.schema({
       createdAt: i.number().indexed(),
       updatedAt: i.number(),
       totalCost: i.number().optional(),
+      seriesNarrativeId: i.string().optional(),
     }),
     episodes: i.entity({
       episodeNumber: i.number().indexed(),
@@ -133,6 +134,25 @@ const _schema = i.schema({
       // === Metadata ===
       status: i.string(), // 'wizard' | 'active' | 'archived'
       currentWizardStep: i.number().optional(),
+      createdAt: i.number().indexed(),
+      updatedAt: i.number(),
+      totalCost: i.number().optional(),
+    }),
+    seriesNarratives: i.entity({
+      title: i.string(),
+      genre: i.string(),
+      worldSetting: i.string(),
+      conflictType: i.string(),
+      protagonistArchetype: i.string(),
+      centralTheme: i.string(),
+      narrativeTone: i.string(),
+      visualStyle: i.string(),
+      episodeHooks: i.string(),
+      
+      // AI Processed
+      characterDynamics: i.json().optional(),
+      plotBeats: i.json().optional(),
+      
       createdAt: i.number().indexed(),
       updatedAt: i.number(),
       totalCost: i.number().optional(),
@@ -261,6 +281,18 @@ const _schema = i.schema({
         label: "owner",
       },
     },
+    usersSeriesNarratives: {
+      forward: {
+        on: "$users",
+        has: "many",
+        label: "seriesNarratives",
+      },
+      reverse: {
+        on: "seriesNarratives",
+        has: "one",
+        label: "owner",
+      },
+    },
     narrativesContentPieces: {
       forward: {
         on: "narratives",
@@ -337,6 +369,18 @@ const _schema = i.schema({
         on: "contentPieces",
         has: "many",
         label: "generatedPlans",
+      },
+    },
+    seriesNarrativeLink: {
+      forward: {
+        on: "seriesNarratives",
+        has: "many",
+        label: "series",
+      },
+      reverse: {
+        on: "series",
+        has: "one",
+        label: "narrativeConfig",
       },
     }
   },

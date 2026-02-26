@@ -13,6 +13,18 @@ export interface NarrativeInput {
   voice: string;
 }
 
+export interface SeriesNarrativeInput {
+  genre: string;
+  worldSetting: string;
+  conflictType: string;
+  protagonistArchetype: string;
+  centralTheme: string;
+  narrativeTone: string;
+  visualStyle: string;
+  episodeHooks: string;
+}
+
+
 export interface ExtractedPositioning {
   villain: string; // The real enemy (not a person, but a force/state)
   hero: string; // Who the customer becomes
@@ -352,3 +364,62 @@ OUTPUT JSON ONLY:
     throw new Error("Failed to generate smart title");
   }
 }
+
+export async function analyzeStoryNarrative(input: SeriesNarrativeInput): Promise<{ 
+  analysis: any; 
+  totalCost: number;
+  title: string;
+}> {
+  const prompt = `
+You are a master storyteller and series architect. Analyze these story elements and build a deep, cohesive narrative framework.
+
+INPUTS:
+- Genre: ${input.genre}
+- World Setting: ${input.worldSetting}
+- Conflict Type: ${input.conflictType}
+- Protagonist Archetype: ${input.protagonistArchetype}
+- Central Theme: ${input.centralTheme}
+- Narrative Tone: ${input.narrativeTone}
+- Visual Style: ${input.visualStyle}
+- Episode Hooks: ${input.episodeHooks}
+
+TASK:
+1. Define the "Character Dynamics" (Internal vs External tension).
+2. Outline 5 major "Plot Beats" or "Story Pillars" that define the series arc.
+3. Establish 3 "World Rules" that govern the logic of this setting.
+4. Synthesize a "Visual Moat" - how this series should look unique compared to anything else.
+5. Generate a punchy Series Title and a 1-sentence Logline.
+
+OUTPUT JSON ONLY:
+{
+  "characterDynamics": "Description of internal/external tension",
+  "plotBeats": ["Beat 1", "Beat 2", "Beat 3", "Beat 4", "Beat 5"],
+  "worldRules": ["Rule 1", "Rule 2", "Rule 3"],
+  "visualMoat": "Specific visual strategy for consistency",
+  "title": "Series Title",
+  "logline": "1-sentence hook"
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a series architect. Output JSON only.",
+    "gpt-4o",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const analysis = JSON.parse(jsonMatch[0]);
+    return {
+      analysis,
+      totalCost: cost,
+      title: analysis.title
+    };
+  } catch (e) {
+    console.error("Failed to analyze story narrative:", response);
+    throw new Error("Failed to analyze story narrative");
+  }
+}
+

@@ -3,7 +3,7 @@
 import { adminDb, id } from "@/lib/instant-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
-import { analyzeNarrative, generateSmartTitle, type NarrativeInput } from "@/lib/marketing/narrative-intelligence";
+import { analyzeNarrative, analyzeStoryNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
 
 // Legacy type for backward compatibility
 export async function createBrandNarrative(
@@ -402,6 +402,43 @@ export async function createContentFromAngleAction(
   } catch (error) {
     console.error("Failed to create content from angle:", error);
     throw new Error("Failed to create content from angle");
+  }
+}
+
+export async function createSeriesNarrative(
+  input: SeriesNarrativeInput,
+  ownerId: string
+): Promise<{ seriesNarrativeId: string }> {
+  try {
+    const { analysis, totalCost } = await analyzeStoryNarrative(input);
+    
+    const seriesNarrativeId = id();
+
+    await adminDb.transact([
+      adminDb.tx.seriesNarratives[seriesNarrativeId].update({
+        title: analysis.title,
+        genre: input.genre,
+        worldSetting: input.worldSetting,
+        conflictType: input.conflictType,
+        protagonistArchetype: input.protagonistArchetype,
+        centralTheme: input.centralTheme,
+        narrativeTone: input.narrativeTone,
+        visualStyle: input.visualStyle,
+        episodeHooks: input.episodeHooks,
+        
+        characterDynamics: analysis.characterDynamics,
+        plotBeats: analysis.plotBeats,
+        
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        totalCost: totalCost || 0,
+      }).link({ owner: ownerId }),
+    ]);
+
+    return { seriesNarrativeId };
+  } catch (error: any) {
+    console.error("Failed to create series narrative:", error);
+    throw error;
   }
 }
 

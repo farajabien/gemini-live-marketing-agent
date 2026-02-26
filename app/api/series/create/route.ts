@@ -6,10 +6,12 @@ import { withRetry } from "@/lib/ai/retry";
 import { sanitizeJson } from "@/lib/ai/json-utils";
 
 
-const FORMALIZE_SERIES_PROMPT = (megaPrompt: string) => `
+const FORMALIZE_SERIES_PROMPT = (megaPrompt: string, narrativeContext?: string) => `
 You are creating a structured JSON plan for a video series based on this mega-prompt:
 
 "${megaPrompt}"
+
+\${narrativeContext ? \`STRATEGIC CONTEXT:\\n\${narrativeContext}\` : ''}
 
 Generate a JSON object with:
 - title: Catchy series title (3-6 words)
@@ -50,7 +52,8 @@ const GENERATE_EPISODE_SCRIPT_PROMPT = (
   episodeTitle: string,
   beats: string[],
   episodeNumber: number,
-  visualConsistency: string
+  visualConsistency: string,
+  narrativeContext?: string
 ) => `
 You are writing a verbatim narration script for Episode ${episodeNumber}: "${episodeTitle}"
 
@@ -59,6 +62,8 @@ ${beats.map((beat, i) => `${i + 1}. ${beat}`).join('\n')}
 
 Visual Style Guide:
 ${visualConsistency}
+
+${narrativeContext ? `STRATEGIC CONTEXT:\n${narrativeContext}` : ''}
 
 Generate a NATURAL, conversational narration script that:
 1. Tells the story following these beats
@@ -111,7 +116,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       
       try {
-        const { megaPrompt } = await request.json();
+        const { megaPrompt, seriesNarrativeId } = await request.json();
 
         if (!megaPrompt || megaPrompt.length < 100) {
           sendError(controller, "Mega-prompt must be at least 100 characters");
@@ -138,12 +143,37 @@ export async function POST(request: NextRequest) {
         
         const userId = user.id;
 
+        let narrativeContext = "";
+        let narrativeData = null;
+
+        if (seriesNarrativeId) {
+          sendProgress(controller, "Loading your series narrative architecture...");
+          const dbData = await adminDb.query({
+            seriesNarratives: {
+              $: { where: { id: seriesNarrativeId } }
+            }
+          });
+          narrativeData = (dbData as any).seriesNarratives?.[0];
+          if (narrativeData) {
+            narrativeContext = `
+              - Genre: ${narrativeData.genre}
+              - World Setting: ${narrativeData.worldSetting}
+              - Conflict: ${narrativeData.conflictType}
+              - Protagonist: ${narrativeData.protagonistArchetype}
+              - Theme: ${narrativeData.centralTheme}
+              - Tone: ${narrativeData.narrativeTone}
+              - Character Dynamics: ${narrativeData.characterDynamics}
+            `.trim();
+            console.log("[Series] Loaded narrative context for series");
+          }
+        }
+
         // Step 1: Formalize mega-prompt into structured series JSON
         console.log("[Series] Formalizing mega-prompt for user:", userId);
         sendProgress(controller, "Analyzing your idea and creating series structure...");
         
         const { text: formalizeText, cost: formalizeCost } = await withRetry(() => generateText(
-          FORMALIZE_SERIES_PROMPT(megaPrompt),
+          FORMALIZE_SERIES_PROMPT(megaPrompt, narrativeContext),
           "You are a JSON generator. Respond with ONLY valid JSON.",
           "gpt-4o",
           0.3,
@@ -187,7 +217,8 @@ export async function POST(request: NextRequest) {
               episode.title,
               episode.beats,
               index + 1,
-              formalizedJson.visualConsistency
+              formalizedJson.visualConsistency,
+              narrativeContext
             ),
             "You are a JSON generator. Respond with ONLY valid JSON.",
             "gpt-4o",
@@ -245,6 +276,7 @@ export async function POST(request: NextRequest) {
             status: "draft",
             createdAt: now,
             updatedAt: now,
+            seriesNarrativeId: seriesNarrativeId || undefined,
           })
         );
 
@@ -267,6 +299,13 @@ export async function POST(request: NextRequest) {
             // Link episode to series
             adminDb.tx.episodes[episodeId].link({ series: seriesId }),
           ]);
+        }
+
+        // Link series to narrative if provided
+        if (seriesNarrativeId) {
+          await adminDb.transact(
+            adminDb.tx.series[seriesId].link({ narrativeConfig: seriesNarrativeId })
+          );
         }
 
         // Link series to user

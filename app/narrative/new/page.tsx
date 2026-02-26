@@ -1,5 +1,5 @@
-import { NewNarrativeScreen } from "@/components/screens/NewNarrativeScreen";
+import { NewNarrativeTypeSelection } from "@/components/screens/NewNarrativeTypeSelection";
 
 export default function NewNarrativePage() {
-  return <NewNarrativeScreen />;
+  return <NewNarrativeTypeSelection />;
 }
