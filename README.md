@@ -23,36 +23,6 @@ IdeaToVideo is not a video editor. It's a **Narrative Intelligence System** that
 
 Define your narrative once. Generate content forever. Track what works. Get smarter over time.
 
-## � Pricing Tiers
-
-| Feature | Free | Pro | Pro Max |
-|---------|------|-----|---------|
-| **Price** | $0 | $19/mo | $49/mo |
-| **Videos per Month** | 1 (total) | 20 | 20 |
-| **Visual Style** | Static Images | Static Images | **AI B-Roll Clips** |
-| **Watermark** | ✅ Yes | ❌ No | ❌ No |
-| **Video Quality** | 1080p MP4 | 1080p MP4 | 1080p MP4 |
-| **Resolution** | 2K Images | 2K Images | 1080p Video Clips |
-| **Voice Selection** | 6 AI Voices | 6 AI Voices | 6 AI Voices |
-| **Carousel Export** | ✅ | ✅ | ✅ |
-| **Script Export** | ✅ | ✅ | ✅ |
-| **Demo Narrator** | ❌ No | ✅ Yes | ✅ Yes |
-
-### What's B-Roll?
-
-**B-Roll** refers to cinematic video footage used to enhance storytelling. Instead of static images, Pro Max users get **AI-generated video clips (4-8 seconds each)** powered by Google Veo 3.1.
-
-**Why it matters:**
-- **Motion adds emotion**: Moving visuals capture attention and increase watch time
-- **Professional polish**: Cinematic clips elevate your content above static slideshows
-- **Storytelling depth**: Video clips can show actions, environments, and concepts that images can't
-
-**Technical details:**
-- Generated using `veo-3.1-generate-preview` model
-- Portrait format (9:16 aspect ratio) optimized for TikTok/Reels/Shorts
-- 1080p resolution at 30fps
-- 4-8 second duration per scene
-- Async generation with background polling (takes 2-5 minutes per clip)
 
 ## 🎨 Visual Brand Identity
 
@@ -266,7 +236,7 @@ Currently, the local rendering approach is optimized for cost-effectiveness whil
 ### 1. Clone & Install
 ```bash
 git clone <repo-url>
-cd ideatovideo
+cd gemini-live-marketing-agent
 pnpm install
 ```
 
@@ -278,21 +248,12 @@ cp .env.example .env.local
 
 Required environment variables:
 ```env
-# InstantDB (https://instantdb.com)
-NEXT_PUBLIC_INSTANT_APP_ID=your_app_id
-INSTANT_APP_ADMIN_TOKEN=your_admin_token
+# InstantDB Configuration
+NEXT_PUBLIC_INSTANT_APP_ID=your_instant_app_id_here
+INSTANT_APP_ADMIN_TOKEN=your_instant_admin_token_here
 
-# Google Gemini (https://ai.google.dev)
-GEMINI_API_KEY=your_gemini_key
-
-# PayPal (https://developer.paypal.com)
-PAYPAL_CLIENT_ID=your_client_id
-PAYPAL_CLIENT_SECRET=your_client_secret
-PAYPAL_MODE=sandbox  # or 'live' for production
-NEXT_PUBLIC_PAYPAL_CLIENT_ID=your_client_id
-
-# Admin Secret (for test user creation)
-ADMIN_SECRET=your_strong_secret_key
+# Google Gemini API (for text, image & voice generation)
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 **Note:** Remotion requires Chrome/Chromium to be installed on your system for video generation.
@@ -351,21 +312,7 @@ curl http://localhost:3000/api/admin/create-test-user \
 7. **Generate final video**: Should use clip concatenation pipeline
 8. **Download & verify**: Video should have smooth motion (no static images)
 
-### Test PayPal Integration
-
-1. **Use PayPal Sandbox** credentials (https://developer.paypal.com)
-2. **Navigate** to `/upgrade`
-3. **Click** Pro or Pro Max "Pay with PayPal" button
-4. **Complete checkout** using sandbox account
-5. **Verify** user plan updated in database
-6. **Verify** access to tier features
-
-### Test Free Tier Restrictions
-
-1. **Sign in** without upgrading (free tier)
-2. **Try to select B-roll**: Should see "Pro Max Only" badge and redirect to `/upgrade`
-3. **Generate video**: Should have watermark overlay
-4. **Verify** only 1 video can be created (total limit)
+...existing code...
 
 ## 📄 Documentation
 
