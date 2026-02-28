@@ -26,7 +26,7 @@ const db = init({
 
 export async function POST(request: NextRequest) {
   try {
-    const { planId, background = false } = await request.json();
+    const { planId, background = false, forceRerender = false } = await request.json();
     if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
 
     const authHeader = request.headers.get("Authorization");
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
 
     const userId = authUser.id;
 
-    console.log(`[VideoGen Remotion] Generating video for plan: ${planId} (Background: ${background}) (requested by ${userId})`);
+    console.log(`[VideoGen Remotion] Generating video for plan: ${planId} (Background: ${background}, Force: ${forceRerender}) (requested by ${userId})`);
+    console.time('[VideoGen] Total render pipeline');
 
     const queryResult = await db.query({
       videoPlans: {
@@ -59,6 +60,24 @@ export async function POST(request: NextRequest) {
     const planOwnerId = plan.owner?.[0]?.id;
     if (planOwnerId !== userId) {
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
+    }
+
+    // --- Cache Check (Early Exit for Performance) ---
+    // If video already exists and we're not forcing a rerender, return immediately
+    if (plan.videoUrl && !forceRerender) {
+      console.log(`[Cache Hit] ✅ Video already rendered: ${plan.videoUrl}`);
+
+      if (background) {
+        return NextResponse.json({ success: true, url: plan.videoUrl, cached: true });
+      }
+
+      // For non-background requests, we'd need to fetch and stream the video
+      // For now, just return the URL (frontend can fetch it)
+      return NextResponse.json({ success: true, url: plan.videoUrl, cached: true });
+    }
+
+    if (forceRerender && plan.videoUrl) {
+      console.log(`[Cache Bypass] 🔄 Force rerender requested for plan: ${planId}`);
     }
 
     // --- Usage Check with Monthly Reset ---
@@ -87,9 +106,7 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    if (plan.videoUrl && background) {
-        return NextResponse.json({ success: true, url: plan.videoUrl, cached: true });
-    }
+    // Cache check moved earlier (line 66) for better performance
 
     const scenes = plan.scenes as Scene[];
     const visualMode = plan.visualMode || "image";
@@ -124,6 +141,7 @@ export async function POST(request: NextRequest) {
     console.log("[VideoGen] Trusting Remotion's built-in asset loading (no pre-verification needed)");
 
     // Set status to rendering
+    console.time('[VideoGen] Remotion render');
     await db.transact([db.tx.videoPlans[planId].update({ status: 'rendering' })]);
 
     const videoPath = join(tmpdir(), `render-${planId}.mp4`);
@@ -131,12 +149,15 @@ export async function POST(request: NextRequest) {
     // Call the new Remotion renderer
     try {
       await renderRemotionVideo(plan, videoPath);
+      console.timeEnd('[VideoGen] Remotion render');
     } catch (renderErr) {
+      console.timeEnd('[VideoGen] Remotion render');
       console.error("Remotion rendering failed:", renderErr);
       throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
     }
 
     // Read and Upload to Storage
+    console.time('[VideoGen] Upload to storage');
     if (!existsSync(videoPath)) {
       throw new Error("Rendered video file not found after rendering process.");
     }
@@ -150,9 +171,11 @@ export async function POST(request: NextRequest) {
     
     if (adminDb.storage?.uploadFile) {
       await adminDb.storage.uploadFile(fileName, videoBuffer, { contentType: "video/mp4" });
+      console.log(`✅ Uploaded video (${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
     } else {
       console.warn("Storage upload unavailable, skipping upload.");
     }
+    console.timeEnd('[VideoGen] Upload to storage');
 
     // Update DB
     await db.transact([
@@ -164,6 +187,9 @@ export async function POST(request: NextRequest) {
 
     // Cleanup local temp
     try { await unlink(videoPath); } catch (e) {}
+
+    console.timeEnd('[VideoGen] Total render pipeline');
+    console.log(`🎉 Video generation complete! URL: ${fileName}`);
 
     if (background) {
         return NextResponse.json({ success: true, url: fileName });

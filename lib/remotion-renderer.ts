@@ -42,13 +42,10 @@ export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
 
   // Check if bundle is cached and still valid
   const remotionFilesTimestamp = await getRemotionFilesModifiedTime(remotionDir);
-  // FORCE REBUILD: Invalidating cache to ensure APP_ID injection
-  const bundleIsValid = false; 
-  /*
+  // Smart caching: Only rebuild if Remotion files changed
   const bundleIsValid = cachedBundleLocation &&
                         existsSync(cachedBundleLocation) &&
                         remotionFilesTimestamp <= cachedBundleTimestamp;
-  */
 
   let bundleLocation: string;
 
@@ -104,16 +101,17 @@ export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
       gl: "angle",
       headless: true,
     },
-    videoBitrate: "2.5M", // Slightly lower for even faster muxing
+    videoBitrate: "3M", // Balanced quality/speed
     enforceAudioTrack: true,
     ffmpegOverride: ({ args }) => {
-      // Use superfast/ultrafast and tune for zero latency
+      // Optimized for speed while maintaining good quality
       return [
         ...args,
-        '-preset', 'ultrafast',
-        '-tune', 'zerolatency',
-        '-crf', '30', // Faster encoding with acceptable quality loss for preview
-        '-threads', '0',
+        '-preset', 'veryfast',      // Better quality than ultrafast, still very fast
+        '-tune', 'zerolatency',     // Low latency encoding
+        '-crf', '23',               // Better quality (default: 23, lower = better quality)
+        '-threads', '0',            // Use all available CPU cores
+        '-movflags', '+faststart',  // Enable progressive download/streaming
       ];
     },
     onProgress: ({ renderedFrames, encodedFrames, encodedDoneIn, renderedDoneIn }) => {
