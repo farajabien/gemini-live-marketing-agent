@@ -11,13 +11,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid tier. Must be 'pro' or 'pro_max'" }, { status: 400 });
     }
 
-    // Get the price based on the tier
+    // Get the price and details based on the tier
     const tierKey = tier === "pro_max" ? "PRO_MAX" : "PRO";
-    const amount = PRICING_TIERS[tierKey].price;
-    
+    const tierConfig = PRICING_TIERS[tierKey];
+    const amount = tierConfig.price;
+    const description = `IdeaToVideo ${tierConfig.name} - ${tierConfig.videos} Videos / Month`;
+
     console.log(`Creating PayPal order for user ${userId} for ${tierKey} tier ($${amount})`);
-    
-    const { orderId } = await createPayPalOrder(amount, "USD", userId);
+
+    const { orderId } = await createPayPalOrder(amount, "USD", userId, description);
 
     return NextResponse.json({ orderId });
   } catch (error: unknown) {

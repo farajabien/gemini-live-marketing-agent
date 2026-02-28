@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
 
     // Transform script and visualPrompts into scenes
     // Scripts are generated as paragraphs separated by double newlines (\n\n)
-    const paragraphs = episode.script.split(/\n\s*\n/).filter(p => p.trim());
+    const paragraphs = episode.script.split(/\n\s*\n/).filter((p: string) => p.trim());
     const visualPrompts = (episode.visualPrompts || []) as string[];
 
     // Pair each paragraph with its corresponding visual prompt
-    const scenes: Scene[] = paragraphs.map((text, i) => ({
+    const scenes: Scene[] = paragraphs.map((text: string, i: number) => ({
       id: id(),
       voiceover: text.trim(),
       visualPrompt: visualPrompts[i] || `Visual representation of: ${text.substring(0, 100)}...`,

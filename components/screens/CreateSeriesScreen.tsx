@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/instant-client";
 import { Header } from "@/components/Header";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
+import { GenerationDialog } from "@/components/GenerationDialog";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -119,6 +120,12 @@ export function CreateSeriesScreen() {
         onClose={() => setIsAuthDialogOpen(false)} 
         onContinueAsGuest={() => setIsAuthDialogOpen(false)}
       />
+      
+      <GenerationDialog 
+        isOpen={isCreating} 
+        statusText={progressMessage || "Creating Series..."} 
+        cost={totalCost} 
+      />
 
       <div className="flex-1 flex items-center justify-center p-6 mt-20">
         <div className="max-w-3xl w-full">
@@ -213,22 +220,7 @@ Duration: [Target length]`}
               </div>
             )}
 
-            {isCreating && progressMessage && (
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className="h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">{progressMessage}</p>
-                  </div>
-                  {totalCost > 0 && (
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-blue-500/50">Est. Cost</span>
-                      <span className="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">${totalCost.toFixed(4)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+
 
 
 

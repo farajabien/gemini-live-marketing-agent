@@ -83,7 +83,7 @@ interface AdminQueryConfig {
 interface AdminQuery {
   [collection: string]: {
     $?: AdminQueryConfig;
-    [subcollection: string]?: any;
+    [subcollection: string]: any;
   };
 }
 
@@ -136,7 +136,7 @@ async function executeQuery(queryObj: AdminQuery): Promise<any> {
       // For each document, fetch the subcollection
       const docsWithSub = await Promise.all(
         results[collectionName].map(async (doc) => {
-          const subCollectionRef = firestoreDb
+          const subCollectionRef = getDb()
             .collection(collectionName)
             .doc(doc.id)
             .collection(key);
@@ -209,42 +209,45 @@ class TransactionBuilder {
     // Create a proxy to handle dynamic collection names
     return new Proxy(this, {
       get(target, prop: string) {
-        // If it's a method on the class, return it
         if (prop in target) {
           return (target as any)[prop];
         }
 
-        // Otherwise, treat it as a collection name
-        return {
-          [prop]: (id: string) => ({
-            update: (data: any) => {
-              target.operations.push({
-                collection: prop,
-                id,
-                action: 'set',
-                data,
-              });
-              return target;
-            },
-            set: (data: any) => {
-              target.operations.push({
-                collection: prop,
-                id,
-                action: 'set',
-                data,
-              });
-              return target;
-            },
-            delete: () => {
-              target.operations.push({
-                collection: prop,
-                id,
-                action: 'delete',
-              });
-              return target;
-            },
-          }),
-        }[prop](id);
+        return new Proxy({}, {
+          get(_, docId: string) {
+            const docBuilder = {
+              update: (data: any) => {
+                target.operations.push({
+                  collection: prop,
+                  id: docId,
+                  action: 'set',
+                  data,
+                });
+                return docBuilder;
+              },
+              set: (data: any) => {
+                target.operations.push({
+                  collection: prop,
+                  id: docId,
+                  action: 'set',
+                  data,
+                });
+                return docBuilder;
+              },
+              delete: () => {
+                target.operations.push({
+                  collection: prop,
+                  id: docId,
+                  action: 'delete',
+                });
+                return docBuilder;
+              },
+              link: () => docBuilder, // mock link
+              unlink: () => docBuilder // mock unlink
+            };
+            return docBuilder;
+          }
+        });
       },
     });
   }

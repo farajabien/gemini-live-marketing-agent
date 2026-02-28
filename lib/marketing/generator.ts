@@ -35,7 +35,7 @@ export async function generateDraftFromAngle(input: DraftGenerationInput): Promi
     outputFormat: outputFormat,
   };
 
-  const videoPlan = await generateVideoPlanWithOptions(
+  const { plan: videoPlan } = await generateVideoPlanWithOptions(
     input.angle,
     input.format,
     "30s", 

@@ -25,7 +25,7 @@ export const paypalClient = environment ? new paypal.core.PayPalHttpClient(envir
 /**
  * Helper to create an order
  */
-export async function createPayPalOrder(amount: number, currency: string = "USD", referenceId?: string) {
+export async function createPayPalOrder(amount: number, currency: string = "USD", referenceId?: string, description?: string) {
   if (!paypalClient) throw new Error("PayPal client not initialized");
 
   const request = new paypal.orders.OrdersCreateRequest();
@@ -40,7 +40,7 @@ export async function createPayPalOrder(amount: number, currency: string = "USD"
           currency_code: currency,
           value: amount.toFixed(2),
         },
-        description: "IdeaToVideo Pro Upgrade - 30 Videos / Month",
+        description: description || "IdeaToVideo Pro Upgrade - 20 Videos / Month",
       },
     ],
     application_context: {

@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 
 
 export default function LandingPage() {
-  const { hero, problem, solution, howItWorks, whoItIsFor, useCases, finalCta } = LANDING_CONTENT;
+  const { hero, problem, solution, howItWorks, whoItIsFor, gettingStarted, useCases, finalCta } = LANDING_CONTENT;
   const tiers = Object.values(PRICING_TIERS);
   const { isAuthenticated } = useAuth();
 
@@ -142,6 +142,58 @@ export default function LandingPage() {
             </div>
         </section>
 
+        {/* Getting Started Flow */}
+        <section className="py-32 bg-black border-t border-white/5 relative overflow-hidden">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] bg-red-600/5 rounded-full blur-[120px] pointer-events-none"></div>
+            <div className="mx-auto max-w-7xl px-4 relative z-10">
+                <div className="text-center mb-16">
+                    <h2 className="text-4xl font-black text-white mb-4 tracking-tight">{gettingStarted.title}</h2>
+                    <p className="text-[#929bc9] text-lg max-w-2xl mx-auto">{gettingStarted.subtitle}</p>
+                </div>
+
+                <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
+                    {gettingStarted.steps.map((step, i) => (
+                        <div key={i} className="relative group">
+                            {/* Arrow connector (hidden on last item) */}
+                            {i < gettingStarted.steps.length - 1 && (
+                                <div className="hidden md:block absolute top-16 left-[calc(100%+1rem)] w-8 text-red-500/20 text-4xl pointer-events-none">
+                                    <span className="material-symbols-outlined">arrow_forward</span>
+                                </div>
+                            )}
+
+                            <div className="p-8 rounded-[2rem] bg-white/5 border border-white/10 hover:border-red-500/30 transition-all duration-500 h-full flex flex-col">
+                                <div className="flex items-start justify-between mb-6">
+                                    <div className="size-16 rounded-2xl bg-red-600/10 flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-transform">
+                                        <span className="material-symbols-outlined text-3xl text-red-500">{step.icon}</span>
+                                    </div>
+                                    <div className="text-6xl font-black text-white/5 leading-none">{step.number}</div>
+                                </div>
+
+                                <div className="mb-4">
+                                    <div className="inline-block px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-full mb-4">
+                                        <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">{step.badge}</span>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-white mb-3">{step.title}</h3>
+                                </div>
+
+                                <p className="text-[#929bc9] leading-relaxed flex-1">{step.description}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-16 text-center">
+                    <Link
+                        href="/narrative/new"
+                        className="inline-flex h-14 items-center justify-center rounded-xl bg-red-600 px-10 text-lg font-bold text-white shadow-xl shadow-red-500/25 transition-all hover:scale-105 active:scale-95 hover:bg-red-500"
+                    >
+                        Start Your First Narrative
+                    </Link>
+                    <p className="mt-4 text-sm text-white/40">No credit card required • 1 free video included</p>
+                </div>
+            </div>
+        </section>
+
         {/* How it Works */}
         <section className="py-32 bg-black border-t border-white/5" id="how-it-works">
           <div className="mx-auto max-w-7xl px-4">
@@ -209,7 +261,7 @@ export default function LandingPage() {
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 px-5 py-2 rounded-full text-[10px] font-black uppercase text-white tracking-widest leading-none flex h-7 items-center shadow-lg">Most Popular</div>
                     )}
                     {isProMax && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-red-600 to-orange-600 px-5 py-2 rounded-full text-[10px] font-black uppercase text-white tracking-widest leading-none flex h-7 items-center shadow-lg">Cinematic</div>
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-red-600 to-orange-600 px-5 py-2 rounded-full text-[10px] font-black uppercase text-white tracking-widest leading-none flex h-7 items-center shadow-lg">Pro Max</div>
                     )}
                     <div>
                       <h3 className={`text-2xl font-black ${isPro ? "text-red-400" : isProMax ? "text-orange-400" : "text-white"}`}>{tier.name}</h3>
@@ -229,17 +281,26 @@ export default function LandingPage() {
                       ))}
                     </ul>
                     <Link
-                      href={isAuthenticated ? (tier.id !== "free" ? "/upgrade" : "/dashboard?tool=generate") : "/dashboard?tool=generate"}
+                      href={
+                        isAuthenticated
+                          ? (tier.id === "free" ? "/dashboard" : "/upgrade")
+                          : "/narrative/new"
+                      }
                       className={`w-full py-4 rounded-2xl font-black text-center transition-all active:scale-95 ${
                         isPro
-                          ? "bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-900/40" 
+                          ? "bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-900/40"
                           : isProMax
                           ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-xl shadow-orange-900/40"
                           : "bg-white text-black hover:bg-slate-200"
                       }`}
                     >
-                      {tier.buttonText}
+                      {tier.id === "free" && !isAuthenticated ? "Start With Narrative Setup" : tier.buttonText}
                     </Link>
+                    {tier.id === "free" && !isAuthenticated && (
+                      <p className="text-[10px] text-center text-white/30 mt-3 leading-relaxed">
+                        Create your narrative (2 min), then generate 1 video
+                      </p>
+                    )}
                   </div>
                 );
               })}

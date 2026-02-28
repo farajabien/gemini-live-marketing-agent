@@ -77,6 +77,33 @@ export const LANDING_CONTENT = {
     tags: ["Agencies", "Consultants", "SaaS Founders", "Coaches", "Fractional Leaders"],
     description: "Trust is your only currency. IdeaToVideo builds that trust at scale by operationalizing your thinking into consistent, high-end media assets."
   },
+  gettingStarted: {
+    title: "Getting Started in 3 Simple Steps",
+    subtitle: "From zero to your first professional video in under 5 minutes.",
+    steps: [
+      {
+        number: "01",
+        title: "Create Your Narrative",
+        description: "One-time setup: Extract your positioning, unique mechanism, and brand voice. Takes 2-3 minutes.",
+        icon: "psychology",
+        badge: "One-Time Setup"
+      },
+      {
+        number: "02",
+        title: "Generate Content",
+        description: "Recurring: Transform any idea into videos or carousels in 30 seconds. Use your narrative again and again.",
+        icon: "auto_awesome",
+        badge: "Unlimited Use"
+      },
+      {
+        number: "03",
+        title: "Download & Share",
+        description: "Export professional 1080p videos ready to post on LinkedIn, Instagram, TikTok, or YouTube.",
+        icon: "cloud_download",
+        badge: "Ready to Post"
+      }
+    ]
+  },
   whyItsDifferent: {
     title: "Why It's Different",
     items: [
