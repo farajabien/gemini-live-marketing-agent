@@ -38,6 +38,7 @@ export async function createBrandNarrative(
       await adminDb.transact([
         // Create Narrative with new structure
         adminDb.tx.narratives[narrativeId].update({
+          userId: ownerId,
           title: analysis!.positioning.title,
           status: "active",
           createdAt: Date.now(),
@@ -66,6 +67,7 @@ export async function createBrandNarrative(
 
         // Create Positioning (legacy structure for compatibility)
         adminDb.tx.brandPositioning[positioningId].update({
+          userId: ownerId,
           narrativeId, // Required by schema
           villain: analysis!.positioning.villain,
           hero: analysis!.positioning.hero,
@@ -81,6 +83,7 @@ export async function createBrandNarrative(
       const legacyInput = input as PositioningInput;
       await adminDb.transact([
         adminDb.tx.narratives[narrativeId].update({
+          userId: ownerId,
           title: `${legacyInput.audience} Narrative`,
           status: "active",
           createdAt: Date.now(),
@@ -93,6 +96,7 @@ export async function createBrandNarrative(
         }).link({ owner: ownerId }),
 
         adminDb.tx.brandPositioning[positioningId].update({
+          userId: ownerId,
           ...legacyPositioning!,
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -113,6 +117,7 @@ export async function createBrandNarrative(
         const pillarId = id();
         await adminDb.transact([
             adminDb.tx.contentPillars[pillarId].update({
+                userId: ownerId,
                 narrativeId, // Required by schema
                 title: pillar.title,
                 description: pillar.description,
@@ -145,6 +150,7 @@ export async function generateContentDraft(
         await adminDb.transact([
             // Create Video Plan
              adminDb.tx.videoPlans[videoPlanId].update({
+                userId: ownerId,
                 ...result.videoPlan,
                 status: "draft",
                 createdAt: Date.now(),
@@ -152,6 +158,7 @@ export async function generateContentDraft(
 
             // Create Content Draft
             adminDb.tx.contentDrafts[draftId].update({
+                userId: ownerId,
                 title: result.title,
                 angle: input.angle,
                 slides: result.slides,
@@ -191,7 +198,8 @@ export async function generatePositioningAction(input: PositioningInput) {
 export async function updateNarrativeField(
   narrativeId: string,
   field: string,
-  value: string
+  value: string,
+  userId: string
 ): Promise<void> {
   try {
     // Fetch current narrative to track version history
@@ -225,6 +233,7 @@ export async function updateNarrativeField(
     // Update narrative
     await adminDb.transact([
       adminDb.tx.narratives[narrativeId].update({
+        userId,
         [field]: value,
         versions: updatedVersions,
         updatedAt: Date.now(),
@@ -299,6 +308,7 @@ export async function regeneratePositioning(
     // Update narrative
     await adminDb.transact([
       adminDb.tx.narratives[narrativeId].update({
+        userId,
         aiPositioning: analysis.positioning,
         angles: analysis.angles,
         narrativeStrength: analysis.narrativeStrength,
@@ -318,6 +328,7 @@ export async function regeneratePositioning(
     if (existingPositioning) {
       await adminDb.transact([
         adminDb.tx.brandPositioning[existingPositioning.id].update({
+          userId,
           villain: analysis.positioning.villain,
           hero: analysis.positioning.hero,
           transformation: analysis.positioning.promise,
@@ -361,6 +372,7 @@ export async function generateSmartTitleAction(
 
     await adminDb.transact([
       adminDb.tx.narratives[narrativeId].update({
+        userId,
         title: result.title,
         oneLiner: result.oneLiner,
         updatedAt: Date.now(),
@@ -384,6 +396,7 @@ export async function createContentFromAngleAction(
     
     await adminDb.transact([
       adminDb.tx.contentDrafts[draftId].update({
+        userId,
         narrativeId,
         angle,
         title: `Draft: ${angle.slice(0, 30)}...`,
@@ -416,6 +429,7 @@ export async function createSeriesNarrative(
 
     await adminDb.transact([
       adminDb.tx.seriesNarratives[seriesNarrativeId].update({
+        userId: ownerId,
         title: analysis.title,
         genre: input.genre,
         worldSetting: input.worldSetting,

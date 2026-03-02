@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { updateNarrativeField } from "@/app/actions/marketing";
+import { useAuth } from "@/hooks/use-auth";
 
 interface NarrativeSectionProps {
   narrativeId: string;
@@ -20,6 +21,7 @@ export function NarrativeSection({
   value,
   placeholder,
 }: NarrativeSectionProps) {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
@@ -30,9 +32,14 @@ export function NarrativeSection({
       return;
     }
 
+    if (!user) {
+        alert("You must be logged in to edit.");
+        return;
+    }
+
     setIsSaving(true);
     try {
-      await updateNarrativeField(narrativeId, field, editValue);
+      await updateNarrativeField(narrativeId, field, editValue, user.id);
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update narrative:", error);

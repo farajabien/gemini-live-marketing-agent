@@ -93,7 +93,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
     }
 
     try {
-      await updateNarrativeField(narrativeId, "title", editedTitle);
+      await updateNarrativeField(narrativeId, "title", editedTitle, user.id);
       setIsEditingTitle(false);
     } catch (error) {
       console.error("Failed to update title:", error);
@@ -108,7 +108,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
     }
 
     try {
-      await updateNarrativeField(narrativeId, "oneLiner", editedOneLiner);
+      await updateNarrativeField(narrativeId, "oneLiner", editedOneLiner, user.id);
       setIsEditingOneLiner(false);
     } catch (error) {
       console.error("Failed to update one-liner:", error);

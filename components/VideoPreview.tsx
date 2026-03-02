@@ -1,3 +1,5 @@
+"use client";
+
 import type { VideoPlan } from "@/lib/types";
 import React, { useEffect, useState, useRef } from "react";
 import { useInterval } from "react-use";

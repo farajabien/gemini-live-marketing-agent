@@ -109,8 +109,9 @@ export function useFirebaseAuth(): AuthState {
           } as User);
         } else {
           // Create user document if it doesn't exist
-          const newUser: Partial<User> = {
+          const newUser: Partial<User & { userId: string }> = {
             id: firebaseUser.uid,
+            userId: firebaseUser.uid,
             email: firebaseUser.email,
             isGuest: firebaseUser.isAnonymous,
             planId: 'free',
@@ -154,6 +155,7 @@ export function useFirebaseAuth(): AuthState {
       if (!userDoc.exists()) {
         await setDoc(userDocRef, {
           id: userCredential.user.uid,
+          userId: userCredential.user.uid,
           email: null,
           isGuest: true,
           planId: 'free',
@@ -217,6 +219,7 @@ export function useFirebaseAuth(): AuthState {
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userDocRef, {
         id: userCredential.user.uid,
+        userId: userCredential.user.uid,
         email: userCredential.user.email,
         isGuest: false,
         planId: 'free',

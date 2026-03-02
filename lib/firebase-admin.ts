@@ -215,37 +215,47 @@ class TransactionBuilder {
 
         return new Proxy({}, {
           get(_, docId: string) {
-            const docBuilder = {
+            return {
               update: (data: any) => {
-                target.operations.push({
+                const op: TransactionOperation = {
                   collection: prop,
                   id: docId,
-                  action: 'set',
+                  action: 'update',
                   data,
-                });
-                return docBuilder;
+                };
+                target.operations.push(op);
+                return op;
               },
               set: (data: any) => {
-                target.operations.push({
+                const op: TransactionOperation = {
                   collection: prop,
                   id: docId,
                   action: 'set',
                   data,
-                });
-                return docBuilder;
+                };
+                target.operations.push(op);
+                return op;
               },
               delete: () => {
-                target.operations.push({
+                const op: TransactionOperation = {
                   collection: prop,
                   id: docId,
                   action: 'delete',
-                });
-                return docBuilder;
+                };
+                target.operations.push(op);
+                return op;
               },
-              link: () => docBuilder, // mock link
-              unlink: () => docBuilder // mock unlink
+              link: (linkData: any) => {
+                // Link is a special case in InstantDB, for now we just merge it into the last operation's data if it exists
+                const lastOp = target.operations[target.operations.length - 1];
+                if (lastOp && lastOp.id === docId && lastOp.action !== 'delete') {
+                    // This is a naive implementation of linking
+                    lastOp.data = { ...lastOp.data, ...linkData };
+                }
+                return { unlink: () => {} };
+              },
+              unlink: () => ({ link: () => {} })
             };
-            return docBuilder;
           }
         });
       },
@@ -307,19 +317,17 @@ async function getUserById(uid: string) {
 export const adminDb = {
   query: executeQuery,
   transact: async (operations: any[]) => {
-    // Convert InstantDB-style operations to our format
     const converted: TransactionOperation[] = [];
 
     for (const op of operations) {
-      // InstantDB operations are in the format: tx.collection[id].update(data)
-      // We need to extract collection, id, and data from the operation
-      // This is a simplified conversion - may need refinement based on actual usage
-      if (typeof op === 'object' && op !== null) {
-        converted.push(op);
+      if (typeof op === 'object' && op !== null && op.collection && op.id) {
+        converted.push(op as TransactionOperation);
       }
     }
 
-    await executeTransaction(converted);
+    if (converted.length > 0) {
+      await executeTransaction(converted);
+    }
   },
   auth: {
     verifyToken: verifyAuthToken,
