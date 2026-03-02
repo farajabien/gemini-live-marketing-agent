@@ -137,9 +137,10 @@ async function generateGiphyVisuals(plan: VideoPlanWithOwner, planId: string) {
       if (results && results.length > 0) {
           // Store the Giphy MP4 URL in imageUrl
           // We use imageUrl field because Remotion can just treat it as a video source if we handle it right
-          scene.imageUrl = results[0].url; 
-          
-          await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
+          scene.imageUrl = results[0].url;
+
+          // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
+          await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
           console.log(`✅ Giphy found for scene ${index}: ${results[0].id}`);
       } else {
           console.warn(`⚠️ No Giphy found for: "${scene.visualPrompt}"`);
@@ -327,8 +328,9 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
 
   // Save all updates in a single transaction
   if (successCount > 0) {
-    await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
-    console.log(`✅ Saved ${successCount}/${visualsToGenerate.length} images to database`);
+    // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
+    await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
+    console.log(`✅ Saved ${successCount}/${visualsToGenerate.length} images to database (video cache invalidated)`);
   }
 
   console.timeEnd(`[Gemini] Total image generation time`);
@@ -380,7 +382,8 @@ async function generateBRollClips(plan: VideoPlanWithOwner, planId: string) {
       });
 
       scene.operationId = operation.name;
-      await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
+      // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
+      await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
 
       console.log(`Veo operation started for scene ${index}: ${operation.name}`);
     } catch (err: unknown) {

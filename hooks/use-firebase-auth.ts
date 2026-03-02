@@ -12,6 +12,8 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   getIdToken,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase-config';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -35,6 +37,8 @@ export interface AuthState {
   error: Error | null;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
   isAuthenticated: boolean;
   refreshToken?: string;
 }
@@ -184,6 +188,52 @@ export function useFirebaseAuth(): AuthState {
     }
   };
 
+  /**
+   * Sign in with Email and Password
+   */
+  const signInWithEmail = async (email: string, password: string) => {
+    setIsSigningIn(true);
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      console.error('Failed to sign in with email:', err);
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  /**
+   * Sign up with Email and Password
+   */
+  const signUpWithEmail = async (email: string, password: string) => {
+    setIsSigningIn(true);
+    setError(null);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Create user document
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      await setDoc(userDocRef, {
+        id: userCredential.user.uid,
+        email: userCredential.user.email,
+        isGuest: false,
+        planId: 'free',
+        type: 'user',
+        lifetimeGenerations: 0,
+        monthlyGenerations: 0,
+        generationResetDate: Date.now(),
+      });
+    } catch (err) {
+      console.error('Failed to sign up with email:', err);
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   return {
     user,
     isLoading: isAuthLoading || isSigningIn,
@@ -191,6 +241,8 @@ export function useFirebaseAuth(): AuthState {
     error,
     signInAsGuest,
     signOut,
+    signInWithEmail,
+    signUpWithEmail,
     isAuthenticated: !!firebaseUser,
     refreshToken,
   };

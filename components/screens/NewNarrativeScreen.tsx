@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
 import { NARRATIVE_STEPS, type NarrativeStepId } from "@/lib/narrative-config";
+import { RefineWithAIButton } from "@/components/RefineWithAIButton";
 
 // shadcn
 import { Button } from "@/components/ui/button";
@@ -172,13 +173,22 @@ export function NewNarrativeScreen() {
               </p>
               
               {currentStep.type === "text" ? (
-                <Textarea
-                  className="w-full bg-white/5 border-white/10 rounded-2xl p-6 text-xl min-h-[160px] focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-slate-600 resize-none"
-                  placeholder={currentStep.placeholder}
-                  value={data[currentStep.id as keyof WizardData]}
-                  onChange={(e) => updateData(currentStep.id as keyof WizardData, e.target.value)}
-                  autoFocus
-                />
+                <div className="relative group">
+                  <Textarea
+                    className="w-full bg-white/5 border-white/10 rounded-2xl p-6 text-xl min-h-[160px] pb-16 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-slate-600 resize-none"
+                    placeholder={currentStep.placeholder}
+                    value={data[currentStep.id as keyof WizardData]}
+                    onChange={(e) => updateData(currentStep.id as keyof WizardData, e.target.value)}
+                    autoFocus
+                  />
+                  <div className="absolute bottom-4 right-4 animate-in fade-in duration-300">
+                    <RefineWithAIButton 
+                      step={currentStep}
+                      currentValue={data[currentStep.id as keyof WizardData]}
+                      onRefined={(newVal) => updateData(currentStep.id as keyof WizardData, newVal)}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {currentStep.choices?.map((choice) => (

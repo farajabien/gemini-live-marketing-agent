@@ -11,6 +11,7 @@
     "remotion:render": "ts-node scripts/render-demo-video.ts"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.34",
     "@azure-rest/ai-inference": "1.0.0-beta.6",
     "@azure/core-auth": "^1.10.1",
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -32,6 +33,7 @@
     "@remotion/media": "4.0.419",
     "@remotion/renderer": "^4.0.419",
     "@types/paypal__checkout-server-sdk": "^1.0.8",
+    "ai": "^6.0.105",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

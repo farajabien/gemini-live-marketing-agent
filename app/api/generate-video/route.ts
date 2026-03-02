@@ -9,6 +9,7 @@ import { startOfMonth } from "date-fns";
 import type { Scene, User, VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 import { renderRemotionVideo } from "@/lib/remotion-renderer";
+import { renderVideoWithFFmpeg, estimateRenderTime } from "@/lib/ffmpeg/renderer";
 
 // Initialize Admin SDK
 const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
@@ -23,10 +24,13 @@ const db = init({
   adminToken: ADMIN_TOKEN,
 });
 
+// Feature flag: Use FFmpeg renderer (default: true)
+// Set to false to use Remotion (legacy)
+const USE_FFMPEG_RENDERER = process.env.USE_FFMPEG_RENDERER !== "false";
 
 export async function POST(request: NextRequest) {
   try {
-    const { planId, background = false, forceRerender = false } = await request.json();
+    const { planId, background = false, forceRerender = false, useFFmpeg } = await request.json();
     if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
 
     const authHeader = request.headers.get("Authorization");
@@ -141,19 +145,50 @@ export async function POST(request: NextRequest) {
     console.log("[VideoGen] Trusting Remotion's built-in asset loading (no pre-verification needed)");
 
     // Set status to rendering
-    console.time('[VideoGen] Remotion render');
     await db.transact([db.tx.videoPlans[planId].update({ status: 'rendering' })]);
 
     const videoPath = join(tmpdir(), `render-${planId}.mp4`);
-    
-    // Call the new Remotion renderer
-    try {
-      await renderRemotionVideo(plan, videoPath);
-      console.timeEnd('[VideoGen] Remotion render');
-    } catch (renderErr) {
-      console.timeEnd('[VideoGen] Remotion render');
-      console.error("Remotion rendering failed:", renderErr);
-      throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
+
+    // Choose renderer: FFmpeg (new, fast) or Remotion (legacy)
+    const shouldUseFFmpeg = useFFmpeg !== undefined ? useFFmpeg : USE_FFMPEG_RENDERER;
+
+    if (shouldUseFFmpeg) {
+      // NEW: FFmpeg renderer with scene caching
+      console.log('[VideoGen] Using FFmpeg renderer (with scene caching)');
+      console.time('[VideoGen] FFmpeg render');
+
+      try {
+        // Show render estimate
+        const estimate = await estimateRenderTime(plan, plan.type === "carousel" ? "1:1" : "9:16");
+        console.log(`[VideoGen] Estimated render time: ${estimate.estimatedSeconds}s (${estimate.cachedScenes} cached, ${estimate.newScenes} new)`);
+
+        await renderVideoWithFFmpeg(plan, videoPath, {
+          enableCache: true,
+          forceRerender: forceRerender,
+          cleanupOldCache: true,
+          useGPU: true,
+        });
+
+        console.timeEnd('[VideoGen] FFmpeg render');
+      } catch (renderErr) {
+        console.timeEnd('[VideoGen] FFmpeg render');
+        console.error("FFmpeg rendering failed:", renderErr);
+        throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
+      }
+
+    } else {
+      // LEGACY: Remotion renderer
+      console.log('[VideoGen] Using Remotion renderer (legacy)');
+      console.time('[VideoGen] Remotion render');
+
+      try {
+        await renderRemotionVideo(plan, videoPath);
+        console.timeEnd('[VideoGen] Remotion render');
+      } catch (renderErr) {
+        console.timeEnd('[VideoGen] Remotion render');
+        console.error("Remotion rendering failed:", renderErr);
+        throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
+      }
     }
 
     // Read and Upload to Storage

@@ -11,40 +11,29 @@ interface AuthChoiceDialogProps {
 }
 
 export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthChoiceDialogProps) {
-    const { user } = useAuth();
+    const { user, signInWithEmail, signUpWithEmail } = useAuth();
     const [email, setEmail] = useState("");
-    const [code, setCode] = useState("");
-    const [step, setStep] = useState<"choice" | "email" | "code">("choice");
+    const [password, setPassword] = useState("");
+    const [step, setStep] = useState<"choice" | "login" | "register">("choice");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
-    const handleSendCode = async (e: React.FormEvent) => {
+    const handleAuthAction = async (e: React.FormEvent, isRegister: boolean) => {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
         try {
-            await db.auth.sendMagicCode({ email });
-            setStep("code");
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Failed to send code.";
-            setError(message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleVerifyCode = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError(null);
-        try {
-            await db.auth.signInWithMagicCode({ email, code });
+            if (isRegister) {
+                await signUpWithEmail(email, password);
+            } else {
+                await signInWithEmail(email, password);
+            }
             onClose();
             // Generation will resume via useEffect or user can click again
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Invalid code.";
+            const message = err instanceof Error ? err.message : `Failed to ${isRegister ? 'register' : 'sign in'}.`;
             setError(message);
         } finally {
             setIsLoading(false);
@@ -81,10 +70,10 @@ export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthCho
 
                         <div className="flex flex-col gap-3">
                             <button 
-                                onClick={() => setStep("email")}
+                                onClick={() => setStep("login")}
                                 className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 transition-all text-sm"
                             >
-                                Sign In with Magic Link
+                                Sign In with Email
                             </button>
                             <button 
                                 onClick={onClose}
@@ -96,14 +85,16 @@ export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthCho
                     </div>
                 )}
 
-                {step === "email" && (
-                    <form onSubmit={handleSendCode} className="space-y-6">
+                {(step === "login" || step === "register") && (
+                    <form onSubmit={(e) => handleAuthAction(e, step === "register")} className="space-y-6">
                         <div className="text-center space-y-2 mb-6">
-                            <h2 className="text-2xl font-black text-white">Enter Email</h2>
-                            <p className="text-sm text-slate-400">We'll send you a secure login code.</p>
+                            <h2 className="text-2xl font-black text-white">{step === "login" ? "Welcome Back" : "Create Account"}</h2>
+                            <p className="text-sm text-slate-400">
+                                {step === "login" ? "Sign in to your account." : "Sign up to save your progress."}
+                            </p>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                             <input 
                                 type="email"
                                 required
@@ -111,7 +102,16 @@ export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthCho
                                 placeholder="name@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium text-center"
+                                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
+                            />
+                            <input 
+                                type="password"
+                                required
+                                placeholder="Password"
+                                minLength={6}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
                             />
                         </div>
 
@@ -119,59 +119,28 @@ export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthCho
 
                         <button 
                             type="submit"
-                            disabled={isLoading || !email}
+                            disabled={isLoading || !email || password.length < 6}
                             className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 transition-all text-sm disabled:opacity-50"
                         >
-                            {isLoading ? "Sending Code..." : "Send Magic Code"}
+                            {isLoading ? (step === "login" ? "Signing In..." : "Registering...") : (step === "login" ? "Sign In" : "Register")}
                         </button>
 
-                        <button 
-                            type="button"
-                            onClick={() => setStep("choice")}
-                            className="w-full text-xs text-slate-500 hover:text-white transition-colors font-bold"
-                        >
-                            Back to options
-                        </button>
-                    </form>
-                )}
-
-                {step === "code" && (
-                    <form onSubmit={handleVerifyCode} className="space-y-6">
-                        <div className="text-center space-y-2 mb-6">
-                            <h2 className="text-2xl font-black text-white">Verify Code</h2>
-                            <p className="text-sm text-slate-400">Enter the 6-digit code sent to<br/><span className="text-red-400 font-bold">{email}</span></p>
+                        <div className="flex flex-col gap-2 pt-2">
+                            <button 
+                                type="button"
+                                onClick={() => setStep(step === "login" ? "register" : "login")}
+                                className="w-full text-sm text-white hover:text-red-400 transition-colors font-bold"
+                            >
+                                {step === "login" ? "Need an account? Register" : "Already have an account? Sign In"}
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setStep("choice")}
+                                className="w-full text-xs text-slate-500 hover:text-white transition-colors font-bold mt-2"
+                            >
+                                Back to options
+                            </button>
                         </div>
-                        
-                        <div className="space-y-4">
-                            <input 
-                                type="text"
-                                required
-                                autoFocus
-                                maxLength={6}
-                                placeholder="000000"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                className="w-full px-5 py-5 text-center text-3xl font-black tracking-[0.5em] rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                            />
-                        </div>
-
-                        {error && <p className="text-xs text-red-500 font-bold text-center">{error}</p>}
-
-                        <button 
-                            type="submit"
-                            disabled={isLoading || code.length < 6}
-                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl shadow-xl shadow-green-500/20 active:scale-95 transition-all text-sm disabled:opacity-50"
-                        >
-                            {isLoading ? "Verifying..." : "Verify & Sign In"}
-                        </button>
-
-                        <button 
-                            type="button"
-                            onClick={() => setStep("email")}
-                            className="w-full text-xs text-slate-500 hover:text-white transition-colors font-bold"
-                        >
-                            Try a different email
-                        </button>
                     </form>
                 )}
             </div>

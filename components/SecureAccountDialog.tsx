@@ -10,20 +10,18 @@ interface SecureAccountDialogProps {
 }
 
 export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProps) {
-  const { user } = useAuth();
+  const { user, signUpWithEmail } = useAuth();
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [isLinking, setIsLinking] = useState(false);
-  const [step, setStep] = useState<'email' | 'code'>('email');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   // Reset states when closed
   useEffect(() => {
     if (!isOpen) {
-        setStep('email');
         setEmail("");
-        setCode("");
+        setPassword("");
         setError(null);
         setSuccess(false);
     }
@@ -31,32 +29,18 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
 
   if (!isOpen || !user) return null;
 
-  const handleSendCode = async () => {
+  const handleSecureAccount = async () => {
     setIsLinking(true);
     setError(null);
     try {
-        await db.auth.sendMagicCode({ email });
-        setStep('code');
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Failed to send code.";
-        setError(message);
-    } finally {
-        setIsLinking(false);
-    }
-  };
-
-  const handleVerify = async () => {
-    setIsLinking(true);
-    setError(null);
-    try {
-        await db.auth.signInWithMagicCode({ email, code });
+        await signUpWithEmail(email, password);
         setSuccess(true);
         setTimeout(() => {
             onClose();
             window.location.reload();
         }, 1500);
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Code failed. Try again.";
+        const message = err instanceof Error ? err.message : "Failed to secure account. Try again.";
         setError(message);
     } finally {
         setIsLinking(false);
@@ -79,27 +63,25 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
             {/* Header Icon */}
             <div className="h-16 w-16 rounded-3xl bg-red-600/10 flex items-center justify-center">
                 <span className="material-symbols-outlined text-3xl text-red-500 font-bold">
-                    {success ? 'verified' : step === 'email' ? 'shield_person' : 'mark_email_read'}
+                    {success ? 'verified' : 'shield_person'}
                 </span>
             </div>
 
             <div className="space-y-2">
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">
-                    {success ? "Account Secured!" : step === 'email' ? "Secure Your Account" : "Verify Your Email"}
+                    {success ? "Account Secured!" : "Secure Your Account"}
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-[#929bc9] font-medium leading-relaxed">
                     {success 
                         ? "Great! Your projects are now tied to your email and accessible from anywhere."
-                        : step === 'email' 
-                            ? "Save your free video and sync projects across devices. We'll send a quick magic code." 
-                            : `Enter the 6-digit code we sent to ${email}`}
+                        : "Save your free video and sync projects across devices by adding a password."}
                 </p>
             </div>
 
             <div className="w-full space-y-4 pt-2">
-                {step === 'email' && !success && (
+                {!success && (
                     <div className="space-y-4">
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                             <input 
                                 type="email"
                                 placeholder="name@example.com"
@@ -107,46 +89,23 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
                             />
+                            <input 
+                                type="password"
+                                placeholder="Create a password"
+                                value={password}
+                                minLength={6}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
+                            />
                         </div>
                         {error && <p className="text-[10px] text-red-500 font-bold text-left px-1">{error}</p>}
                         <button
-                            disabled={isLinking || !email}
-                            onClick={handleSendCode}
+                            disabled={isLinking || !email || password.length < 6}
+                            onClick={handleSecureAccount}
                             className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 transition-all text-sm disabled:opacity-50"
                         >
-                            {isLinking ? "Sending Magic Code..." : "Send Magic Code"}
+                            {isLinking ? "Securing Account..." : "Secure Account"}
                         </button>
-                    </div>
-                )}
-
-                {step === 'code' && !success && (
-                    <div className="space-y-6">
-                        <div className="space-y-2">
-                            <input 
-                                type="text"
-                                placeholder="000000"
-                                maxLength={6}
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                className="w-full px-5 py-4 text-center text-2xl font-black tracking-[0.5em] rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
-                            />
-                        </div>
-                        {error && <p className="text-[10px] text-red-500 font-bold text-center">{error}</p>}
-                        <div className="flex flex-col gap-3">
-                            <button
-                                disabled={isLinking || code.length < 6}
-                                onClick={handleVerify}
-                                className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl shadow-xl shadow-green-500/20 active:scale-95 transition-all text-sm disabled:opacity-50"
-                            >
-                                {isLinking ? "Verifying..." : "Secure Account"}
-                            </button>
-                            <button 
-                                onClick={() => setStep('email')}
-                                className="text-xs text-slate-400 hover:text-white transition-colors font-bold"
-                            >
-                                Wrong email? Try again
-                            </button>
-                        </div>
                     </div>
                 )}
 
