@@ -217,31 +217,43 @@ class TransactionBuilder {
           get(_, docId: string) {
             return {
               update: (data: any) => {
-                const op: TransactionOperation = {
+                const op: any = {
                   collection: prop,
                   id: docId,
                   action: 'update',
                   data,
                 };
+                op.link = (linkData: any) => {
+                  op.data = { ...op.data, ...linkData };
+                  return op;
+                };
+                op.unlink = () => op;
                 target.operations.push(op);
                 return op;
               },
               set: (data: any) => {
-                const op: TransactionOperation = {
+                const op: any = {
                   collection: prop,
                   id: docId,
                   action: 'set',
                   data,
                 };
+                op.link = (linkData: any) => {
+                  op.data = { ...op.data, ...linkData };
+                  return op;
+                };
+                op.unlink = () => op;
                 target.operations.push(op);
                 return op;
               },
               delete: () => {
-                const op: TransactionOperation = {
+                const op: any = {
                   collection: prop,
                   id: docId,
                   action: 'delete',
                 };
+                op.link = () => op;
+                op.unlink = () => op;
                 target.operations.push(op);
                 return op;
               },
@@ -252,9 +264,20 @@ class TransactionBuilder {
                     // This is a naive implementation of linking
                     lastOp.data = { ...lastOp.data, ...linkData };
                 }
-                return { unlink: () => {} };
+                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: linkData };
+                proxyOp.unlink = () => proxyOp;
+                proxyOp.link = (moreLinkData: any) => {
+                    proxyOp.data = { ...proxyOp.data, ...moreLinkData };
+                    return proxyOp;
+                };
+                return proxyOp;
               },
-              unlink: () => ({ link: () => {} })
+              unlink: () => {
+                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: {} };
+                proxyOp.link = () => proxyOp;
+                proxyOp.unlink = () => proxyOp;
+                return proxyOp;
+              }
             };
           }
         });
