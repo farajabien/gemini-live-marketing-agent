@@ -324,8 +324,8 @@ curl http://localhost:3000/api/admin/create-test-user \
    - B-roll clips generate in background (2-5 minutes per clip)
    - Progress shown on success screen
 6. **Verify assets**:
-   - Check that `videoClipUrl` fields are populated in database
-   - Verify clips are stored in InstantDB storage under `broll/${planId}/${index}.mp4`
+   - Check that `videoClipUrl` fields are populated in Firestore
+   - Verify clips are accessible via their storage URLs
 7. **Generate final video**: Should use clip concatenation pipeline
 8. **Download & verify**: Video should have smooth motion (no static images)
 
