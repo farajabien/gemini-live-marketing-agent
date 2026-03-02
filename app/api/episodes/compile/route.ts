@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb, id } from "@/lib/instant-admin";
+import { adminDb, id } from "@/lib/firebase-admin";
 import type { Scene, VideoPlanStatus, EpisodeStatus } from "@/lib/types";
 
 /**

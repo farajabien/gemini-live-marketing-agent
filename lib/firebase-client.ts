@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Firebase Client Wrapper
  *

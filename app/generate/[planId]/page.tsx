@@ -1,6 +1,6 @@
 import { PlanReviewScreen } from "@/components/screens/PlanReviewScreen";
 import { GenerateScreenSkeleton } from "@/components/screens/GenerateScreenSkeleton";
-import { adminDb } from "@/lib/instant-admin";
+import { adminDb } from "@/lib/firebase-admin";
 
 export default async function GenerateWithPlanPage({ 
   params 

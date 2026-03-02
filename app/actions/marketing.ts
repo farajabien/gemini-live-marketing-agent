@@ -1,6 +1,6 @@
 "use server";
 
-import { adminDb, id } from "@/lib/instant-admin";
+import { adminDb, generateId as id } from "@/lib/firebase-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
 import { analyzeNarrative, analyzeStoryNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "@/lib/ai/gemini-client";
 import type { SeriesMetadata } from "@/lib/types";
-import { adminDb } from "@/lib/instant-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { withRetry } from "@/lib/ai/retry";
 import { sanitizeJson } from "@/lib/ai/json-utils";
 

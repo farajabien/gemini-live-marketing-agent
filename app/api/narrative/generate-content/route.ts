@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { generateText } from "@/lib/ai/gemini-client";
-import { adminDb } from "@/lib/instant-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { withRetry } from "@/lib/ai/retry";
 
 const GENERATE_CONTENT_PROMPT = (

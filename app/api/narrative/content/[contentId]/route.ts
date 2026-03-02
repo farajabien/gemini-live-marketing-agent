@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/instant-admin";
+import { adminDb } from "@/lib/firebase-admin";
 
 // PATCH /api/narrative/content/[contentId] - Update content piece status
 export async function PATCH(

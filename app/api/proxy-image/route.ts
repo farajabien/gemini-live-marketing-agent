@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb as db } from "@/lib/instant-admin";
+import { adminDb as db } from "@/lib/firebase-admin";
 
 const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
 

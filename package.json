@@ -19,19 +19,17 @@
     "@giphy/js-fetch-api": "^5.7.0",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/genai": "^1.39.0",
-    "@instantdb/admin": "^0.22.119",
-    "@instantdb/react": "^0.22.119",
     "@paypal/checkout-server-sdk": "^1.0.3",
     "@paypal/react-paypal-js": "^8.9.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
-    "@remotion/bundler": "^4.0.419",
-    "@remotion/cli": "^4.0.419",
-    "@remotion/compositor-darwin-arm64": "^4.0.419",
-    "@remotion/google-fonts": "^4.0.419",
-    "@remotion/lambda": "4.0.420",
-    "@remotion/media": "4.0.419",
-    "@remotion/renderer": "^4.0.419",
+    "@remotion/bundler": "4.0.428",
+    "@remotion/cli": "4.0.428",
+    "@remotion/compositor-darwin-arm64": "4.0.428",
+    "@remotion/google-fonts": "4.0.428",
+    "@remotion/lambda": "4.0.428",
+    "@remotion/media": "4.0.428",
+    "@remotion/renderer": "4.0.428",
     "@types/paypal__checkout-server-sdk": "^1.0.8",
     "ai": "^6.0.105",
     "bcryptjs": "^3.0.3",
@@ -55,10 +53,10 @@
     "react-dom": "19.2.3",
     "react-firebase-hooks": "^5.1.1",
     "react-use": "^17.6.0",
-    "remotion": "^4.0.419",
+    "remotion": "4.0.428",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "zod": "3.22.3",
+    "zod": "^3.24.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -82,5 +80,10 @@
   "packageManager": "pnpm@9.12.3+sha512.cce0f9de9c5a7c95bef944169cc5dfe8741abfb145078c0d508b868056848a87c81e626246cb60967cbd7fd29a6c062ef73ff840d96b3c86c40ac92cf4a813ee",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "overrides": {
+      "zod": "^3.24.0"
+    }
   }
 }

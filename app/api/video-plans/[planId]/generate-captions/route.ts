@@ -1,4 +1,4 @@
-import { adminDb } from "@/lib/instant-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { generateSocialMetadata } from "@/lib/marketing/social-gen";
 import { NextResponse } from "next/server";
 

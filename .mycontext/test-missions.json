@@ -1,0 +1,301 @@
+{
+  "version": "1.0.0",
+  "createdAt": "2026-03-02T10:33:52.179Z",
+  "updatedAt": "2026-03-02T13:45:04.373Z",
+  "missions": [
+    {
+      "id": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+      "name": "CyniToast Business Narrative",
+      "description": "User navigates to /narrative/new/business, fills out the CyniToast narrative wizard, refines the solution with AI, and registers a new account to save it.",
+      "mission": "User navigates to /narrative/new/business, fills out the CyniToast narrative wizard, refines the solution with AI, and registers a new account to save it.",
+      "expectedOutcome": "User reaches the final step, refines text with AI successfully, and the Auth Choice Dialog appears upon submission.",
+      "validationRules": [],
+      "tags": [
+        "vision-test"
+      ],
+      "createdAt": "2026-03-02T10:33:52.181Z",
+      "updatedAt": "2026-03-02T10:33:52.181Z"
+    },
+    {
+      "id": "46c0ba99-ea8a-44b1-a3ca-72196bac2bc3",
+      "name": "Check Landing Page",
+      "description": "Navigate to the home page and verify the header is visible",
+      "mission": "Navigate to the home page and verify the header is visible",
+      "expectedOutcome": "The landing page is displayed with the main headline",
+      "validationRules": [],
+      "tags": [
+        "vision-test"
+      ],
+      "createdAt": "2026-03-02T12:45:51.873Z",
+      "updatedAt": "2026-03-02T12:45:51.873Z"
+    },
+    {
+      "id": "16679517-34f0-4788-a75e-16295794f7e3",
+      "name": "Landing Page Test",
+      "description": "Verify that 'Marketing Agent' text is present in the hero section",
+      "mission": "Verify that 'Marketing Agent' text is present in the hero section",
+      "expectedOutcome": "The text 'Marketing Agent' should be clearly visible",
+      "validationRules": [],
+      "tags": [
+        "vision-test"
+      ],
+      "createdAt": "2026-03-02T13:44:34.103Z",
+      "updatedAt": "2026-03-02T13:44:34.103Z"
+    }
+  ],
+  "executionHistory": [
+    {
+      "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+      "executions": [
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "871605dd-2c12-47f3-a848-634d384b309b",
+          "status": "failed",
+          "startedAt": "2026-03-02T10:35:35.669Z",
+          "completedAt": "2026-03-02T10:35:53.107Z",
+          "duration": 17438,
+          "steps": [
+            {
+              "id": "f43367c6-92f2-49c7-adb8-2925ff376578",
+              "order": 0,
+              "action": "REJECTED: wait",
+              "intent": "Waiting for the build error to be resolved.",
+              "timestamp": "2026-03-02T10:35:53.102Z",
+              "success": false,
+              "error": "Gravity intervention: Action doesn't align with Prime Objective",
+              "visionDecision": {
+                "action": "wait",
+                "confidence": 100,
+                "reasoning": "The page is displaying a build error, which prevents me from interacting with the application as intended. I need to wait for the error to be resolved before proceeding with the mission.",
+                "visualContext": "A build error message is displayed on the screen.",
+                "targetElement": {
+                  "description": "Error message",
+                  "visualCoordinates": {
+                    "x": 499,
+                    "y": 499
+                  },
+                  "domSelector": null,
+                  "confidence": 100
+                },
+                "value": null,
+                "url": null,
+                "intent": "Waiting for the build error to be resolved.",
+                "alignsWithPrimeObjective": false,
+                "gravityScore": 0
+              }
+            }
+          ],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "visualSummary": {
+            "totalScreenshots": 0,
+            "visualRegressionsDetected": 0,
+            "colorSchemeMatches": true,
+            "layoutMatches": true
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "5c744eae-bf59-41bd-97c6-0a869b22342d",
+          "status": "error",
+          "startedAt": "2026-03-02T10:56:02.470Z",
+          "completedAt": "2026-03-02T10:56:47.963Z",
+          "duration": 45493,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "error": {
+            "message": "Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.",
+            "stack": "Error: Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.\n    at VisionElementFinder.decideNextAction (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:232:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:78:34)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "ebcbe20f-9b27-4cc5-8823-3d00b8e36765",
+          "status": "failed",
+          "startedAt": "2026-03-02T11:18:36.033Z",
+          "completedAt": "2026-03-02T11:19:18.728Z",
+          "duration": 42695,
+          "steps": [
+            {
+              "id": "676c394d-ae13-4e6a-b3db-903e2d31264d",
+              "order": 0,
+              "action": "navigate: Start Your Marketing Engine",
+              "intent": "Navigate to the narrative creation page.",
+              "timestamp": "2026-03-02T11:18:48.355Z",
+              "success": false,
+              "visionDecision": {
+                "action": "navigate",
+                "confidence": 100,
+                "reasoning": "The current page is the landing page. To start the mission, the user needs to navigate to the /narrative/new/business URL.",
+                "visualContext": "The page is a landing page.",
+                "targetElement": {
+                  "description": "Start Your Marketing Engine",
+                  "visualCoordinates": {
+                    "x": 271,
+                    "y": 104
+                  },
+                  "domSelector": "a[href='/narrative/new']",
+                  "confidence": 95
+                },
+                "value": null,
+                "url": "http://localhost:3000/narrative/new",
+                "intent": "Navigate to the narrative creation page.",
+                "alignsWithPrimeObjective": true,
+                "gravityScore": 100
+              },
+              "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/narrative/new\", waiting until \"load\"\u001b[22m\n"
+            }
+          ],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "visualSummary": {
+            "totalScreenshots": 0,
+            "visualRegressionsDetected": 0,
+            "colorSchemeMatches": true,
+            "layoutMatches": true
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "8f233965-7fbc-4a78-9045-44a86fc917ab",
+          "status": "error",
+          "startedAt": "2026-03-02T11:21:43.101Z",
+          "completedAt": "2026-03-02T11:27:06.753Z",
+          "duration": 323652,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/narrative/new/business"
+          },
+          "error": {
+            "message": "page.screenshot: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n",
+            "stack": "page.screenshot: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\n    at VisionElementFinder.takeScreenshot (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:289:20)\n    at VisionElementFinder.analyzePage (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:61:43)\n    at VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:73:62)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "b960b067-cd9c-4f5b-b702-b4b724c7119d",
+          "status": "error",
+          "startedAt": "2026-03-02T12:40:34.764Z",
+          "completedAt": "2026-03-02T12:41:01.772Z",
+          "duration": 27008,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/narrative/new"
+          },
+          "error": {
+            "message": "Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.",
+            "stack": "Error: Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.\n    at VisionElementFinder.decideNextAction (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:232:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:78:34)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "eb780a27-d8b5-42f2-9629-6ec0a92f5f08",
+          "status": "error",
+          "startedAt": "2026-03-02T12:41:57.943Z",
+          "completedAt": "2026-03-02T12:42:07.602Z",
+          "duration": 9659,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "error": {
+            "message": "Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.",
+            "stack": "Error: Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.\n    at VisionElementFinder.decideNextAction (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:232:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:78:34)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "31f43b18-e851-48dd-ad26-24cfec2de195",
+          "status": "error",
+          "startedAt": "2026-03-02T12:44:52.220Z",
+          "completedAt": "2026-03-02T12:45:00.486Z",
+          "duration": 8266,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "error": {
+            "message": "Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.",
+            "stack": "Error: Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.\n    at VisionElementFinder.decideNextAction (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:232:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:78:34)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        },
+        {
+          "missionId": "3f99205a-1c83-4240-9a83-ff5739eaaba8",
+          "executionId": "7d3bb06a-9b29-438a-a06e-a33f53e6c50b",
+          "status": "error",
+          "startedAt": "2026-03-02T13:26:13.891Z",
+          "completedAt": "2026-03-02T13:26:35.981Z",
+          "duration": 22090,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/narrative/new"
+          },
+          "error": {
+            "message": "Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.",
+            "stack": "Error: Failed to decide next action: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.\n    at VisionElementFinder.decideNextAction (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/services/vision-element-finder.js:232:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async VisionNavigatorAgent.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionNavigatorAgent.js:78:34)\n    at async SubAgentOrchestrator.executeAgent (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/orchestrator/SubAgentOrchestrator.js:55:28)\n    at async VisionTestCoordinator.run (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/agents/implementations/VisionTestCoordinator.js:120:38)\n    at async VisionTestRunner.runTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/mcp/vision-test-runner.js:104:39)\n    at async VisionTestCommand.runVisionTest (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:56:24)\n    at async Command.<anonymous> (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/apps/cli/dist/commands/vision-test.js:287:9)\n    at async Command.parseAsync (/Users/farajabien/Desktop/ahh work/personal/mycontext-cli/node_modules/.pnpm/commander@11.1.0/node_modules/commander/lib/command.js:936:5)"
+          }
+        }
+      ]
+    },
+    {
+      "missionId": "46c0ba99-ea8a-44b1-a3ca-72196bac2bc3",
+      "executions": [
+        {
+          "missionId": "46c0ba99-ea8a-44b1-a3ca-72196bac2bc3",
+          "executionId": "b7464f77-ef4b-41ef-a220-69c7388c75eb",
+          "status": "passed",
+          "startedAt": "2026-03-02T13:25:45.813Z",
+          "completedAt": "2026-03-02T13:25:55.722Z",
+          "duration": 9909,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "visualSummary": {
+            "totalScreenshots": 0,
+            "visualRegressionsDetected": 0,
+            "colorSchemeMatches": true,
+            "layoutMatches": true
+          }
+        }
+      ]
+    },
+    {
+      "missionId": "16679517-34f0-4788-a75e-16295794f7e3",
+      "executions": [
+        {
+          "missionId": "16679517-34f0-4788-a75e-16295794f7e3",
+          "executionId": "82fa88c3-e932-441f-bb5a-213b71f33e3f",
+          "status": "passed",
+          "startedAt": "2026-03-02T13:44:46.924Z",
+          "completedAt": "2026-03-02T13:45:04.271Z",
+          "duration": 17347,
+          "steps": [],
+          "validationResults": [],
+          "finalState": {
+            "url": "http://localhost:3000/"
+          },
+          "visualSummary": {
+            "totalScreenshots": 0,
+            "visualRegressionsDetected": 0,
+            "colorSchemeMatches": true,
+            "layoutMatches": true
+          }
+        }
+      ]
+    }
+  ]
+}
