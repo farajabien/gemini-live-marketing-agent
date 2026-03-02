@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { capturePayPalPayment } from "@/lib/paypal";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { getErrorMessage } from "@/lib/types";
 
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,8 +24,8 @@ export async function POST(request: NextRequest) {
       console.log(`Payment successful, upgrading user to ${tierName}...`);
       
       // Update User Plan in DB with the specified tier
-      await db.transact([
-        db.tx.$users[userId].update({ planId: tier })
+      await adminDb.transact([
+        adminDb.tx.$users[userId].update({ planId: tier })
       ]);
 
       return NextResponse.json({ success: true });

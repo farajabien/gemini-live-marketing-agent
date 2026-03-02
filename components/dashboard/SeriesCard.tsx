@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import type { Series } from "@/lib/types";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import Link from "next/link";
 
 interface SeriesCardProps {

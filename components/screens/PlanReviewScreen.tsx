@@ -4,7 +4,7 @@ import { Header } from "@/components/Header";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { getFileUrl } from "@/lib/instantdb-storage";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";

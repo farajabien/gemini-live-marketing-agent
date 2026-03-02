@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { getErrorMessage } from "@/lib/types";
 
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "change-this-in-production";
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 /**
  * Admin endpoint to create test users with specific plan tiers
@@ -46,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUsers = await db.query({
+    const existingUsers = await adminDb.query({
       $users: {
         $: {
           where: { email }
@@ -59,8 +53,8 @@ export async function POST(request: NextRequest) {
       
       // Update existing user's plan if specified
       if (planId) {
-        await db.transact([
-          db.tx.$users[existingUser.id].update({ planId })
+        await adminDb.transact([
+          adminDb.tx.$users[existingUser.id].update({ planId })
         ]);
         
         return NextResponse.json({ 
@@ -84,8 +78,8 @@ export async function POST(request: NextRequest) {
     // For test purposes, we'll create a user record directly
     const userId = crypto.randomUUID();
     
-    await db.transact([
-      db.tx.$users[userId].update({
+    await adminDb.transact([
+      adminDb.tx.$users[userId].update({
         email,
         displayName: displayName || email.split("@")[0],
         planId: planId || "free",
@@ -126,7 +120,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const users = await db.query({
+    const users = await adminDb.query({
       $users: {}
     });
 

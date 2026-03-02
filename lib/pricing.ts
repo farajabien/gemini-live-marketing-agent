@@ -56,12 +56,12 @@ export const PRICING_TIERS = {
 };
 
 export const PLAN_LIMITS = {
-  free: 1,
-  pro: 20,
-  pro_max: 20,
+  free: 100, // Hackathon Mode: High limits for everyone
+  pro: 100,
+  pro_max: 100,
 };
 
-export const DEFAULT_TIER = PRICING_TIERS.FREE;
+export const DEFAULT_TIER = PRICING_TIERS.PRO_MAX;
 
 
 export function getTierConfig(tierId?: string) {

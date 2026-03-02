@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 /**
  * GET /api/video-plans/[planId]
@@ -27,7 +21,7 @@ export async function GET(
     const token = authHeader.split(" ")[1];
 
     // Verify the token with InstantDB
-    const authUser = await db.auth.verifyToken(token);
+    const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
@@ -35,7 +29,7 @@ export async function GET(
     const userId = authUser.id;
 
     // Fetch the plan and check ownership
-    const result = await db.query({
+    const result = await adminDb.query({
       videoPlans: {
         $: {
           where: {

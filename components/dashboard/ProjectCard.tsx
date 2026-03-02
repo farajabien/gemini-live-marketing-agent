@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import type { VideoPlan } from "@/lib/types";
 import Image from "next/image";
 

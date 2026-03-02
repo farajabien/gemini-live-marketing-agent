@@ -102,12 +102,12 @@ export function CreateSeriesScreen() {
 
   const examplePrompts = [
     {
-      title: "Alien Discovers Earth",
-      prompt: "Create a 3-episode series about an alien discovering Earth for the first time.\\n\\nEpisode 1: The alien spots Earth from space and decides to visit\\nEpisode 2: Landing on Earth and exploring the first city\\nEpisode 3: Making first contact with humans\\n\\nStyle: Flat 2D illustration, colorful, educational\\nTone: Curious and friendly\\nDuration: ~60 seconds per episode"
+      title: "Zog's Galactic Hackathon",
+      prompt: "Create a 3-episode series about Zog, an alien who attends a Silicon Valley hackathon.\\n\\nEpisode 1: Zog lands in San Francisco and enters the hackathon wearing a hoodie.\\nEpisode 2: Zog uses 'Alien Intelligence' to build a telepathic marketing agent while humans struggle with API keys.\\nEpisode 3: Zog wins the grand prize but is disappointed it's a MacBook instead of iridium.\\n\\nStyle: Sci-fi cinematic, vibrant neon lighting, high-tech alien UI overlays\\nTone: Humorous and disruptive"
     },
     {
-      title: "Building in Public",
-      prompt: "Create a 5-episode series documenting a founder's journey building a SaaS product.\\n\\nEpisode 1: The problem and initial idea\\nEpisode 2: First prototype and user feedback\\nEpisode 3: Pivoting based on insights\\nEpisode 4: First paying customers\\nEpisode 5: Scaling to 100 users\\n\\nStyle: Motion graphics, founder POV\\nTone: Authentic and motivational"
+      title: "CyniToast: Founder Narrative",
+      prompt: "Create a 5-episode series for 'CyniToast'—a breakfast delivery service with cynical news updates.\\n\\nEpisode 1: The founder's frustration with 'toxic positivity' and birth of the idea.\\nEpisode 2: Perfecting the existential sourdough recipe.\\nEpisode 3: Integrating the cynical AI news engine.\\nEpisode 4: Reaching 100 grumpy but satisfied subscribers.\\nEpisode 5: The future of breakfast in a cynical world.\\n\\nStyle: Premium dark aesthetic, moody food photography, minimalist typography\\nTone: Sardonic and premium"
     },
   ];
 

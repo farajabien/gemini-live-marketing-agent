@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import type { Scene, VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 import { wrapWithStyleConstraint } from "@/lib/constants";
 import { withRetry } from "@/lib/ai/retry";
 
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 
-if (!APP_ID || !ADMIN_TOKEN) {
-  console.warn("InstantDB credentials not configured during build - will be required at runtime");
-}
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +21,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.split(" ")[1];
 
     // Verify the token with InstantDB
-    const authUser = await db.auth.verifyToken(token);
+    const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
@@ -40,7 +31,7 @@ export async function POST(request: NextRequest) {
     console.log(`Generating visuals for plan: ${planId} (requested by ${userId})`);
 
     // Fetch Plan using Admin SDK
-    const queryResult = await db.query({
+    const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
         owner: {},
@@ -140,7 +131,7 @@ async function generateGiphyVisuals(plan: VideoPlanWithOwner, planId: string) {
           scene.imageUrl = results[0].url;
 
           // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
-          await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
+          await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
           console.log(`✅ Giphy found for scene ${index}: ${results[0].id}`);
       } else {
           console.warn(`⚠️ No Giphy found for: "${scene.visualPrompt}"`);
@@ -276,9 +267,9 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
 
     console.log(`[Gemini] Uploading ${logPrefix}, buffer size: ${buffer.length} bytes`);
 
-    const adminDb = db as { storage?: { uploadFile: (fileName: string, buffer: Buffer, options: { contentType: string }) => Promise<unknown> } };
-    if (adminDb.storage && adminDb.storage.uploadFile) {
-      await adminDb.storage.uploadFile(fileName, buffer, { contentType: "image/png" });
+    const storageDb = adminDb as { storage?: { uploadFile: (fileName: string, buffer: Buffer, options: { contentType: string }) => Promise<unknown> } };
+    if (storageDb.storage && storageDb.storage.uploadFile) {
+      await storageDb.storage.uploadFile(fileName, buffer, { contentType: "image/png" });
       console.log(`✅ Uploaded ${logPrefix} successfully`);
     } else {
       throw new Error("InstantDB Admin SDK storage.uploadFile not found");
@@ -329,7 +320,7 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
   // Save all updates in a single transaction
   if (successCount > 0) {
     // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
-    await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
+    await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
     console.log(`✅ Saved ${successCount}/${visualsToGenerate.length} images to database (video cache invalidated)`);
   }
 
@@ -383,7 +374,7 @@ async function generateBRollClips(plan: VideoPlanWithOwner, planId: string) {
 
       scene.operationId = operation.name;
       // IMPORTANT: Clear videoUrl to invalidate cache (scenes changed)
-      await db.transact([db.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
+      await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes, videoUrl: null })]);
 
       console.log(`Veo operation started for scene ${index}: ${operation.name}`);
     } catch (err: unknown) {

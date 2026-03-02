@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import type { Scene, VideoPlanWithOwner, VoiceTone } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 import { enhanceWithSSMLPauses, getTTSSettingsForTone, tidyPunctuation } from "@/lib/ai/verbatim";
 import { generateGeminiTTS, GeminiVoiceName } from "@/lib/ai/gemini-tts";
 import { withRetry } from "@/lib/ai/retry";
 
-// Initialize Admin SDK
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
-if (!APP_ID || !ADMIN_TOKEN) {
-  console.warn("InstantDB credentials not configured during build - will be required at runtime");
-}
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 // Default voice if none specified
 const DEFAULT_VOICE_ID = "Zephyr"; // Gemini Woman Voice
@@ -41,7 +31,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Verify the token with InstantDB
-    const authUser = await db.auth.verifyToken(token);
+    const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
@@ -56,7 +46,7 @@ export async function POST(request: NextRequest) {
     console.log(`Generating audio for plan: ${planId} (requested by ${userId})`);
 
     // Fetch Plan using Admin SDK
-    const queryResult = await db.query({
+    const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
         owner: {},
@@ -143,9 +133,9 @@ export async function POST(request: NextRequest) {
         // --- 1. CHECK CACHE IN STORAGE ---
         let cachedUrl: string | null = null;
         try {
-           const adminDb = db as unknown as { storage?: { getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
-           if (adminDb.storage && adminDb.storage.getDownloadUrl) {
-               const result = await adminDb.storage.getDownloadUrl(cacheFileName);
+           const storageDb = adminDb as unknown as { storage?: { getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
+           if (storageDb.storage && storageDb.storage.getDownloadUrl) {
+               const result = await storageDb.storage.getDownloadUrl(cacheFileName);
                if (result) {
                    const urlResult = typeof result === 'string' ? result : (result.url || result.data || result.signedUrl || null);
                    cachedUrl = urlResult || null;
@@ -209,13 +199,13 @@ export async function POST(request: NextRequest) {
 
         // --- 2. UPLOAD TO STORAGE FOR PERSISTENCE ---
         try {
-            const adminDb = db as unknown as { storage?: { uploadFile: (path: string, buffer: Buffer, options: { contentType: string }) => Promise<unknown>; getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
-            if (adminDb.storage && adminDb.storage.uploadFile) {
+            const storageDb = adminDb as unknown as { storage?: { uploadFile: (path: string, buffer: Buffer, options: { contentType: string }) => Promise<unknown>; getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
+            if (storageDb.storage && storageDb.storage.uploadFile) {
                 const contentType = "audio/wav";
                 console.log(`[Audio ${index}] Uploading to cache: ${cacheFileName}`);
-                await adminDb.storage.uploadFile(cacheFileName, buffer, { contentType });
-                
-                const cacheResult = await adminDb.storage.getDownloadUrl(cacheFileName);
+                await storageDb.storage.uploadFile(cacheFileName, buffer, { contentType });
+
+                const cacheResult = await storageDb.storage.getDownloadUrl(cacheFileName);
                 const newCachedUrl = typeof cacheResult === 'string' ? cacheResult : (cacheResult?.url || cacheResult?.data || cacheResult?.signedUrl || null);
                 
                 if (newCachedUrl) {
@@ -307,8 +297,8 @@ export async function POST(request: NextRequest) {
     if (hasUpdates || allAudioDone) {
       const newStatus = allAudioDone ? "audio_ready" : "generating_audio";
       
-      await db.transact([
-          db.tx.videoPlans[planId].update({ 
+      await adminDb.transact([
+          adminDb.tx.videoPlans[planId].update({ 
               scenes: updatedScenes,
               status: newStatus
             })

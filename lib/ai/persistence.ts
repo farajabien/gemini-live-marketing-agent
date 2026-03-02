@@ -1,13 +1,13 @@
 
-import { id, tx } from "@instantdb/react";
 import { VideoPlan } from "@/lib/types";
 import { autoTagContent, type ContentTags } from "@/lib/marketing/content-tagging";
+import { serverDb, generateId, FieldValue } from "@/lib/firebase-admin";
 
 // Re-export id for use in components
-export { id };
+export { generateId as id };
 
 /**
- * Save a generated video plan to InstantDB and increment generation counters
+ * Save a generated video plan to Firebase and increment generation counters
  * Now includes auto-tagging for content intelligence
  */
 export async function saveVideoPlan(
@@ -18,7 +18,7 @@ export async function saveVideoPlan(
   narrativeAngles?: any,
   sourceContentPieceId?: string
 ) {
-  const planId = planIdArg || id();
+  const planId = planIdArg || generateId();
 
   // Calculate duration safely - ensure it's always a number
   const calculatedDuration = typeof plan.duration === 'number' ? plan.duration :
@@ -34,14 +34,14 @@ export async function saveVideoPlan(
     // Continue without tags
   }
 
-  // Create the plan, link to user, and increment generation counters
-  const planTx = tx.videoPlans[planId].update({
+  const videoPlanData = {
     title: plan.title,
     tone: plan.tone,
     scenes: plan.scenes,
     type: plan.type,
     status: "pending",
     createdAt: Date.now(),
+    userId,
     // Optional fields
     ...(plan.thumbnailPrompt && { thumbnailPrompt: plan.thumbnailPrompt }),
     ...(plan.visualConsistency && { visualConsistency: plan.visualConsistency }),
@@ -66,26 +66,22 @@ export async function saveVideoPlan(
       boosted: false,
       organic: true,
     },
-  }).link({ owner: userId });
+    // Link fields
+    ...(narrativeId && { narrativeId }),
+    ...(sourceContentPieceId && { sourceContentPieceId }),
+  };
 
-  // Link to narrative if provided
-  if (narrativeId) {
-    planTx.link({ narrative: narrativeId });
-  }
+  // Create the video plan
+  await serverDb.collection('videoPlans').doc(planId).set(videoPlanData);
 
-  // Link to source content piece if provided
-  if (sourceContentPieceId) {
-    planTx.link({ sourceContentPiece: sourceContentPieceId });
-  }
+  // Increment generation counters using increment
+  const userRef = serverDb.collection('users').doc(userId);
+  await userRef.set({
+    lifetimeGenerations: FieldValue.increment(1),
+    monthlyGenerations: FieldValue.increment(1),
+  }, { merge: true });
 
-  return [
-    planTx,
-    // Increment generation counters
-    tx.$users[userId].merge({
-      lifetimeGenerations: 1,
-      monthlyGenerations: 1,
-    }),
-  ];
+  return planId;
 }
 
 /**
@@ -101,7 +97,7 @@ export async function saveDraftVideoPlan(
   narrativeAngles?: any,
   sourceContentPieceId?: string
 ) {
-  const planId = planIdArg || id();
+  const planId = planIdArg || generateId();
 
   // Calculate duration safely - ensure it's always a number
   const calculatedDuration = typeof plan.duration === 'number' ? plan.duration :
@@ -117,13 +113,14 @@ export async function saveDraftVideoPlan(
     // Continue without tags
   }
 
-  const planTx = tx.videoPlans[planId].update({
+  const videoPlanData = {
     title: plan.title,
     tone: plan.tone,
     scenes: plan.scenes,
     type: plan.type,
     status: "draft",
     createdAt: Date.now(),
+    userId,
     // Optional fields
     ...(plan.thumbnailPrompt && { thumbnailPrompt: plan.thumbnailPrompt }),
     ...(plan.visualConsistency && { visualConsistency: plan.visualConsistency }),
@@ -151,17 +148,12 @@ export async function saveDraftVideoPlan(
       boosted: false,
       organic: true,
     },
-  }).link({ owner: userId });
+    // Link fields
+    ...(narrativeId && { narrativeId }),
+    ...(sourceContentPieceId && { sourceContentPieceId }),
+  };
 
-  // Link to narrative if provided
-  if (narrativeId) {
-    planTx.link({ narrative: narrativeId });
-  }
+  await serverDb.collection('videoPlans').doc(planId).set(videoPlanData);
 
-  // Link to source content piece if provided
-  if (sourceContentPieceId) {
-    planTx.link({ sourceContentPiece: sourceContentPieceId });
-  }
-
-  return [planTx];
+  return planId;
 }

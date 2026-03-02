@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { canUserGenerate } from "@/lib/pricing";
 import { startOfMonth } from "date-fns";
 import type { Scene, User, VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 import { wrapWithStyleConstraint } from "@/lib/constants";
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!; 
 
-if (!APP_ID || !ADMIN_TOKEN) {
-  console.warn("InstantDB credentials not configured during build - will be required at runtime");
-}
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +17,7 @@ export async function POST(request: NextRequest) {
     console.log(`Generating images for plan: ${planId}`);
 
     // Fetch Plan using Admin SDK
-        const queryResult = await db.query({
+        const queryResult = await adminDb.query({
             videoPlans: {
                 $: { where: { id: planId } },
                 owner: {},
@@ -50,8 +41,8 @@ export async function POST(request: NextRequest) {
         
         if (needsReset) {
             // Reset monthly counter for new month
-            await db.transact([
-                db.tx.$users[owner.id].update({
+            await adminDb.transact([
+                adminDb.tx.$users[owner.id].update({
                     monthlyGenerations: 0,
                     generationResetDate: currentMonthStartUTC,
                 }),
@@ -166,46 +157,12 @@ export async function POST(request: NextRequest) {
                 // Log buffer size
                 console.log(`[Gemini] buffer size for scene ${index}:`, buffer.length);
 
-                let storagePath = "";
-
-                try {
-                     // Create file compatible with FormData
-                     const file = new File([new Uint8Array(buffer)], fileName, { type: 'image/png' });
-
-                     const formData = new FormData();
-                     formData.append('file', file);
-                     formData.append('pathname', fileName);
-
-                     const uploadUrl = `https://api.instantdb.com/admin/storage/upload`;
-                     const res = await fetch(uploadUrl, {
-                         method: 'POST',
-                         headers: {
-                             'Authorization': `Bearer ${ADMIN_TOKEN}`,
-                             'App-Id': APP_ID
-                         },
-                         body: formData
-                     });
-
-                     if (!res.ok) {
-                         const txt = await res.text();
-                         throw new Error(`Upload failed: ${res.status} ${txt}`);
-                     }
-
-                     // Setup for verification
-                     const verifyJson = await res.json();
-                     console.log(`[Parallel] Upload response for scene ${index}:`, verifyJson);
-
-                     storagePath = fileName;
-
-                } catch (uploadErr) {
-                    console.error(`[Parallel] Upload failed for scene ${index}:`, uploadErr);
-                    throw uploadErr;
-                }
-
-
-                // Post-upload fetch check: verify image is available and non-empty
-                const publicUrl = `https://api.instantdb.com/runtime/storage/${APP_ID}/${storagePath}`;
-                let fetchOk = false;
+                // TODO: Migrate to Firebase Storage
+                // Using data URLs temporarily
+                const dataUrl = `data:image/png;base64,${base64Image}`;
+                let storagePath = dataUrl;
+                const publicUrl = dataUrl;
+                let fetchOk = true;
                 for (let checkAttempt = 1; checkAttempt <= 3; checkAttempt++) {
                     try {
                         const resp = await fetch(publicUrl);
@@ -233,8 +190,8 @@ export async function POST(request: NextRequest) {
                 scene.imageUrl = storagePath;
 
                 // SAVE INCREMENTALLY (per scene, for progress visibility)
-                await db.transact([
-                    db.tx.videoPlans[planId].update({ scenes: updatedScenes })
+                await adminDb.transact([
+                    adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })
                 ]);
 
                 console.log(`[Parallel] ✅ Success & Saved: Scene ${index}`);

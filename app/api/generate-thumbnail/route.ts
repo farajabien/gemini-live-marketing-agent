@@ -2,22 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60; // Allow long-running thumbnail generation
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import type { VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 
-// Initialize Admin SDK
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
-if (!APP_ID || !ADMIN_TOKEN) {
-  console.warn("InstantDB credentials not configured during build - will be required at runtime");
-}
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,7 +18,7 @@ export async function POST(req: NextRequest) {
     const token = authHeader.split(" ")[1];
 
     // Verify the token with InstantDB
-    const authUser = await db.auth.verifyToken(token);
+    const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
@@ -44,7 +34,7 @@ export async function POST(req: NextRequest) {
     console.log(`Thumbnail generation requested for plan: ${planId} (requested by ${userId})`);
 
     // 1. Get Plan using Admin SDK
-    const planQuery = await db.query({ 
+    const planQuery = await adminDb.query({ 
       videoPlans: { 
         $: { where: { id: planId } },
         owner: {}
@@ -149,17 +139,17 @@ export async function POST(req: NextRequest) {
         const fileName = `thumbnails/${planId}-${Date.now()}.png`;
 
         // Use Admin SDK for upload
-        const adminDb = db as any;
-        if (adminDb.storage && adminDb.storage.uploadFile) {
-            console.log(`Uploading thumbnail to InstantDB via SDK: ${fileName}`);
-            await adminDb.storage.uploadFile(fileName, buffer, { contentType: contentType });
+        const storageDb = adminDb as any;
+        if (storageDb.storage && storageDb.storage.uploadFile) {
+            console.log(`Uploading thumbnail to storage: ${fileName}`);
+            await storageDb.storage.uploadFile(fileName, buffer, { contentType: contentType });
         } else {
             throw new Error("InstantDB Admin SDK storage.uploadFile not found");
         }
 
       // 6. Update DB with thumbnail storage path
-      await db.transact([
-        db.tx.videoPlans[planId].update({ thumbnailUrl: fileName })
+      await adminDb.transact([
+        adminDb.tx.videoPlans[planId].update({ thumbnailUrl: fileName })
       ]);
 
       console.log("✅ Thumbnail generated and uploaded successfully");

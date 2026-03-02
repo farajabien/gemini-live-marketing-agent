@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import Link from "next/link";
 import { Edit, MoreHorizontal, FileText, CheckCircle2, PlayCircle, ChevronRight, Trash2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";

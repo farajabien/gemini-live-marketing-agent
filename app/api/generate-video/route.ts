@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { init } from "@instantdb/admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { existsSync } from "fs";
 import { unlink, readFile } from "fs/promises";
 import { join } from "path";
@@ -11,18 +11,8 @@ import { getErrorMessage } from "@/lib/types";
 import { renderRemotionVideo } from "@/lib/remotion-renderer";
 import { renderVideoWithFFmpeg, estimateRenderTime } from "@/lib/ffmpeg/renderer";
 
-// Initialize Admin SDK
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
-const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
-if (!APP_ID || !ADMIN_TOKEN) {
-  console.warn("InstantDB credentials not configured during build - will be required at runtime");
-}
 
-const db = init({
-  appId: APP_ID,
-  adminToken: ADMIN_TOKEN,
-});
 
 // Feature flag: Use FFmpeg renderer (default: true)
 // Set to false to use Remotion (legacy)
@@ -40,7 +30,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.split(" ")[1];
 
     // Verify the token with InstantDB
-    const authUser = await db.auth.verifyToken(token);
+    const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
@@ -50,7 +40,7 @@ export async function POST(request: NextRequest) {
     console.log(`[VideoGen Remotion] Generating video for plan: ${planId} (Background: ${background}, Force: ${forceRerender}) (requested by ${userId})`);
     console.time('[VideoGen] Total render pipeline');
 
-    const queryResult = await db.query({
+    const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
         owner: {},
@@ -91,8 +81,8 @@ export async function POST(request: NextRequest) {
         const needsReset = (owner.generationResetDate ?? 0) < currentMonthStartUTC;
         
         if (needsReset) {
-            await db.transact([
-                db.tx.$users[owner.id].update({
+            await adminDb.transact([
+                adminDb.tx.$users[owner.id].update({
                     monthlyGenerations: 0,
                     generationResetDate: currentMonthStartUTC,
                 }),
@@ -145,7 +135,7 @@ export async function POST(request: NextRequest) {
     console.log("[VideoGen] Trusting Remotion's built-in asset loading (no pre-verification needed)");
 
     // Set status to rendering
-    await db.transact([db.tx.videoPlans[planId].update({ status: 'rendering' })]);
+    await adminDb.transact([adminDb.tx.videoPlans[planId].update({ status: 'rendering' })]);
 
     const videoPath = join(tmpdir(), `render-${planId}.mp4`);
 
@@ -207,10 +197,10 @@ export async function POST(request: NextRequest) {
     
     console.log("Uploading rendered video to storage...");
     type AdminStorage = { storage?: { uploadFile?: (path: string, file: Buffer, opts?: { contentType?: string }) => Promise<unknown> } };
-    const adminDb = db as unknown as AdminStorage;
-    
-    if (adminDb.storage?.uploadFile) {
-      await adminDb.storage.uploadFile(fileName, videoBuffer, { contentType: "video/mp4" });
+    const storageDb = adminDb as unknown as AdminStorage;
+
+    if (storageDb.storage?.uploadFile) {
+      await storageDb.storage.uploadFile(fileName, videoBuffer, { contentType: "video/mp4" });
       console.log(`✅ Uploaded video (${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
     } else {
       console.warn("Storage upload unavailable, skipping upload.");
@@ -218,8 +208,8 @@ export async function POST(request: NextRequest) {
     console.timeEnd('[VideoGen] Upload to storage');
 
     // Update DB
-    await db.transact([
-        db.tx.videoPlans[planId].update({ 
+    await adminDb.transact([
+        adminDb.tx.videoPlans[planId].update({ 
             videoUrl: fileName,
             status: 'completed'
         })

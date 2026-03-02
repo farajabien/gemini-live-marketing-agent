@@ -8,8 +8,8 @@ import { preprocessVerbatimScript } from "@/lib/ai/script-preprocessor";
 import { generatePositioningAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/instant-client";
-import { saveVideoPlan, saveDraftVideoPlan, id } from "@/lib/ai/persistence";
-import { tx } from "@instantdb/react";
+import { id } from "@/lib/utils/id";
+import { tx } from "@/lib/firebase-tx";
 import { VoiceSelector } from "@/components/VoiceSelector";
 import { uploadFile, getFileUrl } from "@/lib/instantdb-storage";
 import { Header } from "@/components/Header";
@@ -479,10 +479,25 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
           const selectedNarrative = narratives.find(n => n.id === selectedNarrativeId);
           const narrativeAngles = selectedNarrative?.angles;
 
-          const txns = await saveDraftVideoPlan(user.id, generatedPlan, newPlanId, selectedNarrativeId, narrativeAngles, selectedDraftId);
+          // Save draft via API route
+          const response = await fetch('/api/video-plans/draft', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${refreshToken}`,
+            },
+            body: JSON.stringify({
+              plan: generatedPlan,
+              planId: newPlanId,
+              narrativeId: selectedNarrativeId,
+              narrativeAngles,
+              sourceContentPieceId: selectedDraftId,
+            }),
+          });
 
-          type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-          await (db as DbWithTransact).transact(txns);
+          if (!response.ok) {
+            throw new Error('Failed to save draft');
+          }
 
           setPlanId(newPlanId);
           setAutoSaveStatus("saved");
@@ -536,28 +551,47 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
       const selectedNarrative = narratives.find(n => n.id === selectedNarrativeId);
       const narrativeAngles = selectedNarrative?.angles;
 
-      // If updating existing draft, use update. If new, use saveVideoPlan
-      const txns = planId
-      ? [
-          // Update existing draft to pending and increment counters
+      // If updating existing draft, update via tx. If new, save via API
+      if (planId) {
+        // Update existing draft to pending and increment counters
+        const txns = [
           tx.videoPlans[planId].update({
             status: 'pending',
             ...(plan.type === 'video' && { voiceId: selectedVoiceId, visualMode }),
-          }).link({ narrative: selectedNarrativeId, ...(selectedDraftId ? { sourceContentPiece: selectedDraftId } : {}) }),
+          }),
           // Increment counters (drafts don't increment, so do it now)
           tx.$users[user.id].merge({
             lifetimeGenerations: 1,
             monthlyGenerations: 1,
           }),
-        ]
-      : [
-          ...(await saveVideoPlan(user.id, planWithVoice, finalPlanId, selectedNarrativeId, narrativeAngles, selectedDraftId)),
-          ...(plan.type === 'video' ? [tx.videoPlans[finalPlanId].update({ voiceId: selectedVoiceId, visualMode })] : []),
         ];
 
-      // Type assertion needed because db can be MockDb in E2E tests
-      type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-      await (db as DbWithTransact).transact(txns);
+        // Type assertion needed because db can be MockDb in E2E tests
+        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
+        await (db as DbWithTransact).transact(txns);
+      } else {
+        // Save new video plan via API
+        const response = await fetch('/api/video-plans/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${refreshToken}`,
+          },
+          body: JSON.stringify({
+            plan: planWithVoice,
+            planId: finalPlanId,
+            narrativeId: selectedNarrativeId,
+            narrativeAngles,
+            sourceContentPieceId: selectedDraftId,
+            voiceId: plan.type === 'video' ? selectedVoiceId : undefined,
+            visualMode: plan.type === 'video' ? visualMode : undefined,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save video plan');
+        }
+      }
 
       fetch("/api/generate-visuals", {
         method: "POST",

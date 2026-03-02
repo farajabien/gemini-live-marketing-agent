@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { db, id } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 
 export interface Voice {
   id?: string;

@@ -233,117 +233,12 @@ export default function LandingPage() {
         </div>
 
         {/* Pricing Section */}
+        {/* Pricing Section - Hidden for Hackathon */}
+        {/*
         <section className="py-32 bg-black" id="pricing">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="mb-20 text-center space-y-4">
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white text-center">
-                Start for free, upgrade <br className="hidden md:block"/> when you go viral.
-              </h2>
-              <p className="text-[#929bc9] text-lg max-w-2xl mx-auto font-medium">Clear, transparent pricing for creators of all sizes.</p>
-            </div>
-            
-            <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto mb-20">
-              {tiers.map((tier) => {
-                const isPro = tier.id === "pro";
-                const isProMax = tier.id === "pro_max";
-                return (
-                      <div 
-                        key={tier.id} 
-                        className={`p-10 rounded-[2.5rem] border flex flex-col gap-8 relative transition-all duration-500 hover:translate-y-[-8px] ${
-                          isPro
-                            ? "border-red-600 bg-white/5 shadow-[0_32px_64px_-12px_rgba(220,38,38,0.25)] scale-[1.02]" 
-                            : isProMax
-                            ? "border-orange-500 bg-white/5 shadow-[0_32px_64px_-12px_rgba(249,115,22,0.25)]" 
-                            : "border-white/5 bg-black"
-                        }`}
-                      >
-                    {isPro && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-600 px-5 py-2 rounded-full text-[10px] font-black uppercase text-white tracking-widest leading-none flex h-7 items-center shadow-lg">Most Popular</div>
-                    )}
-                    {isProMax && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-red-600 to-orange-600 px-5 py-2 rounded-full text-[10px] font-black uppercase text-white tracking-widest leading-none flex h-7 items-center shadow-lg">Pro Max</div>
-                    )}
-                    <div>
-                      <h3 className={`text-2xl font-black ${isPro ? "text-red-400" : isProMax ? "text-orange-400" : "text-white"}`}>{tier.name}</h3>
-                      <p className="text-[#929bc9] text-base mt-2 mb-6 font-medium">{tier.description}</p>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black text-white">${tier.price}</span>
-                        {tier.price > 0 && <span className="text-[#929bc9] font-bold">/month</span>}
-                        {tier.price === 0 && <span className="text-[#929bc9] font-bold italic"> forever</span>}
-                      </div>
-                    </div>
-                    <ul className="space-y-4 flex-1">
-                      {tier.features.map((f: string) => (
-                        <li key={f} className="flex gap-3 text-base text-slate-300 font-medium items-center">
-                          <span className={`material-symbols-outlined text-xl font-bold ${isPro ? "text-red-500" : isProMax ? "text-orange-500" : "text-slate-500"}`}>check</span>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <Link
-                      href={
-                        isAuthenticated
-                          ? (tier.id === "free" ? "/dashboard" : "/upgrade")
-                          : "/narrative/new"
-                      }
-                      className={`w-full py-4 rounded-2xl font-black text-center transition-all active:scale-95 ${
-                        isPro
-                          ? "bg-red-600 text-white hover:bg-red-700 shadow-xl shadow-red-900/40"
-                          : isProMax
-                          ? "bg-gradient-to-r from-red-600 to-orange-600 text-white hover:from-red-700 hover:to-orange-700 shadow-xl shadow-orange-900/40"
-                          : "bg-white text-black hover:bg-slate-200"
-                      }`}
-                    >
-                      {tier.id === "free" && !isAuthenticated ? "Start With Narrative Setup" : tier.buttonText}
-                    </Link>
-                    {tier.id === "free" && !isAuthenticated && (
-                      <p className="text-[10px] text-center text-white/30 mt-3 leading-relaxed">
-                        Create your narrative (2 min), then generate 1 video
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Comparison Note */}
-            <div className="max-w-4xl mx-auto p-8 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md mb-20">
-              <h4 className="text-xl font-black text-white mb-4 flex items-center gap-3">
-                <span className="material-symbols-outlined text-red-500 text-2xl">theaters</span>
-                What&apos;s the difference between Pro and Pro Max?
-              </h4>
-              <div className="grid md:grid-cols-2 gap-6 text-slate-300">
-                <div className="space-y-2">
-                  <p className="font-bold text-red-400">Pro — Static Images</p>
-                  <p className="text-sm leading-relaxed">High-quality AI-generated images (2K resolution) for each scene. Perfect for polished educational content and carousels.</p>
-                </div>
-                <div className="space-y-2">
-                  <p className="font-bold text-orange-400">Pro Max — AI B-Roll Clips</p>
-                  <p className="text-sm leading-relaxed">Cinematic video clips (4-8 seconds each) generated by Google Veo 3.1. Adds professional motion and visual storytelling to every scene.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* UPGRADE FAQs */}
-            <div className="mt-32 max-w-3xl mx-auto space-y-12">
-                <div className="text-center space-y-4">
-                    <h3 className="text-3xl font-black text-white">Common Questions</h3>
-                    <p className="text-[#929bc9]">Everything you need to know about the Pro upgrade.</p>
-                </div>
-                <div className="grid gap-6">
-                    {UPGRADE_FAQ.map((item, i) => (
-                        <div key={i} className="p-8 rounded-[2rem] bg-[#050510] border border-white/5 hover:border-white/10 transition-colors group">
-                            <p className="text-white font-black text-lg mb-3 flex items-center gap-3">
-                                <span className="h-6 w-6 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center text-xs">Q</span>
-                                {item.q}
-                            </p>
-                            <p className="text-[#929bc9] text-base leading-relaxed pl-9">{item.a}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-          </div>
+          ...
         </section>
+        */}
 
         {/* Final CTA */}
         <section className="py-32 bg-[#050510] relative overflow-hidden">

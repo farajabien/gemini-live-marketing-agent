@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import { useState, useEffect } from "react";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";

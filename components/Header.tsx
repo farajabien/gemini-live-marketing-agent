@@ -165,12 +165,12 @@ export function Header({ transparent }: HeaderProps) {
                             </>
                         ) : (
                             <>
-                                <Link
+                                {/* <Link
                                     href="/#pricing"
                                     className="text-xs font-bold text-[#929bc9] transition hover:text-white"
                                 >
                                     Pricing
-                                </Link>
+                                </Link> */}
                                 <Link
                                     href="/narrative/new"
                                     className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20"

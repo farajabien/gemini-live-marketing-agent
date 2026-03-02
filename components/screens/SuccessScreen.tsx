@@ -7,7 +7,7 @@ import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/instant-client";
-import { tx } from "@instantdb/react";
+import { tx } from "@/lib/firebase-tx";
 import { toast } from "sonner";
 import { CarouselRenderer } from "@/components/CarouselRenderer";
 import { VideoPreview } from "@/components/VideoPreview";
