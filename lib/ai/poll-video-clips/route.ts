@@ -8,7 +8,7 @@ const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 
 if (!APP_ID || !ADMIN_TOKEN) {
-  throw new Error("Missing InstantDB Environment Variables for Admin SDK");
+  console.warn("InstantDB credentials not configured during build - will be required at runtime");
 }
 
 const db = init({

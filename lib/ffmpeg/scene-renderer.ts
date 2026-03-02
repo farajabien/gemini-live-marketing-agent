@@ -155,7 +155,8 @@ export async function renderScene(
       ];
 
       // Add fade in/out for smoother transitions
-      if (scene.transition === "fade" || !scene.transition) {
+      const transition = (scene as any).transition;
+      if (transition === "fade" || !transition) {
         videoFilter.push(`fade=t=in:st=0:d=0.3`); // Fade in first 0.3s
         videoFilter.push(`fade=t=out:st=${scene.duration - 0.3}:d=0.3`); // Fade out last 0.3s
       }

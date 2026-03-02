@@ -16,7 +16,7 @@ const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
 const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
 if (!APP_ID || !ADMIN_TOKEN) {
-  throw new Error("Missing InstantDB Environment Variables for Admin SDK");
+  console.warn("InstantDB credentials not configured during build - will be required at runtime");
 }
 
 const db = init({
@@ -163,10 +163,15 @@ export async function POST(request: NextRequest) {
         console.log(`[VideoGen] Estimated render time: ${estimate.estimatedSeconds}s (${estimate.cachedScenes} cached, ${estimate.newScenes} new)`);
 
         await renderVideoWithFFmpeg(plan, videoPath, {
+          format: plan.type === "carousel" ? "1:1" : "9:16",
+          resolution: "1080p",
+          fps: 30,
+          videoBitrate: "3M",
+          audioBitrate: "192k",
+          useGPU: true,
           enableCache: true,
           forceRerender: forceRerender,
           cleanupOldCache: true,
-          useGPU: true,
         });
 
         console.timeEnd('[VideoGen] FFmpeg render');

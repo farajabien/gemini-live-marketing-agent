@@ -19,6 +19,8 @@
     "@giphy/js-fetch-api": "^5.7.0",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/genai": "^1.39.0",
+    "@instantdb/admin": "^0.22.119",
+    "@instantdb/react": "^0.22.119",
     "@paypal/checkout-server-sdk": "^1.0.3",
     "@paypal/react-paypal-js": "^8.9.2",
     "@radix-ui/react-dialog": "^1.1.15",

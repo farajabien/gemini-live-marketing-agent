@@ -31,7 +31,7 @@ export function generateSceneHash(scene: Scene, format: "9:16" | "1:1" | "16:9" 
     duration: scene.duration,
     voiceover: scene.voiceover,
     visualPrompt: scene.visualPrompt,
-    transition: scene.transition,
+    transition: (scene as any).transition || "fade",
     format,
   };
 

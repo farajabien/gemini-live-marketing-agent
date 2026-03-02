@@ -11,7 +11,7 @@ const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
 const ADMIN_TOKEN = process.env.INSTANT_APP_ADMIN_TOKEN!;
 
 if (!APP_ID || !ADMIN_TOKEN) {
-  throw new Error("Missing InstantDB Environment Variables for Admin SDK");
+  console.warn("InstantDB credentials not configured during build - will be required at runtime");
 }
 
 const db = init({
