@@ -228,7 +228,6 @@ class TransactionBuilder {
                   return op;
                 };
                 op.unlink = () => op;
-                target.operations.push(op);
                 return op;
               },
               set: (data: any) => {
@@ -243,7 +242,6 @@ class TransactionBuilder {
                   return op;
                 };
                 op.unlink = () => op;
-                target.operations.push(op);
                 return op;
               },
               delete: () => {
@@ -254,16 +252,9 @@ class TransactionBuilder {
                 };
                 op.link = () => op;
                 op.unlink = () => op;
-                target.operations.push(op);
                 return op;
               },
               link: (linkData: any) => {
-                // Link is a special case in InstantDB, for now we just merge it into the last operation's data if it exists
-                const lastOp = target.operations[target.operations.length - 1];
-                if (lastOp && lastOp.id === docId && lastOp.action !== 'delete') {
-                    // This is a naive implementation of linking
-                    lastOp.data = { ...lastOp.data, ...linkData };
-                }
                 const proxyOp: any = { collection: prop, id: docId, action: 'update', data: linkData };
                 proxyOp.unlink = () => proxyOp;
                 proxyOp.link = (moreLinkData: any) => {
@@ -339,10 +330,11 @@ async function getUserById(uid: string) {
  */
 export const adminDb = {
   query: executeQuery,
-  transact: async (operations: any[]) => {
+  transact: async (operations: any | any[]) => {
     const converted: TransactionOperation[] = [];
+    const opsArray = Array.isArray(operations) ? operations : [operations];
 
-    for (const op of operations) {
+    for (const op of opsArray) {
       if (typeof op === 'object' && op !== null && op.collection && op.id) {
         converted.push(op as TransactionOperation);
       }
