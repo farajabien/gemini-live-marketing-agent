@@ -183,7 +183,10 @@ Suggests narrative refinements based on what works
 
 ### Key Files
 
-- **`instant.schema.ts`**: Complete database schema with narratives + videoPlans
+- **`firestore.rules`**: Firebase security rules for all collections
+- **`firestore.indexes.json`**: Composite indexes for optimized queries
+- **`lib/firebase-admin.ts`**: Firebase Admin SDK wrapper for server-side operations
+- **`lib/firebase-client.ts`**: Firebase client wrapper with real-time subscriptions
 - **`lib/marketing/narrative-intelligence.ts`**: AI positioning extraction + angle generation + strength scoring
 - **`lib/marketing/content-tagging.ts`**: Auto-tagging logic for generated content
 - **`lib/ai/persistence.ts`**: Video plan saving with auto-tagging
@@ -195,8 +198,8 @@ Suggests narrative refinements based on what works
 
 ## 🛠 Tech Stack
 
-*   **Frontend**: Next.js 15 (App Router), TailwindCSS, Shadcn UI.
-*   **Database**: InstantDB (Real-time, Client-side + Admin SDK).
+*   **Frontend**: Next.js 16 (App Router), TailwindCSS, Shadcn UI.
+*   **Database**: Firebase Firestore (Real-time database with security rules and composite indexes).
 *   **AI**:
     *   **Text**: Google Gemini (`gemini-2.0-flash`).
     *   **Narrative Intelligence**: Custom pipeline using Gemini for positioning extraction, angle generation, and scoring.
@@ -248,12 +251,26 @@ cp .env.example .env.local
 
 Required environment variables:
 ```env
-# InstantDB Configuration
-NEXT_PUBLIC_INSTANT_APP_ID=your_instant_app_id_here
-INSTANT_APP_ADMIN_TOKEN=your_instant_admin_token_here
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 
-# Google Gemini API (for text, image & voice generation)
+# Firebase Admin SDK
+FIREBASE_ADMIN_PROJECT_ID=your_firebase_project_id
+FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your_project_id.iam.gserviceaccount.com
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+
+# Google Gemini API
 GEMINI_API_KEY=your_gemini_api_key_here
+
+# PayPal Configuration
+PAYPAL_CLIENT_ID=your_paypal_client_id_here
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret_here
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=your_paypal_client_id_here
 ```
 
 **Note:** Remotion requires Chrome/Chromium to be installed on your system for video generation.
