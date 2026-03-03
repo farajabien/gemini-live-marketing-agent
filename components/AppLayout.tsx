@@ -159,6 +159,7 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
                   width={20}
                   height={20}
                   className="shrink-0 brightness-0 invert"
+                  style={{ width: "auto", height: "auto" }}
                 />
               </div>
               <div className="flex flex-col">

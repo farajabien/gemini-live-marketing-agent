@@ -65,9 +65,13 @@ export function useFirebaseAuth(): AuthState {
         setIsAuthLoading(false);
 
         if (fbUser) {
-          // Get ID token for API calls
-          const token = await getIdToken(fbUser);
-          setRefreshToken(token);
+          try {
+            // Get ID token for API calls
+            const token = await getIdToken(fbUser);
+            setRefreshToken(token);
+          } catch (tokenErr) {
+            console.error('Failed to get ID token:', tokenErr);
+          }
         } else {
           setRefreshToken(undefined);
           setUser(null);
@@ -121,8 +125,14 @@ export function useFirebaseAuth(): AuthState {
             generationResetDate: Date.now(),
           };
 
-          await setDoc(userDocRef, newUser);
-          setUser(newUser as User);
+          try {
+            await setDoc(userDocRef, newUser);
+            setUser(newUser as User);
+          } catch (docErr) {
+            console.error('Failed to create user document:', docErr);
+            // Even if document creation fails, we still have the auth user
+            setUser(newUser as User);
+          }
         }
 
         setIsUserDataLoading(false);

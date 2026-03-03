@@ -52,7 +52,7 @@ export const CarouselRenderer = forwardRef<HTMLDivElement, CarouselRendererProps
                 {index === 0 ? "Swipe ->" : `${index + 1} / ${plan.scenes.length}`}
               </span>
               <span className="px-4 py-2 bg-white/10 rounded-full text-2xl font-bold backdrop-blur-md text-white border border-white/20 flex items-center gap-2">
-                <Image width={100} height={100} src={LOGO.icon} alt={LOGO.alt} className="h-7 w-7 rounded-md" />
+                <Image width={100} height={100} src={LOGO.icon} alt={LOGO.alt} className="h-7 w-7 rounded-md" style={{ height: 'auto', width: 'auto' }} />
                 IdeaToVideo
               </span>
             </div>

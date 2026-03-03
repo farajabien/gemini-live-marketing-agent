@@ -114,13 +114,21 @@ export function NarrativeCard({
                     {showMenu && (
                         <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#191e33] rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right p-1.5">
                             <button 
-                                onClick={handleRename}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRename(e);
+                                }}
                                 className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-3 rounded-xl transition-colors uppercase tracking-widest"
                             >
                                 <Pencil size={14} className="text-blue-500" /> Rename
                             </button>
                             <button 
-                                onClick={handleDelete}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDelete(e);
+                                }}
                                 disabled={isDeleting}
                                 className="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-xl transition-colors uppercase tracking-widest"
                             >
