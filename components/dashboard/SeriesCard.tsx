@@ -3,134 +3,162 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import type { Series } from "@/lib/types";
-import { db } from "@/lib/instant-client";
 import { tx } from "@/lib/firebase-tx";
 import Link from "next/link";
+import {
+  MoreHorizontal,
+  BookOpen,
+  Pencil,
+  Trash2,
+  Palette,
+  Sparkles,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SeriesCardProps {
   series: Series;
 }
 
 export function SeriesCard({ series }: SeriesCardProps) {
-  const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this series?")) return;
-    
+
     setIsDeleting(true);
     try {
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        await (db as DbWithTransact).transact([tx.series[series.id].delete()]);
+      await tx.series[series.id].delete();
     } catch (err) {
-        console.error("Delete failed:", err);
-        setIsDeleting(false);
+      console.error("Delete failed:", err);
+      setIsDeleting(false);
     }
   };
 
-  const handleRename = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleRename = () => {
     const newTitle = prompt("Enter new title:", series.title);
     if (newTitle && newTitle !== series.title) {
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        (db as DbWithTransact).transact([tx.series[series.id].update({ title: newTitle })]);
+      tx.series[series.id].update({ title: newTitle });
     }
-    setShowMenu(false);
   };
 
   return (
     <div className="relative group">
-      <Link 
+      <Link
         href={`/series/${series.id}`}
-        className="block bg-white dark:bg-[#191e33] rounded-2xl border border-slate-200 dark:border-[#232948] overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+        className="block cursor-pointer"
       >
-        {/* Thumbnail Area - Stacked Effect */}
-        <div className="aspect-[4/5] w-full bg-slate-100 dark:bg-black/50 relative overflow-hidden flex items-center justify-center">
+        <Card className="rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          {/* Thumbnail Area - Stacked Effect */}
+          <div className="aspect-[4/5] w-full bg-muted relative overflow-hidden flex items-center justify-center">
             {/* Decorative Stack of "Episodes" */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative w-2/3 aspect-[9/16] bg-slate-200 dark:bg-[#232948] rounded shadow-lg translate-x-4 -rotate-6 opacity-30"></div>
-              <div className="absolute w-2/3 aspect-[9/16] bg-slate-300 dark:bg-[#2a3055] rounded shadow-lg -translate-x-4 rotate-6 opacity-60"></div>
+              <div className="relative w-2/3 aspect-[9/16] bg-muted-foreground/10 rounded shadow-lg translate-x-4 -rotate-6 opacity-30" />
+              <div className="absolute w-2/3 aspect-[9/16] bg-muted-foreground/20 rounded shadow-lg -translate-x-4 rotate-6 opacity-60" />
               <div className="absolute w-2/3 aspect-[9/16] bg-gradient-to-br from-blue-600 to-purple-600 rounded shadow-2xl flex flex-col items-center justify-center text-white p-4 text-center">
-                  <span className="material-symbols-outlined text-4xl mb-2">auto_stories</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Serial Narrative</span>
+                <BookOpen className="size-8 mb-2" />
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-80">
+                  Serial Narrative
+                </span>
               </div>
             </div>
-            
+
             {/* Badge */}
             <div className="absolute top-3 left-3">
-                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
-                    Series
-                </span>
+              <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg">
+                Series
+              </Badge>
             </div>
 
             <div className="absolute top-3 right-3 flex items-center gap-2">
-                <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
-                    series.status === 'complete' ? 'bg-green-500/10 text-green-600' : 'bg-blue-500/10 text-blue-600'
-                } border border-current opacity-0 group-hover:opacity-100 transition-opacity`}>
-                    {series.status}
-                </span>
-
-                {/* Actions Menu */}
-                <div className="relative" onClick={e => e.stopPropagation()}>
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setShowMenu(!showMenu);
-                        }}
-                        className="h-8 w-8 bg-white dark:bg-[#191e33] rounded-full shadow-md flex items-center justify-center hover:bg-slate-50 dark:hover:bg-[#232948] transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                        <span className="material-symbols-outlined text-slate-600 dark:text-slate-300 text-sm">more_horiz</span>
-                    </button>
-
-                    {showMenu && (
-                        <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-[#191e33] rounded-lg shadow-xl border border-slate-200 dark:border-[#232948] overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                            <button 
-                                onClick={handleRename}
-                                className="w-full px-4 py-3 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-[#232948] flex items-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-sm">edit</span> Rename
-                            </button>
-                            <button 
-                                onClick={handleDelete}
-                                disabled={isDeleting}
-                                className="w-full px-4 py-3 text-left text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-sm">delete</span> Delete
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-5">
-            <h3 className="font-bold text-lg mb-1 truncate leading-tight group-hover:text-[#1337ec] transition-colors">{series.title}</h3>
-            <p className="text-xs text-slate-400 font-medium mb-3">{series.createdAt ? formatDistanceToNow(series.createdAt) : 'Unknown'} ago</p>
-            
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="px-2 py-1 bg-slate-100 dark:bg-[#232948] rounded flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">style</span>
-                    Consistent
-                </span>
-                {series.seriesNarrativeId && (
-                    <span className="px-2 py-1 bg-purple-500/10 text-purple-600 rounded flex items-center gap-1 font-bold">
-                        <span className="material-symbols-outlined text-[12px]">auto_stories</span>
-                        Architected
-                    </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[8px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity",
+                  series.status === "complete"
+                    ? "text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                    : "text-primary border-primary/30 bg-primary/10"
                 )}
-            </div>
-        </div>
-      </Link>
+              >
+                {series.status}
+              </Badge>
 
-      {/* Backdrop for closing menu */}
-      {showMenu && (
-        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)}></div>
-      )}
+              {/* Actions Menu */}
+              <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon-sm"
+                      className="rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRename();
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Pencil className="size-4" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete();
+                      }}
+                      disabled={isDeleting}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="size-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-5">
+            <h3 className="font-bold text-lg mb-1 truncate leading-tight group-hover:text-primary transition-colors">
+              {series.title}
+            </h3>
+            <p className="text-xs text-muted-foreground font-medium mb-3">
+              {series.createdAt
+                ? formatDistanceToNow(series.createdAt)
+                : "Unknown"}{" "}
+              ago
+            </p>
+
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="secondary" className="gap-1">
+                <Palette className="size-3" />
+                Consistent
+              </Badge>
+              {series.seriesNarrativeId && (
+                <Badge variant="outline" className="text-purple-500 border-purple-500/20 bg-purple-500/10 gap-1 font-bold">
+                  <Sparkles className="size-3" />
+                  Architected
+                </Badge>
+              )}
+            </div>
+          </div>
+        </Card>
+      </Link>
     </div>
   );
 }

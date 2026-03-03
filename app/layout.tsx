@@ -33,7 +33,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="min-h-screen bg-white dark:bg-[#0a0a0d] text-slate-900 dark:text-slate-100 flex flex-col">
+        <div className="min-h-screen bg-background text-foreground flex flex-col">
           <PayPalProvider>
             {children}
           </PayPalProvider>

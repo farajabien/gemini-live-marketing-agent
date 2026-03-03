@@ -36,8 +36,8 @@ service cloud.firestore {
       // Users can update their own data
       allow update: if isOwner(userId);
 
-      // Only system (via Admin SDK) can create users
-      allow create: if false;
+      // Users can create their own profile document
+      allow create: if isOwner(userId);
 
       // Users can delete their own account
       allow delete: if isOwner(userId);

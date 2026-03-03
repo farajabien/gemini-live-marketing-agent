@@ -10,7 +10,7 @@ interface SecureAccountDialogProps {
 }
 
 export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProps) {
-  const { user, signUpWithEmail } = useAuth();
+  const { user, signUpWithEmail, linkAnonymousToEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLinking, setIsLinking] = useState(false);
@@ -33,7 +33,13 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
     setIsLinking(true);
     setError(null);
     try {
-        await signUpWithEmail(email, password);
+        // If user is a guest (anonymous), link the anonymous account to email
+        // This preserves their UID and all associated Firestore data
+        if (user.isGuest) {
+          await linkAnonymousToEmail(email, password);
+        } else {
+          await signUpWithEmail(email, password);
+        }
         setSuccess(true);
         setTimeout(() => {
             onClose();

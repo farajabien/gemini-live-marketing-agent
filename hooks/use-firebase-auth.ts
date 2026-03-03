@@ -5,7 +5,7 @@
  * Provides a compatible API with the existing useAuth hook.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   signInAnonymously,
   signOut as firebaseSignOut,
@@ -14,6 +14,8 @@ import {
   getIdToken,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  linkWithCredential,
+  EmailAuthProvider,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase-config';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -39,6 +41,7 @@ export interface AuthState {
   signOut: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
+  linkAnonymousToEmail: (email: string, password: string) => Promise<void>;
   isAuthenticated: boolean;
   refreshToken?: string;
 }
@@ -87,11 +90,16 @@ export function useFirebaseAuth(): AuthState {
     return () => unsubscribe();
   }, []);
 
+  // Track whether we've already attempted to create the user doc
+  // to prevent infinite retry loops from onSnapshot
+  const hasAttemptedCreate = useRef(false);
+
   // Listen to user document changes
   useEffect(() => {
     if (!firebaseUser) {
       setUser(null);
       setIsUserDataLoading(false);
+      hasAttemptedCreate.current = false;
       return;
     }
 
@@ -111,8 +119,9 @@ export function useFirebaseAuth(): AuthState {
             isGuest: firebaseUser.isAnonymous,
             ...userData,
           } as User);
-        } else {
-          // Create user document if it doesn't exist
+        } else if (!hasAttemptedCreate.current) {
+          // Create user document if it doesn't exist (only try once)
+          hasAttemptedCreate.current = true;
           const newUser: Partial<User & { userId: string }> = {
             id: firebaseUser.uid,
             userId: firebaseUser.uid,
@@ -127,12 +136,25 @@ export function useFirebaseAuth(): AuthState {
 
           try {
             await setDoc(userDocRef, newUser);
-            setUser(newUser as User);
+            // onSnapshot will fire again with the new doc, setting user state
           } catch (docErr) {
             console.error('Failed to create user document:', docErr);
             // Even if document creation fails, we still have the auth user
             setUser(newUser as User);
           }
+        } else {
+          // Already attempted creation and doc still doesn't exist
+          // Set user from auth data only
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            isGuest: firebaseUser.isAnonymous,
+            planId: 'free',
+            type: firebaseUser.isAnonymous ? 'guest' : 'user',
+            lifetimeGenerations: 0,
+            monthlyGenerations: 0,
+            generationResetDate: Date.now(),
+          } as User);
         }
 
         setIsUserDataLoading(false);
@@ -247,6 +269,37 @@ export function useFirebaseAuth(): AuthState {
     }
   };
 
+  /**
+   * Link anonymous account to email/password
+   * Converts a guest user to a permanent email account, preserving their UID and data
+   */
+  const linkAnonymousToEmail = async (email: string, password: string) => {
+    if (!firebaseUser || !firebaseUser.isAnonymous) {
+      throw new Error('No anonymous user to link');
+    }
+
+    setIsSigningIn(true);
+    setError(null);
+    try {
+      const credential = EmailAuthProvider.credential(email, password);
+      const result = await linkWithCredential(firebaseUser, credential);
+
+      // Update the user document to reflect the upgrade
+      const userDocRef = doc(db, 'users', result.user.uid);
+      await setDoc(userDocRef, {
+        email: result.user.email,
+        isGuest: false,
+        type: 'user',
+      }, { merge: true });
+    } catch (err) {
+      console.error('Failed to link anonymous account:', err);
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   return {
     user,
     isLoading: isAuthLoading || isSigningIn,
@@ -256,6 +309,7 @@ export function useFirebaseAuth(): AuthState {
     signOut,
     signInWithEmail,
     signUpWithEmail,
+    linkAnonymousToEmail,
     isAuthenticated: !!firebaseUser,
     refreshToken,
   };
