@@ -267,6 +267,7 @@ export async function POST(request: NextRequest) {
         // Create series
         await adminDb.transact(
           adminDb.tx.series[seriesId].update({
+            userId: userId, // Required by security rules
             title: formalizedJson.title,
             tagline: formalizedJson.tagline,
             megaPrompt,
@@ -288,6 +289,7 @@ export async function POST(request: NextRequest) {
           
           await adminDb.transact([
             adminDb.tx.episodes[episodeId].update({
+              userId: userId, // Required by security rules
               episodeNumber: episodeScripts[i].episodeNumber,
               title: episodeScripts[i].title,
               script: episodeScripts[i].script,

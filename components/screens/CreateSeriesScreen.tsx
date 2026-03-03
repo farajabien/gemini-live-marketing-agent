@@ -23,7 +23,7 @@ export function CreateSeriesScreen() {
 
   // Fetch narratives
   const { data: narrativesData } = (db as any).useQuery(
-    user ? { seriesNarratives: { $: { where: { "owner.id": user.id } } } } : null
+    user ? { seriesNarratives: { $: { where: { userId: user.id } } } } : null
   );
   const narratives = (narrativesData?.seriesNarratives || []) as any[];
 

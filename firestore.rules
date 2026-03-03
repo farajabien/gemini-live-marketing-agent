@@ -13,11 +13,19 @@ service cloud.firestore {
     }
 
     function isDocumentOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.userId;
+      return isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        request.auth.uid == resource.data.owner ||
+        (resource.data.owner != null && request.auth.uid == resource.data.owner[0].id)
+      );
     }
 
     function willBeOwner() {
-      return isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      return isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId ||
+        request.auth.uid == request.resource.data.owner ||
+        (request.resource.data.owner != null && request.auth.uid == request.resource.data.owner[0].id)
+      );
     }
 
     // Users collection

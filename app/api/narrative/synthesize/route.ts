@@ -167,6 +167,7 @@ export async function POST(request: NextRequest) {
         // Update narrative in DB with synthesized data AND ensure owner link
         await adminDb.transact([
           adminDb.tx.narratives[narrativeId].update({
+            userId: user.id, // Ensure userId is set for security rules
             synthesizedNarrative: synthesized.synthesizedNarrative,
             narrativeAngles: synthesized.narrativeAngles,
             oneLiner: synthesized.oneLiner,

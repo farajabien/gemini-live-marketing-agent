@@ -7,8 +7,9 @@ export interface DraftGenerationInput {
   pillarId: string;
   narrativeId: string;
   format: "carousel" | "video";
-  style: string; // e.g., "educational"
+  style: string;
   audience: string;
+  previousContent?: string; // Content already generated for this angle
 }
 
 export interface ContentDraftResult {
@@ -41,7 +42,8 @@ export async function generateDraftFromAngle(input: DraftGenerationInput): Promi
     "30s", 
     {
       visualMode: "image", 
-    },
+      previousContent: input.previousContent
+    } as any,
     settings
   );
 

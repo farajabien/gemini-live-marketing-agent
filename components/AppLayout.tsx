@@ -120,7 +120,7 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
   // Fetch ALL user narratives for the switcher and count
   const { data: allNarrativesData } = (db as any).useQuery(
     user
-      ? { narratives: { $: { where: { "owner.id": user.id }, order: { createdAt: "desc" } } } }
+      ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
       : null
   );
   const allNarratives = (allNarrativesData?.narratives || []) as FounderNarrative[];

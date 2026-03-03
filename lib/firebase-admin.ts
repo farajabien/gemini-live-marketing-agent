@@ -105,7 +105,8 @@ async function executeQuery(queryObj: AdminQuery): Promise<any> {
       // Apply where clauses
       if (queryConfig.where) {
         for (const [field, value] of Object.entries(queryConfig.where)) {
-          query = query.where(field, '==', value);
+          const targetField = (field === 'owner.id' || field === 'owner') ? 'userId' : field;
+          query = query.where(targetField, '==', value);
         }
       }
 
@@ -183,10 +184,15 @@ async function executeTransaction(operations: TransactionOperation[]): Promise<v
 
     switch (op.action) {
       case 'set':
-        batch.set(docRef, { ...op.data, id: op.id }, { merge: true });
+        const userId = op.data?.userId || op.data?.owner;
+        batch.set(docRef, { ...op.data, id: op.id, userId }, { merge: true });
         break;
       case 'update':
-        batch.update(docRef, op.data);
+        const updateData = { ...op.data };
+        if (op.data?.owner) {
+          updateData.userId = op.data.owner;
+        }
+        batch.update(docRef, updateData);
         break;
       case 'delete':
         batch.delete(docRef);
@@ -255,10 +261,19 @@ class TransactionBuilder {
                 return op;
               },
               link: (linkData: any) => {
-                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: linkData };
+                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: { ...linkData } };
+                
+                // Special handling for owner link to sync userId
+                if (linkData.owner) {
+                  proxyOp.data.userId = linkData.owner;
+                }
+
                 proxyOp.unlink = () => proxyOp;
                 proxyOp.link = (moreLinkData: any) => {
                     proxyOp.data = { ...proxyOp.data, ...moreLinkData };
+                    if (moreLinkData.owner) {
+                      proxyOp.data.userId = moreLinkData.owner;
+                    }
                     return proxyOp;
                 };
                 return proxyOp;

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
-import { createBrandNarrative } from "@/app/actions/marketing";
+import { createBrandNarrative, refineBrandNarrativeAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 
-type Step = NarrativeStepId | "generating";
+type Step = NarrativeStepId | "generating" | "review";
 
 interface WizardData {
   audience: string;
@@ -44,6 +44,10 @@ export function NewNarrativeScreen() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuthChoice, setShowAuthChoice] = useState(false);
+  const [generatedAnalysis, setGeneratedAnalysis] = useState<any>(null);
+  const [narrativeId, setNarrativeId] = useState<string | null>(null);
+  const [refineFeedback, setRefineFeedback] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
@@ -71,7 +75,7 @@ export function NewNarrativeScreen() {
     if (!isLoaded) return;
     
     localStorage.setItem("narrative_wizard_data", JSON.stringify(data));
-    if (step !== "generating") {
+    if (step !== "generating" && step !== "review") {
       localStorage.setItem("narrative_wizard_step", step);
     }
   }, [data, step, isLoaded]);
@@ -111,21 +115,44 @@ export function NewNarrativeScreen() {
     setStep("generating");
 
     try {
-      const userId = user.id || (user as any).uid;
-      const result = await createBrandNarrative(data, userId);
+      const uid = user.id || (user as any).uid;
+      const result = await createBrandNarrative(data, uid);
       
-      // Clear localStorage on success
-      localStorage.removeItem("narrative_wizard_data");
-      localStorage.removeItem("narrative_wizard_step");
+      setNarrativeId(result.narrativeId);
+      setGeneratedAnalysis(result.analysis);
       
-      toast.success("Strategy designed successfully!");
-      router.push(`/narrative/${result.narrativeId}`);
+      toast.success("Brand Strategy designed!");
+      setStep("review" as any);
+      setIsSubmitting(false);
     } catch (error: any) {
       console.error("Failed to create narrative:", error);
       toast.error(error.message || "Something went wrong. Please try again.");
       setStep(NARRATIVE_STEPS[NARRATIVE_STEPS.length - 1].id);
       setIsSubmitting(false);
     }
+  };
+
+  const handleRefine = async () => {
+    if (!narrativeId || !refineFeedback) return;
+    
+    setIsRefining(true);
+    try {
+      const uid = user!.id || (user as any).uid;
+      const refined = await refineBrandNarrativeAction(narrativeId, refineFeedback, uid);
+      setGeneratedAnalysis(refined);
+      setRefineFeedback("");
+      toast.success("Strategy refined!");
+    } catch (e) {
+      toast.error("Refinement failed");
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleFinish = () => {
+    localStorage.removeItem("narrative_wizard_data");
+    localStorage.removeItem("narrative_wizard_step");
+    router.push(`/narrative/${narrativeId}`);
   };
 
   const updateData = (key: keyof WizardData, value: string) => {
@@ -248,8 +275,98 @@ export function NewNarrativeScreen() {
             </div>
           )}
 
+          {step === "review" && generatedAnalysis && (
+            <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 max-w-2xl mx-auto">
+              <span className="text-red-500 font-bold tracking-widest text-xs uppercase mb-4 block">
+                Brand Strategy Refinement
+              </span>
+              <h1 className="text-4xl font-black mb-8">Your Marketing Edge</h1>
+              
+              <div className="space-y-10 mb-12">
+                <section>
+                  <h3 className="text-red-500 font-bold uppercase text-xs tracking-wider mb-2">Positioning Statement</h3>
+                  <p className="text-xl text-white leading-relaxed font-medium italic">"{generatedAnalysis.positioningStatement}"</p>
+                </section>
+
+                <section>
+                  <h3 className="text-red-500 font-bold uppercase text-xs tracking-wider mb-2">Core Message</h3>
+                  <p className="text-slate-300 leading-relaxed text-lg">{generatedAnalysis.coreMessage}</p>
+                </section>
+
+                <section>
+                  <h3 className="text-red-500 font-bold uppercase text-xs tracking-wider mb-4">Content Pillars</h3>
+                  <div className="grid gap-6">
+                    {generatedAnalysis.contentPillars?.map((pillar: any, i: number) => (
+                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-6 transition-colors hover:bg-white/10">
+                        <h4 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-red-600/20 text-red-500 flex items-center justify-center text-[10px]">
+                            {i + 1}
+                          </span>
+                          {pillar.title}
+                        </h4>
+                        <p className="text-slate-400 text-sm mb-4">{pillar.description}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {pillar.angles?.map((angle: string, j: number) => (
+                            <span key={j} className="text-[10px] bg-red-600/10 text-red-400 px-2.5 py-1 rounded-full border border-red-600/20 font-bold">
+                              {angle}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="text-red-500 font-bold uppercase text-xs tracking-wider mb-2">Brand Voice</h3>
+                  <p className="text-slate-400 leading-relaxed">{generatedAnalysis.brandVoice}</p>
+                </section>
+              </div>
+
+              {/* Refinement Interface */}
+              <div className="bg-red-600/5 border border-red-500/20 rounded-3xl p-8 mb-12">
+                <h3 className="text-white font-bold mb-2">Not quite right?</h3>
+                <p className="text-slate-400 text-sm mb-6">Tell the AI what to change or deepen. We'll regenerate the strategy instantly.</p>
+                
+                <Textarea
+                  className="w-full bg-black/40 border-white/10 rounded-xl p-4 text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all placeholder:text-slate-600 resize-none mb-4"
+                  placeholder="e.g. Focus more on developers as the audience, or make the tone more playful..."
+                  value={refineFeedback}
+                  onChange={(e) => setRefineFeedback(e.target.value)}
+                  disabled={isRefining}
+                />
+                
+                <Button 
+                  onClick={handleRefine}
+                  disabled={!refineFeedback || isRefining}
+                  className="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-2 rounded-full transition-all"
+                >
+                  {isRefining ? "Refining..." : "Refine Strategy"}
+                  {!isRefining && <span className="material-symbols-outlined ml-2 text-sm">refresh</span>}
+                </Button>
+              </div>
+
+              <div className="flex justify-end gap-4 border-t border-white/5 pt-8">
+                 <Button
+                  variant="ghost"
+                  onClick={() => setStep(NARRATIVE_STEPS[NARRATIVE_STEPS.length - 1].id)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  Back to Inputs
+                </Button>
+                <Button 
+                  onClick={handleFinish}
+                  className="bg-white text-black hover:bg-slate-200 font-black px-12 py-6 h-auto text-lg rounded-full shadow-2xl shadow-white/10"
+                >
+                  Confirm Strategy
+                  <span className="material-symbols-outlined ml-2">check_circle</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Navigation */}
-          {step !== "generating" && (
+          {step !== "generating" && step !== "review" && (
             <div className="flex items-center justify-between mt-12 pt-8 border-t border-white/5">
               <Button
                 variant="ghost"
@@ -268,7 +385,7 @@ export function NewNarrativeScreen() {
                 }
                 className="px-8 py-4 h-auto bg-red-600 hover:bg-red-500 text-white font-bold shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
               >
-                {currentStepIndex === NARRATIVE_STEPS.length - 1 ? "Generate Strategy" : "Continue"}
+                {currentStepIndex === NARRATIVE_STEPS.length - 1 ? "Preview Strategy" : "Continue"}
                 <span className="material-symbols-outlined ml-2">
                   arrow_forward
                 </span>

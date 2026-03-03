@@ -49,28 +49,28 @@ export function DashboardScreen() {
       ? {
           videoPlans: {
             $: {
-              where: { "owner.id": user.id },
+              where: { userId: user.id },
               order: { createdAt: "desc" },
               limit: 50,
             },
           },
           series: {
             $: {
-              where: { "owner.id": user.id },
+              where: { userId: user.id },
               order: { createdAt: "desc" },
               limit: 50,
             },
           },
           seriesNarratives: {
             $: {
-              where: { "owner.id": user.id },
+              where: { userId: user.id },
               order: { createdAt: "desc" },
               limit: 50,
             },
           },
           narratives: {
             $: {
-              where: { "owner.id": user.id },
+              where: { userId: user.id },
               order: { createdAt: "desc" },
               limit: 50,
             },

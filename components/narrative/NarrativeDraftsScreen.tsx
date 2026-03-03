@@ -192,7 +192,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
     user
       ? {
           narratives: {
-            $: { where: { id: narrativeId } },
+            $: { where: { id: narrativeId, userId: user.id } },
             contentPieces: {
               $: { order: { createdAt: "desc" } },
               generatedPlans: {},
@@ -200,8 +200,8 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
           },
           videoPlans: {
             $: {
-              where: { 
-                "owner.id": user.id,
+              where: {
+                userId: user.id,
                 "narrative.id": narrativeId
               },
               order: { createdAt: "desc" }
@@ -210,7 +210,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
           series: {
             $: {
               where: {
-                "owner.id": user.id
+                userId: user.id
               },
               order: { createdAt: "desc" }
             }

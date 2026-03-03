@@ -89,7 +89,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   // Fetch ALL user narratives for the project selection
   const { data: narrativesData } = (db as any).useQuery(
     user
-      ? { narratives: { $: { where: { "owner.id": user.id }, order: { createdAt: "desc" } } } }
+      ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
       : null
   );
   const narratives = (narrativesData?.narratives || []) as FounderNarrative[];

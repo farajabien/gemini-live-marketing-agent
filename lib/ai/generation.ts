@@ -28,6 +28,7 @@ export interface VerbatimGenerationOptions {
   tone?: VoiceTone;
   sceneChunkOptions?: SceneChunkOptions;
   strategy?: StrategyContext;
+  previousContent?: string;
 }
 
 export interface StandardGenerationOptions {
@@ -36,6 +37,7 @@ export interface StandardGenerationOptions {
   visualMode?: "image" | "broll" | "gif_voice" | "text_motion";
   seamlessMode?: boolean;
   strategy?: StrategyContext;
+  previousContent?: string;
 }
 
 export type GenerationOptions = VerbatimGenerationOptions | StandardGenerationOptions;
@@ -118,9 +120,9 @@ export async function generateVideoPlanWithOptions(
   const visualMode = standardOptions.visualMode || "image";
   const seamlessMode = standardOptions.seamlessMode || false;
 
-  const { refinedPrompt, thumbnailPrompt, cost: refineCost } = await refineIdea(idea, format, settings, standardOptions.strategy);
+  const { refinedPrompt, thumbnailPrompt, cost: refineCost } = await refineIdea(idea, format, settings, standardOptions.strategy, standardOptions.previousContent);
   totalCost += refineCost;
-  const planResult = await generatePlanFromRefinedPrompt(refinedPrompt, thumbnailPrompt, duration, format, images, settings, visualMode, seamlessMode, standardOptions.strategy);
+  const planResult = await generatePlanFromRefinedPrompt(refinedPrompt, thumbnailPrompt, duration, format, images, settings, visualMode, seamlessMode, standardOptions.strategy, standardOptions.previousContent);
   totalCost += planResult.cost;
   return { plan: planResult.plan, cost: totalCost + planResult.cost };
 }
@@ -143,7 +145,8 @@ async function refineIdea(
   idea: string,
   format: "video" | "carousel",
   settings: ContentSettings,
-  strategy?: StrategyContext
+  strategy?: StrategyContext,
+  previousContent?: string
 ): Promise<{ refinedPrompt: string; thumbnailPrompt: string; cost: number }> {
 
   const context = buildPromptContext(settings);
@@ -156,6 +159,7 @@ async function refineIdea(
   **Idea:** ${idea}
   ${context}
   ${strategyContext}
+  ${previousContent ? `\n**PREVIOUS CONTENT ALREADY GENERATED (DO NOT REPEAT):**\n${previousContent}\n` : ""}
   ${VISUAL_STYLE_CONSTRAINT}
   
   Respond with:
@@ -189,7 +193,8 @@ async function generatePlanFromRefinedPrompt(
     settings: ContentSettings,
     visualMode: "image" | "broll" | "gif_voice" | "text_motion" = "image",
     seamlessMode: boolean = false,
-    strategy?: StrategyContext
+    strategy?: StrategyContext,
+    previousContent?: string
 ): Promise<{ plan: VideoPlan; cost: number }> {
 
     
@@ -243,6 +248,8 @@ async function generatePlanFromRefinedPrompt(
     ${rules.map(r => `- ${r}`).join('\n')}
     
     ${strategy ? buildStrategyContext(strategy) : ""}
+    
+    ${previousContent ? `\n**IMPORTANT: PREVIOUSLY GENERATED CONTENT FOR THIS ANGLE:**\n${previousContent}\nEnsure this new plan provides a fresh perspective and does not repeat the exact same hooks or narrative beats as the previous content shown above.\n` : ""}
     
     RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN. NO EXPLANATIONS.
     `;

@@ -423,3 +423,127 @@ OUTPUT JSON ONLY:
   }
 }
 
+export async function refineStoryNarrative(
+  input: SeriesNarrativeInput,
+  currentAnalysis: any,
+  feedback: string
+): Promise<{ 
+  analysis: any; 
+  totalCost: number;
+  title: string;
+}> {
+  const prompt = `
+You are a master storyteller and series architect. You previously generated a series architecture, and the user has feedback.
+
+ORIGINAL INPUTS:
+- Genre: ${input.genre}
+- World Setting: ${input.worldSetting}
+- Conflict Type: ${input.conflictType}
+- Protagonist Archetype: ${input.protagonistArchetype}
+- Central Theme: ${input.centralTheme}
+- Narrative Tone: ${input.narrativeTone}
+- Visual Style: ${input.visualStyle}
+- Episode Hooks: ${input.episodeHooks}
+
+CURRENT ANALYSIS:
+${JSON.stringify(currentAnalysis, null, 2)}
+
+USER FEEDBACK:
+"${feedback}"
+
+TASK:
+Refine the series architecture based on the feedback. Maintain the core elements that weren't criticized, but pivot or deepen the elements mentioned in the feedback.
+
+OUTPUT JSON ONLY (same structure as original):
+{
+  "characterDynamics": "Refined description",
+  "plotBeats": ["Refined Beat 1", "Beat 2", "..."],
+  "worldRules": ["Refined Rule 1", "..."],
+  "visualMoat": "Refined visual strategy",
+  "title": "Refined Series Title",
+  "logline": "Refined 1-sentence hook"
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a series architect. Refine the architecture based on feedback. Output JSON only.",
+    "gpt-4o",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const analysis = JSON.parse(jsonMatch[0]);
+    return {
+      analysis,
+      totalCost: cost,
+      title: analysis.title
+    };
+  } catch (e) {
+    console.error("Failed to refine story narrative:", response);
+    throw new Error("Failed to refine story narrative");
+  }
+}
+
+export async function refineBrandNarrative(
+  input: NarrativeInput,
+  currentAnalysis: any,
+  feedback: string
+): Promise<{ 
+  analysis: any; 
+  totalCost: number; 
+}> {
+  const prompt = `
+You are a strategic brand consultant. You previously generated a brand strategy, and the user has feedback.
+
+ORIGINAL INPUTS:
+- Audience: ${input.audience}
+- Current State: ${input.currentState}
+- Problem: ${input.problem}
+- Cost of Inaction: ${input.costOfInaction}
+- Solution: ${input.solution}
+- After State: ${input.afterState}
+- Identity Shift: ${input.identityShift}
+
+CURRENT ANALYSIS:
+${JSON.stringify(currentAnalysis, null, 2)}
+
+USER FEEDBACK:
+"${feedback}"
+
+TASK:
+Refine the brand positioning, core message, and content pillars based on the feedback. Maintain the core elements that weren't criticized, but pivot or deepen the elements mentioned in the feedback.
+
+OUTPUT JSON ONLY (same structure as original):
+{
+  "positioningStatement": "...",
+  "coreMessage": "...",
+  "contentPillars": [
+    { "title": "...", "description": "...", "angles": ["...", "..."] }
+  ],
+  "brandVoice": "..."
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a brand strategist. Refine the strategy based on feedback. Output JSON only.",
+    "gpt-4o",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const analysis = JSON.parse(jsonMatch[0]);
+    return {
+      analysis,
+      totalCost: cost,
+    };
+  } catch (e) {
+    console.error("Failed to refine brand narrative:", response);
+    throw new Error("Failed to refine brand narrative");
+  }
+}

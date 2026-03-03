@@ -3,13 +3,13 @@
 import { adminDb, generateId as id } from "@/lib/firebase-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
-import { analyzeNarrative, analyzeStoryNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
+import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
 
 // Legacy type for backward compatibility
 export async function createBrandNarrative(
   input: NarrativeInput | PositioningInput,
   ownerId: string
-): Promise<{ narrativeId: string }> {
+): Promise<{ narrativeId: string; analysis: any }> {
   try {
     // Check if this is new format (8-field wizard) or legacy (4-field)
     const isNewFormat = 'currentState' in input;
@@ -37,7 +37,8 @@ export async function createBrandNarrative(
       const narrativeInput = input as NarrativeInput;
       await adminDb.transact([
         // Create Narrative with new structure
-        adminDb.tx.narratives[narrativeId].update({
+        adminDb.tx.narratives[narrativeId].set({
+          userId: ownerId, // Required by security rules
           title: analysis!.positioning.title,
           status: "active",
           createdAt: Date.now(),
@@ -65,7 +66,8 @@ export async function createBrandNarrative(
         }).link({ owner: ownerId }),
 
         // Create Positioning (legacy structure for compatibility)
-        adminDb.tx.brandPositioning[positioningId].update({
+        adminDb.tx.brandPositioning[positioningId].set({
+          userId: ownerId, // Required by security rules
           narrativeId, // Required by schema
           villain: analysis!.positioning.villain,
           hero: analysis!.positioning.hero,
@@ -80,7 +82,8 @@ export async function createBrandNarrative(
       // Legacy format
       const legacyInput = input as PositioningInput;
       await adminDb.transact([
-        adminDb.tx.narratives[narrativeId].update({
+        adminDb.tx.narratives[narrativeId].set({
+          userId: ownerId, // Required by security rules
           title: `${legacyInput.audience} Narrative`,
           status: "active",
           createdAt: Date.now(),
@@ -92,7 +95,8 @@ export async function createBrandNarrative(
           founderVoice: legacyInput.voice,
         }).link({ owner: ownerId }),
 
-        adminDb.tx.brandPositioning[positioningId].update({
+        adminDb.tx.brandPositioning[positioningId].set({
+          userId: ownerId, // Required by security rules
           ...legacyPositioning!,
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -112,7 +116,8 @@ export async function createBrandNarrative(
     for (const pillar of pillarsToCreate) {
         const pillarId = id();
         await adminDb.transact([
-            adminDb.tx.contentPillars[pillarId].update({
+            adminDb.tx.contentPillars[pillarId].set({
+                userId: ownerId, // Required by security rules
                 narrativeId, // Required by schema
                 title: pillar.title,
                 description: pillar.description,
@@ -123,7 +128,7 @@ export async function createBrandNarrative(
         ]);
     }
 
-    return { narrativeId };
+    return { narrativeId, analysis };
   } catch (error: any) {
     console.error("Failed to create brand narrative:", error);
     throw new Error(error.message || "Failed to create narrative");
@@ -135,7 +140,32 @@ export async function generateContentDraft(
   ownerId: string
 ): Promise<{ draftId: string }> {
     try {
-        // 1. Generate Draft Content
+        // 1. Fetch previous content for this angle to ensure variety
+        const historyData = await adminDb.query({
+            videoPlans: {
+                $: {
+                    where: {
+                        narrative: input.narrativeId,
+                        // We might not have 'angle' field in videoPlans in all cases, 
+                        // but generateDraftFromAngle passes it in strategy
+                    }
+                }
+            }
+        });
+        
+        // Filter by angle if possible (VideoPlan has pillars linked, but angle might be in prompt)
+        // For now, let's just get the last few plans for this narrative to be safe
+        const previousPlans = (historyData as any).videoPlans || [];
+        const previousContentSummary = previousPlans
+            .slice(-3) // last 3 plans
+            .map((p: any) => `- ${p.title}: ${p.scenes?.map((s: any) => s.voiceover).join(" ")}`)
+            .join("\n\n");
+
+        if (previousContentSummary) {
+            input.previousContent = previousContentSummary;
+        }
+
+        // 2. Generate Draft Content
         const result = await generateDraftFromAngle(input);
         
         // 2. Create Entities
@@ -144,14 +174,16 @@ export async function generateContentDraft(
         
         await adminDb.transact([
             // Create Video Plan
-             adminDb.tx.videoPlans[videoPlanId].update({
+             adminDb.tx.videoPlans[videoPlanId].set({
+                userId: ownerId, // Required by security rules
                 ...result.videoPlan,
                 status: "draft",
                 createdAt: Date.now(),
             }).link({ owner: ownerId, narrative: input.narrativeId }),
 
             // Create Content Draft
-            adminDb.tx.contentDrafts[draftId].update({
+            adminDb.tx.contentDrafts[draftId].set({
+                userId: ownerId, // Required by security rules
                 title: result.title,
                 angle: input.angle,
                 slides: result.slides,
@@ -161,7 +193,7 @@ export async function generateContentDraft(
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             }).link({ narrative: input.narrativeId })
-              // Link draft to video plan if schema allows (it does: videoPlanId field, but not explicit relation in schema yet? 
+              // Link draft to video plan if schema allows (it does: videoPlanId field, but not explicit relation in schema yet?
               // Wait, schema has `videoPlanId` string field on `contentDrafts` but no relation defined in `links`?
               // Checking schema... `contentDrafts` has `videoPlanId` string. `videoPlans` has `narrative` relation.
               // We can just store the ID for now or add relation later.
@@ -384,7 +416,8 @@ export async function createContentFromAngleAction(
     const draftId = id();
     
     await adminDb.transact([
-      adminDb.tx.contentDrafts[draftId].update({
+      adminDb.tx.contentDrafts[draftId].set({
+        userId: userId, // Required by security rules
         narrativeId,
         angle,
         title: `Draft: ${angle.slice(0, 30)}...`,
@@ -409,14 +442,15 @@ export async function createContentFromAngleAction(
 export async function createSeriesNarrative(
   input: SeriesNarrativeInput,
   ownerId: string
-): Promise<{ seriesNarrativeId: string }> {
+): Promise<{ seriesNarrativeId: string; analysis: any }> {
   try {
     const { analysis, totalCost } = await analyzeStoryNarrative(input);
     
     const seriesNarrativeId = id();
 
     await adminDb.transact([
-      adminDb.tx.seriesNarratives[seriesNarrativeId].update({
+      adminDb.tx.seriesNarratives[seriesNarrativeId].set({
+        userId: ownerId, // Required by security rules
         title: analysis.title,
         genre: input.genre,
         worldSetting: input.worldSetting,
@@ -426,20 +460,159 @@ export async function createSeriesNarrative(
         narrativeTone: input.narrativeTone,
         visualStyle: input.visualStyle,
         episodeHooks: input.episodeHooks,
-        
+
         characterDynamics: analysis.characterDynamics,
         plotBeats: analysis.plotBeats,
-        
+        worldRules: analysis.worldRules,
+        visualMoat: analysis.visualMoat,
+        logline: analysis.logline,
+
         createdAt: Date.now(),
         updatedAt: Date.now(),
         totalCost: totalCost || 0,
       }).link({ owner: ownerId }),
     ]);
 
-    return { seriesNarrativeId };
+    return { seriesNarrativeId, analysis };
   } catch (error: any) {
     console.error("Failed to create series narrative:", error);
     throw error;
   }
 }
 
+export async function refineSeriesNarrativeAction(
+  seriesNarrativeId: string,
+  feedback: string,
+  userId: string
+): Promise<any> {
+  try {
+    // 1. Fetch current narrative
+    const data = await adminDb.query({
+      seriesNarratives: { $: { where: { id: seriesNarrativeId } } }
+    });
+    const narrative = (data as any).seriesNarratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    // 2. Prepare input for AI
+    const input: SeriesNarrativeInput = {
+      genre: narrative.genre,
+      worldSetting: narrative.worldSetting,
+      conflictType: narrative.conflictType,
+      protagonistArchetype: narrative.protagonistArchetype,
+      centralTheme: narrative.centralTheme,
+      narrativeTone: narrative.narrativeTone,
+      visualStyle: narrative.visualStyle,
+      episodeHooks: narrative.episodeHooks,
+    };
+
+    const currentAnalysis = {
+      characterDynamics: narrative.characterDynamics,
+      plotBeats: narrative.plotBeats,
+      worldRules: narrative.worldRules,
+      visualMoat: narrative.visualMoat,
+      title: narrative.title,
+      logline: narrative.logline,
+    };
+
+    // 3. Run AI Refinement
+    const { analysis, totalCost } = await refineStoryNarrative(input, currentAnalysis, feedback);
+
+    // 4. Update Database
+    await adminDb.transact([
+      adminDb.tx.seriesNarratives[seriesNarrativeId].update({
+        characterDynamics: analysis.characterDynamics,
+        plotBeats: analysis.plotBeats,
+        worldRules: analysis.worldRules,
+        visualMoat: analysis.visualMoat,
+        title: analysis.title,
+        logline: analysis.logline,
+        totalCost: (narrative.totalCost || 0) + totalCost,
+        updatedAt: Date.now(),
+      })
+    ]);
+
+    return analysis;
+  } catch (error: any) {
+    console.error("Failed to refine series narrative:", error);
+    throw error;
+  }
+}
+
+
+export async function refineBrandNarrativeAction(
+  narrativeId: string,
+  feedback: string,
+  userId: string
+): Promise<any> {
+  try {
+    // 1. Fetch current narrative
+    const data = await adminDb.query({
+      narratives: { $: { where: { id: narrativeId } } }
+    });
+    const narrative = (data as any).narratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    // 2. Prepare input for AI
+    const input: NarrativeInput = {
+      audience: narrative.audience,
+      currentState: narrative.currentState,
+      problem: narrative.problem,
+      costOfInaction: narrative.costOfInaction,
+      solution: narrative.solution,
+      afterState: narrative.afterState,
+      identityShift: narrative.identityShift,
+      voice: narrative.brandVoice
+    };
+
+    const currentAnalysis = {
+      positioningStatement: narrative.positioningStatement,
+      coreMessage: narrative.coreMessage,
+      brandVoice: narrative.brandVoice,
+    };
+    
+    // Fetch pillars
+    const pillarsData = await adminDb.query({
+      contentPillars: { $: { where: { narrative: narrativeId } } }
+    });
+    const contentPillars = (pillarsData as any).contentPillars;
+    (currentAnalysis as any).contentPillars = contentPillars;
+
+    // 3. Run AI Refinement
+    const { analysis, totalCost } = await refineBrandNarrative(input, currentAnalysis, feedback);
+
+    // 4. Update Database
+    const transactions = [
+      adminDb.tx.narratives[narrativeId].update({
+        positioningStatement: analysis.positioningStatement,
+        coreMessage: analysis.coreMessage,
+        brandVoice: analysis.brandVoice,
+        totalCost: (narrative.totalCost || 0) + totalCost,
+        updatedAt: Date.now(),
+      })
+    ];
+
+    if (analysis.contentPillars) {
+        analysis.contentPillars.forEach((pillar: any) => {
+            const pillarId = id();
+            transactions.push(
+                adminDb.tx.contentPillars[pillarId].set({
+                    userId,
+                    narrativeId, // Schema requirement
+                    title: pillar.title,
+                    description: pillar.description,
+                    angles: pillar.angles,
+                    status: "active",
+                    createdAt: Date.now(),
+                }).link({ narrative: narrativeId })
+            );
+        });
+    }
+
+    await adminDb.transact(transactions);
+
+    return analysis;
+  } catch (error: any) {
+    console.error("Failed to refine brand narrative:", error);
+    throw error;
+  }
+}

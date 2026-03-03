@@ -20,7 +20,7 @@ export function Header({ transparent }: HeaderProps) {
     const [securityOpen, setSecurityOpen] = useState(false);
 
     const { data } = (db as any).useQuery(
-        user ? { narratives: { $: { where: { "owner.id": user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null
+        user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null
     );
     const latestNarrative = data?.narratives?.[0];
 

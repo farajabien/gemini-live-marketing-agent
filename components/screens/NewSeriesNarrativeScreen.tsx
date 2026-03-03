@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
-import { createSeriesNarrative } from "@/app/actions/marketing";
+import { createSeriesNarrative, refineSeriesNarrativeAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 
-type Step = SeriesNarrativeStepId | "generating";
+type Step = SeriesNarrativeStepId | "generating" | "review";
 
 interface WizardData {
   genre: string;
@@ -43,6 +43,10 @@ export function NewSeriesNarrativeScreen() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuthChoice, setShowAuthChoice] = useState(false);
+  const [generatedAnalysis, setGeneratedAnalysis] = useState<any>(null);
+  const [seriesNarrativeId, setSeriesNarrativeId] = useState<string | null>(null);
+  const [refineFeedback, setRefineFeedback] = useState("");
+  const [isRefining, setIsRefining] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
@@ -70,7 +74,7 @@ export function NewSeriesNarrativeScreen() {
     if (!isLoaded) return;
     
     localStorage.setItem("series_narrative_wizard_data", JSON.stringify(data));
-    if (step !== "generating") {
+    if (step !== "generating" && step !== "review") {
       localStorage.setItem("series_narrative_wizard_step", step);
     }
   }, [data, step, isLoaded]);
@@ -110,22 +114,44 @@ export function NewSeriesNarrativeScreen() {
     setStep("generating");
 
     try {
-      const userId = user.id || (user as any).uid;
-      const result = await createSeriesNarrative(data, userId);
+      const uid = user.id || (user as any).uid;
+      const result = await createSeriesNarrative(data, uid);
       
-      // Clear localStorage on success
-      localStorage.removeItem("series_narrative_wizard_data");
-      localStorage.removeItem("series_narrative_wizard_step");
+      setSeriesNarrativeId(result.seriesNarrativeId);
+      setGeneratedAnalysis(result.analysis);
       
-      toast.success("Series Narrative designed successfully!");
-      // For now, redirect to series creation or a new narrative overview for series
-      router.push(`/series/new?narrativeId=${result.seriesNarrativeId}`);
+      toast.success("Series Architecture generated!");
+      setStep("review" as any);
+      setIsSubmitting(false);
     } catch (error: any) {
       console.error("Failed to create series narrative:", error);
       toast.error(error.message || "Something went wrong. Please try again.");
       setStep(SERIES_NARRATIVE_STEPS[SERIES_NARRATIVE_STEPS.length - 1].id);
       setIsSubmitting(false);
     }
+  };
+
+  const handleRefine = async () => {
+    if (!seriesNarrativeId || !refineFeedback) return;
+    
+    setIsRefining(true);
+    try {
+      const uid = user!.id || (user as any).uid;
+      const refined = await refineSeriesNarrativeAction(seriesNarrativeId, refineFeedback, uid);
+      setGeneratedAnalysis(refined); // Update view with refined data
+      setRefineFeedback("");
+      toast.success("Architecture refined!");
+    } catch (e) {
+      toast.error("Refinement failed");
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleFinish = () => {
+    localStorage.removeItem("series_narrative_wizard_data");
+    localStorage.removeItem("series_narrative_wizard_step");
+    router.push(`/series/new?narrativeId=${seriesNarrativeId}`);
   };
 
   const updateData = (key: keyof WizardData, value: string) => {
@@ -238,8 +264,100 @@ export function NewSeriesNarrativeScreen() {
             </div>
           )}
 
+          {step === "review" && generatedAnalysis && (
+            <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <span className="text-purple-500 font-bold tracking-widest text-xs uppercase mb-4 block">
+                Narrative Architecture Refinement
+              </span>
+              <h1 className="text-4xl font-black mb-6">{generatedAnalysis.title}</h1>
+              
+              <div className="space-y-8 mb-12">
+                <section>
+                  <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2">Logline</h3>
+                  <p className="text-xl text-white leading-relaxed">{generatedAnalysis.logline}</p>
+                </section>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <section>
+                    <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2">Character Dynamics</h3>
+                    <p className="text-slate-400 leading-relaxed">{generatedAnalysis.characterDynamics}</p>
+                  </section>
+                  <section>
+                    <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2">Visual Moat</h3>
+                    <p className="text-slate-400 leading-relaxed">{generatedAnalysis.visualMoat}</p>
+                  </section>
+                </div>
+
+                <section>
+                  <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-3">Major Plot Beats</h3>
+                  <div className="space-y-4">
+                    {generatedAnalysis.plotBeats?.map((beat: string, i: number) => (
+                      <div key={i} className="flex gap-4 items-start bg-white/5 p-4 rounded-xl border border-white/10 transition-colors hover:bg-white/10">
+                        <span className="w-8 h-8 rounded-full bg-purple-600/20 text-purple-400 flex items-center justify-center font-bold text-sm shrink-0">
+                          {i + 1}
+                        </span>
+                        <p className="text-slate-200">{beat}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-3">World Rules</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {generatedAnalysis.worldRules?.map((rule: string, i: number) => (
+                      <span key={i} className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded-full text-sm">
+                        {rule}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              {/* Refinement Interface */}
+              <div className="bg-purple-600/5 border border-purple-500/20 rounded-3xl p-8 mb-12">
+                <h3 className="text-white font-bold mb-2">Not quite right?</h3>
+                <p className="text-slate-400 text-sm mb-6">Tell the AI what to change or deepen. We'll regenerate the architecture instantly.</p>
+                
+                <Textarea
+                  className="w-full bg-black/40 border-white/10 rounded-xl p-4 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-slate-600 resize-none mb-4"
+                  placeholder="e.g. Make the villain more mysterious, or focus more on the underwater elements..."
+                  value={refineFeedback}
+                  onChange={(e) => setRefineFeedback(e.target.value)}
+                  disabled={isRefining}
+                />
+                
+                <Button 
+                  onClick={handleRefine}
+                  disabled={!refineFeedback || isRefining}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-2 rounded-full transition-all"
+                >
+                  {isRefining ? "Refining..." : "Refine Architecture"}
+                  {!isRefining && <span className="material-symbols-outlined ml-2 text-sm">refresh</span>}
+                </Button>
+              </div>
+
+              <div className="flex justify-end gap-4 border-t border-white/5 pt-8">
+                 <Button
+                  variant="ghost"
+                  onClick={() => setStep(SERIES_NARRATIVE_STEPS[SERIES_NARRATIVE_STEPS.length - 1].id)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  Re-edit Inputs
+                </Button>
+                <Button 
+                  onClick={handleFinish}
+                  className="bg-white text-black hover:bg-slate-200 font-black px-12 py-6 h-auto text-lg rounded-full shadow-2xl shadow-white/10"
+                >
+                  Confirm Architecture
+                  <span className="material-symbols-outlined ml-2">check_circle</span>
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Navigation */}
-          {step !== "generating" && (
+          {step !== "generating" && step !== "review" && (
             <div className="flex items-center justify-between mt-12 pt-8 border-t border-white/5">
               <Button
                 variant="ghost"
@@ -258,7 +376,7 @@ export function NewSeriesNarrativeScreen() {
                 }
                 className="px-8 py-4 h-auto bg-purple-600 hover:bg-purple-500 text-white font-bold shadow-lg shadow-purple-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
               >
-                {currentStepIndex === SERIES_NARRATIVE_STEPS.length - 1 ? "Finish Architecture" : "Continue"}
+                {currentStepIndex === SERIES_NARRATIVE_STEPS.length - 1 ? "Preview Architecture" : "Continue"}
                 <span className="material-symbols-outlined ml-2">
                   arrow_forward
                 </span>

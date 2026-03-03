@@ -58,7 +58,9 @@ function parseWhereClause(whereClause: Record<string, any>): QueryConstraint[] {
 
   for (const [key, value] of Object.entries(whereClause)) {
     // Handle nested paths like "owner.id"
-    if (key.includes('.')) {
+    if (key === 'owner.id' || key === 'owner') {
+      constraints.push(where('userId', '==', value));
+    } else if (key.includes('.')) {
       constraints.push(where(key, '==', value));
     } else {
       constraints.push(where(key, '==', value));
@@ -249,7 +251,9 @@ export class FirestoreTransaction {
   set(collectionName: string, documentId: string, data: any) {
     const docRef = doc(db, collectionName, documentId);
     this.operations.push(() => {
-      this.batch.set(docRef, { ...data, id: documentId, userId: data.userId }, { merge: true });
+      // Standardize on userId, but support owner for compatibility
+      const userId = data.userId || data.owner;
+      this.batch.set(docRef, { ...data, id: documentId, userId: userId }, { merge: true });
     });
     return this;
   }
@@ -260,7 +264,12 @@ export class FirestoreTransaction {
   update(collectionName: string, documentId: string, data: any) {
     const docRef = doc(db, collectionName, documentId);
     this.operations.push(() => {
-      this.batch.update(docRef, data);
+      // If owner is being updated, ensure userId is also updated
+      const updateData = { ...data };
+      if (data.owner) {
+        updateData.userId = data.owner;
+      }
+      this.batch.update(docRef, updateData);
     });
     return this;
   }
@@ -311,10 +320,15 @@ export async function transact(operations: Array<{
 
     switch (op.action) {
       case 'set':
-        batch.set(docRef, { ...op.data, id: op.id }, { merge: true });
+        const userId = op.data?.userId || op.data?.owner;
+        batch.set(docRef, { ...op.data, id: op.id, userId }, { merge: true });
         break;
       case 'update':
-        batch.update(docRef, op.data);
+        const updateData = { ...op.data };
+        if (op.data?.owner) {
+          updateData.userId = op.data.owner;
+        }
+        batch.update(docRef, updateData);
         break;
       case 'delete':
         batch.delete(docRef);
