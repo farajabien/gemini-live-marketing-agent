@@ -35,6 +35,7 @@ export function Header({ transparent }: HeaderProps) {
                             src={LOGO.full} 
                             alt={LOGO.alt} 
                             className="h-auto w-40 sm:w-44"
+                            style={{ height: 'auto' }}
                             priority
                         />
                         <div className="flex items-center gap-2">

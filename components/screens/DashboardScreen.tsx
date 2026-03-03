@@ -74,8 +74,12 @@ export function DashboardScreen() {
               order: { createdAt: "desc" },
               limit: 50,
             },
-            contentPieces: {
-              $: { order: { createdAt: "desc" } },
+          },
+          contentPieces: {
+            $: {
+              where: { userId: user.id },
+              order: { createdAt: "desc" },
+              limit: 100,
             },
           },
         }
@@ -104,17 +108,9 @@ export function DashboardScreen() {
 
   const allPlans = ((data as any)?.videoPlans || []) as VideoPlan[];
   const allSeries = ((data as any)?.series || []) as Series[];
-  const allNarratives = ((data as any)?.narratives || []) as (FounderNarrative & {
-    contentPieces?: ContentPiece[];
-  })[];
+  const allNarratives = ((data as any)?.narratives || []) as FounderNarrative[];
   const allSeriesNarratives = ((data as any)?.seriesNarratives || []) as any[];
-
-  // Aggregate all content pieces from all narratives
-  const allContentPieces = allNarratives
-    .reduce((acc, n) => {
-      return [...acc, ...(n.contentPieces || [])];
-    }, [] as ContentPiece[])
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const allContentPieces = ((data as any)?.contentPieces || []) as ContentPiece[];
 
   const queuedContent = allContentPieces.filter(
     (p) => p.status === "suggested" || p.status === "edited"
@@ -269,16 +265,24 @@ export function DashboardScreen() {
       <div className="flex-1 w-full">
      
  {/* Main Tabs */}
-        {/* Main Tabs Hierarchy */}
-        <Tabs defaultValue="narratives" className="w-full">
+        <Tabs defaultValue="brand" className="w-full">
           <TabsList className="bg-white/5 border border-white/10 mb-10 h-14 p-1.5 rounded-2xl gap-2">
             <TabsTrigger
-              value="narratives"
+              value="brand"
               className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
             >
-              <span className="material-symbols-outlined text-lg mr-2">edit_note</span>
-              Narratives
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-red-500/10 text-red-500 border-none px-2">{narrativeCount}</Badge>
+              <span className="material-symbols-outlined text-lg mr-2">token</span>
+              Brand Strategy
+              <Badge variant="secondary" className="ml-2 text-[9px] bg-red-500/10 text-red-500 border-none px-2">{allNarratives.length}</Badge>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="storytelling"
+              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
+            >
+              <span className="material-symbols-outlined text-lg mr-2">auto_stories</span>
+              Storytelling
+              <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allSeriesNarratives.length}</Badge>
             </TabsTrigger>
             
             <TabsTrigger
@@ -300,35 +304,35 @@ export function DashboardScreen() {
             </TabsTrigger>
           </TabsList>
 
-          {/* 1. NARRATIVES TAB */}
-          <TabsContent value="narratives" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            {allNarratives.length === 0 && allSeriesNarratives.length === 0 ? (
+          {/* 1. BRAND TAB */}
+          <TabsContent value="brand" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {allNarratives.length === 0 ? (
               <EmptyState
-                icon="edit_note"
-                title="Define your first narrative"
+                icon="token"
+                title="Define your brand positioning"
                 description="Answer 10 questions about your startup. Get AI content that sounds like you."
                 action={
                   <Button
                     asChild
                     className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20 rounded-full px-8 h-11"
                   >
-                    <Link href="/narrative/new">Create Narrative</Link>
+                    <Link href="/narrative/new">Create Strategy</Link>
                   </Button>
                 }
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {allNarratives.map((narrative) => {
-                  const queued = (narrative.contentPieces || []).filter(
+                  // Calculate pieces for this specific narrative from allContentPieces
+                  const narrativePieces = allContentPieces.filter(p => p.narrativeId === narrative.id);
+                  const queued = narrativePieces.filter(
                     (p) => p.status === "suggested" || p.status === "edited"
                   ).length;
-                  const approved = (narrative.contentPieces || []).filter(
+                  const approved = narrativePieces.filter(
                     (p) => p.status === "approved" || p.status === "published"
                   ).length;
                   
-                  // Calculate media associated with this narrative
-                  const mediaCount = allPlans.filter(p => p.narrativeId === narrative.id).length + 
-                                   allSeries.filter(s => (s as any).narrativeId === narrative.id).length;
+                  const mediaCount = allPlans.filter(p => p.narrativeId === narrative.id).length;
 
                   return (
                     <NarrativeCard
@@ -340,7 +344,28 @@ export function DashboardScreen() {
                     />
                   );
                 })}
+              </div>
+            )}
+          </TabsContent>
 
+          {/* 1b. STORYTELLING TAB */}
+          <TabsContent value="storytelling" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {allSeriesNarratives.length === 0 ? (
+              <EmptyState
+                icon="auto_stories"
+                title="Launch a new series"
+                description="Create episodic content that builds a narrative over time."
+                action={
+                  <Button
+                    asChild
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-purple-500/20 rounded-full px-8 h-11"
+                  >
+                    <Link href="/series-narrative">Start Series</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {allSeriesNarratives.map((sn) => {
                   const mediaCount = allSeries.filter(s => s.seriesNarrativeId === sn.id).length;
                   

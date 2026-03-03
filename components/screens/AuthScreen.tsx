@@ -45,7 +45,7 @@ export function AuthScreen() {
             <div className="flex-1 flex items-center justify-center p-4">
                 <div className="w-full max-w-md z-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="text-center mb-8">
-                       <Image src="/logos/ideatovideo-icon.png" alt="Logo" width={100} height={100} className="mx-auto w-8 h-auto"/>
+                       <Image src="/logos/ideatovideo-icon.png" alt="Logo" width={100} height={100} className="mx-auto w-8 h-auto" style={{ height: 'auto' }}/>
                         <h1 className="text-3xl font-black text-white tracking-tight mb-3">Claim your voice</h1>
                         <p className="text-slate-400">Sign in to start your founder narrative and generate your first batch of content.</p>
                     </div>

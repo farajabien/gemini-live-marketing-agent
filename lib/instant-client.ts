@@ -5,7 +5,7 @@
  * Kept for backward compatibility with existing imports.
  */
 
-import { useFirestoreQuery, generateId } from "@/lib/firebase-client";
+import { useFirestoreQuery, useFirestoreDoc, generateId } from "@/lib/firebase-client";
 
 // Mock for E2E testing
 const isE2E = process.env.NEXT_PUBLIC_IS_E2E === "true";
@@ -27,6 +27,7 @@ const db = isE2E
     } as any
   : {
       useQuery: useFirestoreQuery,
+      useDoc: useFirestoreDoc,
       // Note: useAuth is now in hooks/use-auth.ts
     };
 

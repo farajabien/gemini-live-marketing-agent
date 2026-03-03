@@ -149,29 +149,60 @@ export function useFirestoreQuery<T = any>(
           if (!config) continue;
 
           const queryConfig = config.$;
-          const firestoreQuery = buildFirestoreQuery(collectionName, queryConfig);
+          
+          // Check if this is a simple query by ID
+          let isDocQuery = false;
+          let docId = null;
+          if (queryConfig?.where?.id && typeof queryConfig.where.id === 'string' && Object.keys(queryConfig.where).length === 1) {
+            isDocQuery = true;
+            docId = queryConfig.where.id;
+          }
 
-          // Set up real-time listener
-          const unsubscribe = onSnapshot(
-            firestoreQuery,
-            (snapshot) => {
-              const docs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
+          if (isDocQuery && docId) {
+            const docRef = doc(db, collectionName, docId);
+            const unsubscribe = onSnapshot(
+              docRef,
+              (snapshot) => {
+                if (snapshot.exists()) {
+                  results[collectionName] = [{ id: snapshot.id, ...snapshot.data() }];
+                } else {
+                  results[collectionName] = [];
+                }
+                setData({ ...results } as T);
+                setIsLoading(false);
+              },
+              (err) => {
+                console.error(`Firebase Permission/Query Error on Doc [${collectionName}/${docId}]:`, err.message, err.code);
+                setError(err as Error);
+                setIsLoading(false);
+              }
+            );
+            unsubscribers.push(unsubscribe);
+          } else {
+            const firestoreQuery = buildFirestoreQuery(collectionName, queryConfig);
 
-              results[collectionName] = docs;
-              setData({ ...results } as T);
-              setIsLoading(false);
-            },
-            (err) => {
-              console.error(`Error fetching ${collectionName}:`, err);
-              setError(err as Error);
-              setIsLoading(false);
-            }
-          );
+            // Set up real-time listener
+            const unsubscribe = onSnapshot(
+              firestoreQuery,
+              (snapshot) => {
+                const docs = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }));
 
-          unsubscribers.push(unsubscribe);
+                results[collectionName] = docs;
+                setData({ ...results } as T);
+                setIsLoading(false);
+              },
+              (err) => {
+                console.error(`Firebase Permission/Query Error [${collectionName}]:`, err.message, err.code);
+                setError(err as Error);
+                setIsLoading(false);
+              }
+            );
+
+            unsubscribers.push(unsubscribe);
+          }
         }
       } catch (err) {
         console.error('Error setting up query:', err);

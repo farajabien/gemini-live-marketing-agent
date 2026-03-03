@@ -57,7 +57,11 @@ export function NarrativeCard({
   return (
     <div className="relative group">
         <Link
-            href={isSeriesNarrative ? `/series-narrative/${narrative.id}` : `/narrative/${narrative.id}`}
+            href={
+                narrative.status === 'wizard' 
+                    ? (isSeriesNarrative ? `/series-narrative?resume=${narrative.id}` : `/narrative/new?resume=${narrative.id}`)
+                    : (isSeriesNarrative ? `/series-narrative/${narrative.id}` : `/narrative/${narrative.id}`)
+            }
             className={cn(
                 "block p-7 rounded-[2rem] bg-white dark:bg-[#0c0d15] border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-2xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-slate-50 dark:hover:bg-[#11121d] relative overflow-hidden",
                 isSeriesNarrative && "border-purple-500/20"

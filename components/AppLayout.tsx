@@ -328,40 +328,7 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
 
         {/* Main Content Area */}
         <main className="flex min-h-screen flex-1 flex-col bg-black md:ml-60 overflow-x-hidden">
-          <header className="h-14 border-b border-white/5 bg-black/40 backdrop-blur-md flex items-center px-4 md:px-6 gap-4 sticky top-0 z-10 shrink-0">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="text-white/40 hover:text-white" />
-              <Separator orientation="vertical" className="h-4 bg-white/10" />
-            </div>
-
-            <Breadcrumb>
-              <BreadcrumbList>
-                {breadcrumbs.map((bc, i) => (
-                  <React.Fragment key={bc.href}>
-                    <BreadcrumbItem>
-                      {i === breadcrumbs.length - 1 ? (
-                        <BreadcrumbPage className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">{bc.label}</BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink href={bc.href} className="text-[10px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors">
-                          {bc.label}
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                    {i < breadcrumbs.length - 1 && <BreadcrumbSeparator className="text-white/10" />}
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-
-            <div className="ml-auto flex items-center gap-3">
-               <div className="flex items-center gap-1.5 bg-red-600/10 px-3 py-1.5 rounded-full border border-red-600/20">
-                  <div className="size-1.5 rounded-full bg-red-600 animate-pulse" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-red-500">System Live</span>
-               </div>
-            </div>
-          </header>
-
-          <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+          <div className="flex-1 px-4 md:px-6 lg:px-8 overflow-auto py-2">
             {children}
           </div>
         </main>

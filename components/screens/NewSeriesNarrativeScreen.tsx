@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { db } from "@/lib/instant-client";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
 import { createSeriesNarrative, refineSeriesNarrativeAction } from "@/app/actions/marketing";
@@ -30,6 +31,10 @@ interface WizardData {
 export function NewSeriesNarrativeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const resumeId = searchParams.get("resume");
+  const { data: resumedData, isLoading: isResuming } = (db as any).useDoc("seriesNarratives", resumeId);
+
   const [step, setStep] = useState<Step>(SERIES_NARRATIVE_STEPS[0].id);
   const [data, setData] = useState<WizardData>({
     genre: "sci-fi",
@@ -51,6 +56,9 @@ export function NewSeriesNarrativeScreen() {
 
   // Load from localStorage on mount
   useEffect(() => {
+    // Only load from localStorage if not resuming from Firebase
+    if (resumeId) return;
+
     const savedData = localStorage.getItem("series_narrative_wizard_data");
     const savedStep = localStorage.getItem("series_narrative_wizard_step");
     
@@ -67,7 +75,29 @@ export function NewSeriesNarrativeScreen() {
     }
     
     setIsLoaded(true);
-  }, []);
+  }, [resumeId]);
+
+  // Handle Resumption from Firebase
+  useEffect(() => {
+    if (resumeId && resumedData && !isResuming) {
+       setData({
+         genre: resumedData.genre || "sci-fi",
+         worldSetting: resumedData.worldSetting || "",
+         conflictType: resumedData.conflictType || "internal",
+         protagonistArchetype: resumedData.protagonistArchetype || "hero",
+         centralTheme: resumedData.centralTheme || "",
+         narrativeTone: resumedData.narrativeTone || "stoic",
+         visualStyle: resumedData.visualStyle || "",
+         episodeHooks: resumedData.episodeHooks || "",
+       });
+       
+       if (resumedData.step && SERIES_NARRATIVE_STEPS.some(s => s.id === resumedData.step)) {
+         setStep(resumedData.step as Step);
+       }
+       
+       setIsLoaded(true);
+    }
+  }, [resumedData, isResuming, resumeId]);
 
   // Save to localStorage whenever data or step changes
   useEffect(() => {
