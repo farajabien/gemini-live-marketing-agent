@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const { narrativeId, format = "linkedin-post", count = 3, preferredAngle } = await request.json();
+        const { narrativeId, format = "linkedin-post", count = 3, preferredAngle, pillarId } = await request.json();
 
         // Authenticate
         const authHeader = request.headers.get("Authorization");
@@ -273,6 +273,7 @@ export async function POST(request: NextRequest) {
               angle: piece.angle,
               format: (piece.format || format) as any,
               status: "suggested",
+              pillarId: pillarId || undefined,
               createdAt: now,
               updatedAt: now,
             }),

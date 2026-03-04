@@ -488,7 +488,7 @@ const positioning = narrative.aiPositioning;
               
               <div className="bg-gradient-to-br from-red-600/10 to-transparent border border-red-600/20 rounded-3xl p-10 text-center space-y-6">
                 <h3 className="text-3xl font-black text-white">Unlock Full Growth</h3>
-                <p className="text-slate-400 max-w-xl mx-auto">Your overall narrative score of <strong>{(strength.overallScore * 100).toFixed(0)}%</strong> shows a strong foundation. Use the content engine to build authority with consistent, strategic output.</p>
+                <p className="text-slate-400 max-w-xl mx-auto">Your overall narrative score of <strong>{Math.round(strength.overallScore)}/100</strong> shows a strong foundation. Use the content engine to build authority with consistent, strategic output.</p>
                 <Button 
                   onClick={() => router.push(`/narrative/${narrativeId}/engine`)}
                   className="bg-red-600 hover:bg-red-700 text-white font-black rounded-full h-12 px-8 uppercase tracking-widest text-xs gap-2"

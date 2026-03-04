@@ -407,6 +407,91 @@ export async function generateSmartTitleAction(
   }
 }
 
+/**
+ * Generate content pillars for an existing narrative that doesn't have any.
+ * This reads the narrative's AI-extracted angles and creates contentPillars docs.
+ */
+export async function generatePillarsForNarrative(
+  narrativeId: string,
+  userId: string
+): Promise<void> {
+  try {
+    const data = await adminDb.query({
+      narratives: { $: { where: { id: narrativeId } } }
+    });
+    const narrative = (data as any).narratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    // Check if pillars already exist
+    const existingPillars = await adminDb.query({
+      contentPillars: { $: { where: { narrative: narrativeId } } }
+    });
+    if ((existingPillars as any).contentPillars?.length > 0) {
+      return; // Pillars already exist
+    }
+
+    // Build pillars from the narrative's AI-extracted angles
+    const angles = narrative.angles;
+    if (!angles || Object.keys(angles).length === 0) {
+      // No angles available — we need to run analysis first
+      const narrativeInput: NarrativeInput = {
+        audience: narrative.audience || "",
+        currentState: narrative.currentState || "",
+        problem: narrative.problem || "",
+        costOfInaction: narrative.costOfInaction || "",
+        solution: narrative.solution || "",
+        afterState: narrative.afterState || "",
+        identityShift: narrative.identityShift || "",
+        voice: narrative.voice || "calm",
+      };
+      const { angles: newAngles } = await analyzeNarrative(narrativeInput);
+      
+      // Update narrative with new angles
+      await adminDb.transact([
+        adminDb.tx.narratives[narrativeId].update({
+          angles: newAngles,
+          updatedAt: Date.now(),
+        })
+      ]);
+
+      // Create pillars from new angles
+      for (const [category, categoryAngles] of Object.entries(newAngles)) {
+        const pillarId = id();
+        await adminDb.transact([
+          adminDb.tx.contentPillars[pillarId].set({
+            userId,
+            narrativeId,
+            title: category.replace(/Angles$/, '').replace(/([A-Z])/g, ' $1').trim(),
+            description: `Content angles focused on ${category.replace(/Angles$/, '').toLowerCase()}`,
+            angles: categoryAngles as string[],
+            status: "active",
+            createdAt: Date.now(),
+          }).link({ narrative: narrativeId })
+        ]);
+      }
+    } else {
+      // Create pillars from existing angles
+      for (const [category, categoryAngles] of Object.entries(angles)) {
+        const pillarId = id();
+        await adminDb.transact([
+          adminDb.tx.contentPillars[pillarId].set({
+            userId,
+            narrativeId,
+            title: category.replace(/Angles$/, '').replace(/([A-Z])/g, ' $1').trim(),
+            description: `Content angles focused on ${category.replace(/Angles$/, '').toLowerCase()}`,
+            angles: categoryAngles as string[],
+            status: "active",
+            createdAt: Date.now(),
+          }).link({ narrative: narrativeId })
+        ]);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to generate pillars:", error);
+    throw new Error("Failed to generate content pillars");
+  }
+}
+
 export async function createContentFromAngleAction(
   narrativeId: string,
   angle: string,

@@ -4,8 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { LOGO } from "@/lib/branding";
-import Image from "next/image";
 import { useState, Suspense, useMemo, useEffect } from "react";
 import { ProfileDialog } from "./ProfileDialog";
 import { SecureAccountDialog } from "./SecureAccountDialog";
@@ -28,7 +26,10 @@ import {
   SidebarTrigger,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarGroupContent
+  SidebarGroupContent,
+  SidebarInset,
+  SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Breadcrumb,
@@ -147,206 +148,36 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      <Sidebar className="border-r border-white/5 bg-[#050505]">
+      <AppSidebar 
+        narrativeId={narrativeId}
+        narrative={narrative}
+        allNarratives={allNarratives}
+        switcherOpen={switcherOpen}
+        setSwitcherOpen={setSwitcherOpen}
+        pathname={pathname}
+        router={router}
+        user={user}
+        signOut={signOut}
+        setProfileOpen={setProfileOpen}
+        setSecurityOpen={setSecurityOpen}
+      />
+      <MainContent breadcrumbs={breadcrumbs}>
+        {children}
+      </MainContent>
 
-      {/* Screen reader only section */}
-          <SidebarHeader className="sr-only h-14 border-b border-white/5 flex items-center px-4 shrink-0">
-            <Link href="/dashboard" className="flex items-center gap-2.5">
-              <div className="size-8 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-600/20">
-                <Image
-                  src={LOGO.icon}
-                  alt={LOGO.alt}
-                  width={20}
-                  height={20}
-                  className="shrink-0 brightness-0 invert"
-                  style={{ width: "auto", height: "auto" }}
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-black tracking-tighter text-white leading-none">IdeaToVideo</span>
-                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-0.5">Studio</span>
-              </div>
-            </Link>
-          </SidebarHeader>
-
-          <SidebarContent className="pt-2">
-            <SidebarGroup>
-           <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <Popover open={switcherOpen} onOpenChange={setSwitcherOpen}>
-                      <PopoverTrigger asChild>
-                        <SidebarMenuButton 
-                          size="lg"
-                          className="w-full bg-white/5 border border-white/5 hover:border-red-600/50 hover:bg-white/10 transition-all text-left group h-auto py-2.5"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={cn(
-                              "size-7 rounded flex items-center justify-center font-bold text-[11px] shrink-0 transition-colors",
-                              narrative ? "bg-red-600 text-white" : "bg-white/10 text-white/50"
-                            )}>
-                              {narrative ? narrative.title.charAt(0).toUpperCase() : <LayoutDashboard className="size-4" />}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate leading-tight">
-                                {narrative ? narrative.title : "All Projects"}
-                              </p>
-                              <p className="text-[10px] text-white/40 font-medium uppercase tracking-wider mt-0.5">
-                                {narrative ? "Active Narrative" : "Switch Projects"}
-                              </p>
-                            </div>
-                            <ChevronRight className="ml-auto size-3 text-white/20 group-hover:text-white/60 transition-colors" />
-                          </div>
-                        </SidebarMenuButton>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[240px] p-0 bg-[#0a0a0a] border-white/10 shadow-2xl" align="start">
-                        <Command className="bg-transparent">
-                          <CommandInput placeholder="Search projects..." className="h-9" />
-                          <CommandList className="max-h-[300px]">
-                            <CommandEmpty className="py-4 text-center text-xs text-white/40">No projects found.</CommandEmpty>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => { router.push("/dashboard"); setSwitcherOpen(false); }}
-                                className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
-                              >
-                                <LayoutDashboard className="size-4 text-white/60" />
-                                <span className="text-sm font-medium">All Projects</span>
-                              </CommandItem>
-                              {allNarratives.map((n) => (
-                                <CommandItem
-                                  key={n.id}
-                                  onSelect={() => { router.push(`/narrative/${n.id}`); setSwitcherOpen(false); }}
-                                  className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
-                                >
-                                  <div className="size-5 rounded bg-red-600/20 text-red-500 flex items-center justify-center text-[10px] font-bold">
-                                    {n.title.charAt(0).toUpperCase()}
-                                  </div>
-                                  <span className="text-sm font-medium truncate">{n.title}</span>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                            <Separator className="bg-white/5 my-1" />
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => { router.push("/narrative/new"); setSwitcherOpen(false); }}
-                                className="flex items-center gap-2 cursor-pointer py-2 text-red-500 font-bold focus:bg-red-600/10"
-                              >
-                                <PlusCircle className="size-4" />
-                                <span className="text-sm">New Narrative</span>
-                              </CommandItem>
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup className="mt-2">
-              <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-4 mb-2">
-                Main Menu
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {narrativeId ? (
-                    <>
-                      <SidebarNavItem 
-                        icon={<LayoutDashboard className="size-4" />} 
-                        label="Overview" 
-                        href={`/narrative/${narrativeId}`} 
-                        isActive={pathname === `/narrative/${narrativeId}`}
-                      />
-                      <SidebarNavItem 
-                        icon={<Brain className="size-4" />} 
-                        label="Content Engine" 
-                        href={`/narrative/${narrativeId}/engine`} 
-                        isActive={pathname.includes("/engine")}
-                      />
-                      <SidebarNavItem 
-                        icon={<FileEdit className="size-4" />} 
-                        label="Content Library" 
-                        href={`/narrative/${narrativeId}/drafts`} 
-                        isActive={pathname.includes("/drafts")}
-                      />
-                    </>
-                  ) : (
-                    <SidebarNavItem 
-                      icon={<LayoutDashboard className="size-4" />} 
-                      label="Dashboard" 
-                      href="/dashboard" 
-                      isActive={pathname === "/dashboard"}
-                    />
-                  )}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-     
-          </SidebarContent>
-
-          <SidebarFooter className="p-2 border-t border-white/5 bg-black/40">
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuButton 
-                      size="lg" 
-                      className="hover:bg-white/5 data-[state=open]:bg-white/5"
-                    >
-                      <Avatar className="size-8 border border-white/10 shrink-0">
-                        <AvatarFallback className="bg-red-600 text-[11px] font-black text-white">
-                          {user?.email?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className="text-[11px] font-black text-white truncate group-hover:text-red-500 transition-colors">
-                          {user?.email || "User Account"}
-                        </p>
-                        <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest mt-0.5">Pro Member</p>
-                      </div>
-                      <MoreVertical className="size-4 text-white/20 shrink-0 ml-auto" />
-                    </SidebarMenuButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-[#0a0a0a] border-white/10 shadow-2xl" side="right" align="end">
-                    <DropdownMenuItem onClick={() => setProfileOpen(true)} className="cursor-pointer gap-2 focus:bg-red-600/10 focus:text-red-500">
-                      <Settings className="size-4" /> Profile Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSecurityOpen(true)} className="cursor-pointer gap-2 focus:bg-red-600/10 focus:text-red-500">
-                      <Sparkles className="size-4" /> Security
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/5" />
-                    <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer gap-2 text-red-500 focus:bg-red-600/10">
-                      <LogOut className="size-4" /> Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-
-        {/* Main Content Area */}
-        <main className="flex min-h-screen flex-1 flex-col bg-black md:ml-60 overflow-x-hidden">
-          <div className="flex-1 px-4 md:px-6 lg:px-8 overflow-auto py-2">
-            {children}
+      <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>
+        <DialogContent className="w-[95vw] sm:max-w-5xl xl:max-w-7xl h-[85vh] p-0 overflow-hidden bg-[#050505] border-white/10 flex flex-col items-center justify-center sm:rounded-[3rem]">
+          <DialogTitle className="sr-only">Content Generator</DialogTitle>
+          <div className="w-full h-full overflow-y-auto">
+            <GenerateScreen
+              isModal={true}
+              hideHeader={true}
+              initialPlanId={initialPlanId}
+              activeNarrativeId={generateParams.narrativeId || narrativeId}
+            />
           </div>
-        </main>
-
-        <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>
-          <DialogContent className="w-[95vw] sm:max-w-5xl xl:max-w-7xl h-[85vh] p-0 overflow-hidden bg-[#050505] border-white/10 flex flex-col items-center justify-center sm:rounded-[3rem]">
-            <DialogTitle className="sr-only">Content Generator</DialogTitle>
-            <div className="w-full h-full overflow-y-auto">
-              <GenerateScreen
-                isModal={true}
-                hideHeader={true}
-                initialPlanId={initialPlanId}
-                activeNarrativeId={generateParams.narrativeId || narrativeId}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        </DialogContent>
+      </Dialog>
 
       <ProfileDialog
         isOpen={profileOpen}
@@ -361,12 +192,203 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
   );
 }
 
+/* ─── Sidebar Component ─── */
+function AppSidebar({
+  narrativeId,
+  narrative,
+  allNarratives,
+  switcherOpen,
+  setSwitcherOpen,
+  pathname,
+  router,
+  user,
+  signOut,
+  setProfileOpen,
+  setSecurityOpen,
+}: {
+  narrativeId?: string;
+  narrative?: FounderNarrative;
+  allNarratives: FounderNarrative[];
+  switcherOpen: boolean;
+  setSwitcherOpen: (v: boolean) => void;
+  pathname: string;
+  router: any;
+  user: any;
+  signOut: () => void;
+  setProfileOpen: (v: boolean) => void;
+  setSecurityOpen: (v: boolean) => void;
+}) {
+  return (
+    <Sidebar collapsible="icon" className="bg-[#050505] border-r border-white/5">
+    
+      <SidebarContent>
+        {/* Project Switcher */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <Popover open={switcherOpen} onOpenChange={setSwitcherOpen}>
+                  <PopoverTrigger asChild>
+                    <SidebarMenuButton 
+                      size="lg"
+                      className="w-full bg-white/5 border border-white/5 hover:border-red-600/50 hover:bg-white/10 transition-all text-left group/switcher h-auto py-2.5"
+                    >
+                      <div className={cn(
+                        "flex aspect-square size-7 items-center justify-center rounded font-bold text-[11px] shrink-0 transition-colors",
+                        narrative ? "bg-red-600 text-white" : "bg-white/10 text-white/50"
+                      )}>
+                        {narrative ? narrative.title.charAt(0).toUpperCase() : <LayoutDashboard className="size-4" />}
+                      </div>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="text-xs font-bold text-white truncate">
+                          {narrative ? narrative.title : "All Projects"}
+                        </span>
+                        <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
+                          {narrative ? "Active Narrative" : "Switch Projects"}
+                        </span>
+                      </div>
+                      <ChevronRight className="ml-auto size-3 text-white/20 group-hover/switcher:text-white/60 transition-colors" />
+                    </SidebarMenuButton>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0 bg-[#0a0a0a] border-white/10 shadow-2xl" align="start">
+                    <Command className="bg-transparent">
+                      <CommandInput placeholder="Search projects..." className="h-9" />
+                      <CommandList className="max-h-[300px]">
+                        <CommandEmpty className="py-4 text-center text-xs text-white/40">No projects found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => { router.push("/dashboard"); setSwitcherOpen(false); }}
+                            className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
+                          >
+                            <LayoutDashboard className="size-4 text-white/60" />
+                            <span className="text-sm font-medium">All Projects</span>
+                          </CommandItem>
+                          {allNarratives.map((n) => (
+                            <CommandItem
+                              key={n.id}
+                              onSelect={() => { router.push(`/narrative/${n.id}`); setSwitcherOpen(false); }}
+                              className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
+                            >
+                              <div className="size-5 rounded bg-red-600/20 text-red-500 flex items-center justify-center text-[10px] font-bold">
+                                {n.title.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-sm font-medium truncate">{n.title}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        <Separator className="bg-white/5 my-1" />
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => { router.push("/narrative/new"); setSwitcherOpen(false); }}
+                            className="flex items-center gap-2 cursor-pointer py-2 text-red-500 font-bold focus:bg-red-600/10"
+                          >
+                            <PlusCircle className="size-4" />
+                            <span className="text-sm">New Narrative</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Main Menu */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
+            Main Menu
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {narrativeId ? (
+                <>
+                  <SidebarNavItem 
+                    icon={<LayoutDashboard className="size-4" />} 
+                    label="Overview" 
+                    href={`/narrative/${narrativeId}`} 
+                    isActive={pathname === `/narrative/${narrativeId}`}
+                  />
+                  <SidebarNavItem 
+                    icon={<Brain className="size-4" />} 
+                    label="Content Engine" 
+                    href={`/narrative/${narrativeId}/engine`} 
+                    isActive={pathname.includes("/engine")}
+                  />
+                  <SidebarNavItem 
+                    icon={<FileEdit className="size-4" />} 
+                    label="Content Library" 
+                    href={`/narrative/${narrativeId}/drafts`} 
+                    isActive={pathname.includes("/drafts")}
+                  />
+                </>
+              ) : (
+                <SidebarNavItem 
+                  icon={<LayoutDashboard className="size-4" />} 
+                  label="Dashboard" 
+                  href="/dashboard" 
+                  isActive={pathname === "/dashboard"}
+                />
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      {/* User Footer */}
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton 
+                  size="lg" 
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="size-8 border border-white/10 rounded-lg">
+                    <AvatarFallback className="bg-red-600 text-[11px] font-black text-white rounded-lg">
+                      {user?.email?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate text-xs font-semibold text-white">
+                      {user?.email || "User Account"}
+                    </span>
+                    <span className="truncate text-[10px] text-white/40 font-medium">Pro Member</span>
+                  </div>
+                  <MoreVertical className="ml-auto size-4 text-white/20" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-[#0a0a0a] border-white/10 shadow-2xl rounded-lg" side="right" align="end" sideOffset={4}>
+                <DropdownMenuItem onClick={() => setProfileOpen(true)} className="cursor-pointer gap-2 focus:bg-red-600/10 focus:text-red-500">
+                  <Settings className="size-4" /> Profile Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSecurityOpen(true)} className="cursor-pointer gap-2 focus:bg-red-600/10 focus:text-red-500">
+                  <Sparkles className="size-4" /> Security
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/5" />
+                <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer gap-2 text-red-500 focus:bg-red-600/10">
+                  <LogOut className="size-4" /> Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  );
+}
+
+/* ─── Nav Item ─── */
 function SidebarNavItem({ icon, label, href, isActive }: { icon: React.ReactNode, label: string, href: string, isActive: boolean }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton 
         asChild 
         isActive={isActive}
+        tooltip={label}
         className={cn(
           "text-xs font-black uppercase tracking-[0.15em] transition-all",
           isActive ? "text-red-500 bg-red-600/10 hover:bg-red-600/20 hover:text-red-500" : "text-white/40 hover:text-white"
@@ -378,5 +400,55 @@ function SidebarNavItem({ icon, label, href, isActive }: { icon: React.ReactNode
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  );
+}
+
+/* ─── Main Content (with sidebar-aware margin) ─── */
+function MainContent({ children, breadcrumbs }: { children: React.ReactNode; breadcrumbs: { label: string; href: string }[] }) {
+  const { state, isMobile } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  return (
+    <main
+      className="min-h-svh bg-black transition-[margin-left] duration-200 ease-linear"
+      style={{
+        marginLeft: isMobile ? 0 : isCollapsed ? "3rem" : "16rem",
+      }}
+    >
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-20">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1 text-white/40 hover:text-white" />
+          <Separator orientation="vertical" className="mr-2 h-4 bg-white/10" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/dashboard" className="text-xs font-bold text-white/40 hover:text-white transition-colors">
+                  Studio
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              {breadcrumbs.map((crumb, idx) => (
+                <React.Fragment key={crumb.href}>
+                  <BreadcrumbSeparator className="hidden md:block text-white/20" />
+                  <BreadcrumbItem>
+                    {idx === breadcrumbs.length - 1 ? (
+                      <BreadcrumbPage className="text-xs font-black text-red-500 uppercase tracking-widest">{crumb.label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink href={crumb.href} className="text-xs font-bold text-white/40 hover:text-white transition-colors">
+                        {crumb.label}
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </React.Fragment>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </header>
+      <div className="p-6 md:p-8 lg:p-10">
+        <div className="max-w-7xl mx-auto w-full">
+          {children}
+        </div>
+      </div>
+    </main>
   );
 }
