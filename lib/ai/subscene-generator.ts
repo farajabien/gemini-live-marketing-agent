@@ -100,7 +100,7 @@ Generate the ${subSceneCount} visual prompts now:`;
     const aiPromise = generateText(
       prompt,
       "You are a visual director. Return ONLY the JSON array of visual prompts.",
-      "gpt-4o",
+      "gemini-1.5-pro",
       0.7
     );
 

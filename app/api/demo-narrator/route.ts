@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const token = authHeader.split(" ")[1];
     
     // We don't need the full user object yet, but we verify the token exists
-    const { adminDb } = await import("@/lib/instant-admin");
+    const { adminDb } = await import("@/lib/firebase-admin");
     const user = await adminDb.auth.verifyToken(token);
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
@@ -145,7 +145,7 @@ Return ONLY a JSON array with this structure (no markdown, no code fences):
 
 If a segment should be silent, use an empty string for voiceoverText.`;
 
-      const { text: rawText } = await generateText(prompt, systemPrompt, "gpt-4o", 0.7);
+      const { text: rawText } = await generateText(prompt, systemPrompt, "gemini-2.0-flash", 0.7);
       const { sanitizeJson } = await import("@/lib/ai/json-utils");
       const jsonStr = sanitizeJson(rawText.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim());
 

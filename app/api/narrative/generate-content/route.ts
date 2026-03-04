@@ -19,12 +19,11 @@ const GENERATE_CONTENT_PROMPT = (
 ) => {
   const formatDescriptions: Record<string, string> = {
     "linkedin-post": "LinkedIn posts (150-300 words, punchy, scannable, line breaks).",
-    "x-post": "X/Twitter posts (short, punchy, under 280 characters, use hooks).",
-    "thread": "Twitter Threads (5-8 tweets, each part continuing the story).",
-    "short-video": "Short video scripts (60s-90s, high energy, verbal hooks).",
+    "x-post": "X/Twitter posts or short threads (short, punchy, under 280 characters per thought, use visual hooks).",
+    "short-video": "Short form video scripts (15-60s) perfect for TikTok, Instagram Reels, or YouTube Shorts. High-impact, fast-paced, hook-driven. Focus on immediate value or strong emotional reaction. Use punchy, spoken language. Include visual scene descriptions in brackets like [Visual: ...].",
+    "long-video": "Long-form video scripts (5-15 mins) for YouTube. Detailed outlines with strong opening hooks, retention spikes every 2 mins, B-roll suggestions, and a concluding call to action.",
     "carousel": "LinkedIn Carousel copy (7-10 slides). Structure: Slide 1 (Hook), Slides 2-5 (Core Tips/Steps), Slide 6 (Tactical Example/Counter-intuitive insight), Slide 7-8 (Specific 'How-to'), Slide 9 (Summary), Slide 10 (Soft CTA). Keep text per slide VERY short and punchy. CRITICAL: DO NOT include labels like 'Slide 1:', 'Slide 2:', 'Scene 1:', etc. in the body text - write raw content only, no prefixes or slide numbers.",
-    "tiktok-video": "TikTok-style video scripts (15-60s). High-impact, fast-paced, hook-driven. Focus on immediate value or strong emotional reaction. Use punchy, spoken language. Include visual scene descriptions in brackets like [Visual: ...].",
-    "tiktok-carousel": "TikTok Photo Mode/Carousel copy (5-15 slides). High-density visual storytelling. Each slide must have a clear visual hook and minimal, high-impact text. Structure: Slide 1 (The Hook/Scroll Stopper), Slides 2-N (The Story/Value Build), Final Slide (Engagement CTA).",
+    "tiktok-carousel": "TikTok Photo Mode/IG Carousel copy (5-15 slides). High-density visual storytelling. Each slide must have a clear visual hook and minimal, high-impact text. Structure: Slide 1 (The Hook/Scroll Stopper), Slides 2-N (The Story/Value Build), Final Slide (Engagement CTA).",
     "blog-post": "Full blog posts (800-1500 words). Structure: Compelling headline, engaging intro with hook, 3-5 main sections with subheadings, actionable insights, real examples, conclusion with key takeaways. Include suggestions for [IMAGE: description] placeholders and [REFERENCE: source/link] citations where relevant. Write for SEO with natural keyword integration. Tone should match founder voice while being accessible and valuable.",
   };
 
@@ -221,7 +220,7 @@ export async function POST(request: NextRequest) {
               existingContent
             ),
             "You are a JSON generator. Respond with ONLY valid JSON.",
-            "gpt-4o",
+            "gemini-2.0-flash",
             0.7 // Higher temperature for creative content
           )
         );

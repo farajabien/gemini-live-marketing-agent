@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { ProfileDialog } from "./ProfileDialog";
 import { SecureAccountDialog } from "./SecureAccountDialog";
 import { LOGO } from "@/lib/branding";

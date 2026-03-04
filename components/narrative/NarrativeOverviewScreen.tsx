@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";

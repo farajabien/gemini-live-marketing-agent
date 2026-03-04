@@ -135,7 +135,7 @@ async function generateThumbnailPromptForVerbatim(script: string, title: string)
 
   const promptTemplate = VISUAL_PROMPTS.VERBATIM_THUMBNAIL(script, title);
   const prompt = injectStyleConstraint(promptTemplate, VISUAL_STYLE_CONSTRAINT);
-  const { text, cost } = await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+  const { text, cost } = await generateText(prompt, "You are an expert visual director.", "gemini-1.5-pro", 0.7);
   return { text, cost };
 
 
@@ -167,7 +167,7 @@ async function refineIdea(
   2. Thumbnail prompt (visual description)
   `;
 
-  const { text: rawText, cost } = await generateText(prompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+  const { text: rawText, cost } = await generateText(prompt, "You are an expert content strategist.", "gemini-1.5-pro", 0.7);
 
 
 
@@ -254,7 +254,7 @@ async function generatePlanFromRefinedPrompt(
     RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN. NO EXPLANATIONS.
     `;
 
-    const { text: response, cost } = await generateText(prompt, "You are a JSON generator. Output only valid JSON.", "gpt-4o", 0.3);
+    const { text: response, cost } = await generateText(prompt, "You are a JSON generator. Output only valid JSON.", "gemini-1.5-pro", 0.3);
 
 
     

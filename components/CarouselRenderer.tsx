@@ -2,7 +2,7 @@ import { LOGO } from "@/lib/branding";
 import React, { forwardRef } from "react";
 import { VideoPlan } from "@/lib/types";
 import Image from "next/image";
-import { APP_ID } from "@/lib/instant-client";
+
 
 interface CarouselRendererProps {
   plan: VideoPlan;

@@ -8,37 +8,38 @@
 import { initializeApp, getApps, cert, type ServiceAccount, App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
+import { getStorage } from 'firebase-admin/storage';
 
 // Initialize Firebase Admin SDK
 let adminApp: App;
 let adminAuth: Auth;
 let firestoreAdminDb: Firestore;
+let adminStorage: ReturnType<typeof getStorage>;
 
-/**
- * Initialize Firebase Admin SDK with service account credentials
- */
 function initializeFirebaseAdmin() {
   if (getApps().length === 0) {
     // Parse the private key - handle both escaped and unescaped newlines
     const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
-    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const serviceAccountProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const targetProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || serviceAccountProjectId;
     const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
-    if (!projectId || !clientEmail || !privateKey) {
+    if (!targetProjectId || !clientEmail || !privateKey) {
       throw new Error(
         'Missing Firebase Admin credentials. Please set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY'
       );
     }
 
     const serviceAccount: ServiceAccount = {
-      projectId,
+      projectId: serviceAccountProjectId,
       clientEmail,
       privateKey,
     };
 
     adminApp = initializeApp({
       credential: cert(serviceAccount),
-      projectId,
+      projectId: targetProjectId,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
   } else {
     adminApp = getApps()[0];
@@ -46,8 +47,9 @@ function initializeFirebaseAdmin() {
 
   adminAuth = getAuth(adminApp);
   firestoreAdminDb = getFirestore(adminApp);
+  adminStorage = getStorage(adminApp);
 
-  return { app: adminApp, auth: adminAuth, db: firestoreAdminDb };
+  return { app: adminApp, auth: adminAuth, db: firestoreAdminDb, storage: adminStorage };
 }
 
 // Lazy initialization - only initialize when first accessed
@@ -62,7 +64,7 @@ function ensureInitialized() {
     auth = result.auth;
     firestoreDb = result.db;
   }
-  return { app, auth, db: firestoreDb };
+  return { app, auth, db: firestoreDb, storage: adminStorage };
 }
 
 // Helper to get firestore db
@@ -221,69 +223,30 @@ class TransactionBuilder {
 
         return new Proxy({}, {
           get(_, docId: string) {
-            return {
-              update: (data: any) => {
-                const op: any = {
-                  collection: prop,
-                  id: docId,
-                  action: 'update',
-                  data,
-                };
-                op.link = (linkData: any) => {
-                  op.data = { ...op.data, ...linkData };
-                  return op;
-                };
-                op.unlink = () => op;
-                return op;
-              },
-              set: (data: any) => {
-                const op: any = {
-                  collection: prop,
-                  id: docId,
-                  action: 'set',
-                  data,
-                };
-                op.link = (linkData: any) => {
-                  op.data = { ...op.data, ...linkData };
-                  return op;
-                };
-                op.unlink = () => op;
-                return op;
-              },
-              delete: () => {
-                const op: any = {
-                  collection: prop,
-                  id: docId,
-                  action: 'delete',
-                };
-                op.link = () => op;
-                op.unlink = () => op;
-                return op;
-              },
-              link: (linkData: any) => {
-                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: { ...linkData } };
-                
-                // Special handling for owner link to sync userId
+            const createProxyOp = (collection: string, docId: string, action: 'set' | 'update' | 'delete', data: any = {}) => {
+              const op: any = { collection, id: docId, action, data };
+              
+              op.link = (linkData: any) => {
+                op.data = { ...op.data, ...linkData };
                 if (linkData.owner) {
-                  proxyOp.data.userId = linkData.owner;
+                  op.data.userId = linkData.owner;
                 }
+                return op;
+              };
+              
+              op.unlink = (unlinkFields: any = {}) => {
+                return op;
+              };
+              
+              return op;
+            };
 
-                proxyOp.unlink = () => proxyOp;
-                proxyOp.link = (moreLinkData: any) => {
-                    proxyOp.data = { ...proxyOp.data, ...moreLinkData };
-                    if (moreLinkData.owner) {
-                      proxyOp.data.userId = moreLinkData.owner;
-                    }
-                    return proxyOp;
-                };
-                return proxyOp;
-              },
-              unlink: () => {
-                const proxyOp: any = { collection: prop, id: docId, action: 'update', data: {} };
-                proxyOp.link = () => proxyOp;
-                proxyOp.unlink = () => proxyOp;
-                return proxyOp;
-              }
+            return {
+              update: (data: any) => createProxyOp(prop, docId, 'update', data),
+              set: (data: any) => createProxyOp(prop, docId, 'set', data),
+              delete: () => createProxyOp(prop, docId, 'delete'),
+              link: (linkData: any) => createProxyOp(prop, docId, 'update').link(linkData),
+              unlink: () => createProxyOp(prop, docId, 'update').unlink()
             };
           }
         });
@@ -308,7 +271,28 @@ function createTx() {
  */
 async function verifyAuthToken(token: string) {
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    const { auth: initializedAuth } = ensureInitialized();
+    if (!initializedAuth) throw new Error("Auth failed to initialize");
+
+    // Fix Audience Mismatch: Initialize a lightweight app just for auth if needed
+    const clientProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+    
+    let authInstance = initializedAuth;
+    if (clientProjectId && adminProjectId && clientProjectId !== adminProjectId) {
+       let clientApp;
+       try {
+         clientApp = getApps().find(a => a.name === 'clientAuthApp') || 
+                     initializeApp({ projectId: clientProjectId }, 'clientAuthApp');
+       } catch (e) {
+         clientApp = getApps().find(a => a.name === 'clientAuthApp');
+       }
+       if (clientApp) {
+         authInstance = getAuth(clientApp);
+       }
+    }
+
+    const decodedToken = await authInstance.verifyIdToken(token);
     return {
       id: decodedToken.uid,
       email: decodedToken.email,
@@ -363,6 +347,22 @@ export const adminDb = {
     verifyToken: verifyAuthToken,
     createCustomToken,
     getUser: getUserById,
+  },
+  storage: {
+    uploadFile: async (path: string, buffer: Buffer | Uint8Array, opts?: { contentType?: string }) => {
+      ensureInitialized();
+      const bucket = adminStorage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+      const file = bucket.file(path);
+      await file.save(buffer, {
+        metadata: { contentType: opts?.contentType }
+      });
+      return { path };
+    },
+    getDownloadUrl: async (path: string) => {
+      if (path.startsWith('http')) return path;
+      const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+    }
   },
   tx: createTx(),
   get db() {

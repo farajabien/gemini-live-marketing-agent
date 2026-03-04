@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import Link from "next/link";
 import { useState } from "react";
 import { Header } from "@/components/Header";

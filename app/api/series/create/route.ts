@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
               narrativeContext
             ),
             "You are a JSON generator. Respond with ONLY valid JSON.",
-            "gpt-4o",
+            "gemini-1.5-pro",
             0.3,
             true
           ));

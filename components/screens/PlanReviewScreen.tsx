@@ -2,8 +2,8 @@
 
 import { Header } from "@/components/Header";
 import { VoiceSelector } from "@/components/VoiceSelector";
-import { getFileUrl } from "@/lib/instantdb-storage";
-import { db } from "@/lib/instant-client";
+import { getFileUrl } from "@/lib/firebase-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
 import { useRouter } from "next/navigation";
 import { useState } from "react";

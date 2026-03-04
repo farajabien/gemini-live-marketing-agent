@@ -1,3 +1,4 @@
+"use server";
 import { generateText } from "./gemini-client";
 
 export interface PreprocessResult {
@@ -85,7 +86,7 @@ Output the cleaned script now:`;
     const { text: cleanedScript } = await generateText(
       prompt,
       "You are a script formatting expert. Return ONLY the cleaned script, no explanations.",
-      "gpt-4o",
+      "gemini-2.0-flash",
       0.3 // Low temperature for consistent formatting
     );
 

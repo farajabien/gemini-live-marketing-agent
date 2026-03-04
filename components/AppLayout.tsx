@@ -8,7 +8,7 @@ import { useState, Suspense, useMemo, useEffect } from "react";
 import { ProfileDialog } from "./ProfileDialog";
 import { SecureAccountDialog } from "./SecureAccountDialog";
 import { GenerateScreen } from "@/components/screens/GenerateScreen";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
 
@@ -112,9 +112,11 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
     }
   }, [searchParams, isGenerateOpen, narrativeId, initialPlanId]);
 
-  // Fetch current narrative if ID present
+  // Fetch current narrative if ID present - with userId guard
   const { data: currentNarrativeData } = (db as any).useQuery(
-    narrativeId ? { narratives: { $: { where: { id: narrativeId } } } } : null
+    narrativeId && user
+      ? { narratives: { $: { where: { id: narrativeId, userId: user.id } } } }
+      : null
   );
   const narrative = currentNarrativeData?.narratives?.[0] as FounderNarrative | undefined;
 

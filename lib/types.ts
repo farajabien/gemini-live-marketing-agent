@@ -342,7 +342,7 @@ export interface StrategyContext {
 
 export type FounderVoice = "calm" | "sharp" | "reflective" | "blunt";
 export type NarrativeStatus = "wizard" | "active" | "archived";
-export type ContentFormat = "linkedin-post" | "x-post" | "thread" | "short-video" | "long-video" | "carousel" | "tiktok-video" | "tiktok-carousel" | "blog-post";
+export type ContentFormat = "linkedin-post" | "x-post" | "thread" | "short-video" | "long-video" | "carousel" | "tiktok-video" | "tiktok-carousel" | "blog-post" | "youtube-long" | "youtube-short" | "instagram-reel";
 export type ContentStatus = "suggested" | "approved" | "rejected" | "edited" | "published";
 
 export interface FounderNarrative {

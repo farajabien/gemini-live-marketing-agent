@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { db, id } from "@/lib/instant-client";
+import { firebaseDb as db, generateId as id } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
 
 export interface Voice {

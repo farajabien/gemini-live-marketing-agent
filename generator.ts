@@ -68,7 +68,7 @@ export async function generateDraftFromAngle(input: DraftGenerationInput): Promi
     }
   `;
   
-  const { text: captionResponse } = await generateText(captionPrompt, "You are a copywriter. Output JSON only.", "gpt-4o", 0.7);
+  const { text: captionResponse } = await generateText(captionPrompt, "You are a copywriter. Output JSON only.", "gemini-2.0-flash", 0.7);
   let captions = { linkedin: "", twitter: "", instagram: "" };
   
   try {

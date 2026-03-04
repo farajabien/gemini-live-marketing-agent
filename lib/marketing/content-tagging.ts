@@ -61,7 +61,7 @@ Be specific and accurate based on the actual script content.
   const { text: response } = await generateText(
     prompt,
     "You are a content analyst. Output JSON only.",
-    "gpt-4o",
+    "gemini-2.0-flash",
     0.5
   );
 

@@ -96,7 +96,7 @@ Be specific. Be concrete. Extract from the inputs provided. Ensure all fields ar
   const { text: response, cost } = await generateText(
     prompt,
     "You are a narrative strategist. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.6
   );
 
@@ -173,7 +173,7 @@ Make each angle concrete and specific to THIS audience and problem.
   const { text: response, cost } = await generateText(
     prompt,
     "You are a content strategist. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.7
   );
 
@@ -258,7 +258,7 @@ Be honest. Score based on the actual inputs provided.
   const { text: response, cost } = await generateText(
     prompt,
     "You are a narrative analyst. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.5
   );
 
@@ -348,7 +348,7 @@ OUTPUT JSON ONLY:
   const { text: response, cost } = await generateText(
     prompt,
     "You are a brand strategist. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.7
   );
 
@@ -404,7 +404,7 @@ OUTPUT JSON ONLY:
   const { text: response, cost } = await generateText(
     prompt,
     "You are a series architect. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.7
   );
 
@@ -468,7 +468,7 @@ OUTPUT JSON ONLY (same structure as original):
   const { text: response, cost } = await generateText(
     prompt,
     "You are a series architect. Refine the architecture based on feedback. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.7
   );
 
@@ -530,7 +530,7 @@ OUTPUT JSON ONLY (same structure as original):
   const { text: response, cost } = await generateText(
     prompt,
     "You are a brand strategist. Refine the strategy based on feedback. Output JSON only.",
-    "gpt-4o",
+    "gemini-1.5-pro",
     0.7
   );
 

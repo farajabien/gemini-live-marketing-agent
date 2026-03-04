@@ -42,7 +42,7 @@ export async function generateBrandPositioning(input: PositioningInput): Promise
     }
   `;
 
-  const { text: response } = await generateText(prompt, "You are a brand strategist. Output JSON only.", "gpt-4o", 0.7);
+  const { text: response } = await generateText(prompt, "You are a brand strategist. Output JSON only.", "gemini-1.5-pro", 0.7);
 
   
   try {
@@ -77,7 +77,7 @@ export async function generateContentPillars(positioning: BrandPositioning, inpu
     ]
   `;
   
-  const { text: response } = await generateText(prompt, "You are a content strategist. Output JSON array only.", "gpt-4o", 0.7);
+  const { text: response } = await generateText(prompt, "You are a content strategist. Output JSON array only.", "gemini-1.5-pro", 0.7);
 
 
   try {

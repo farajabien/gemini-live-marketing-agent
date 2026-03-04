@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
 import { createSeriesNarrative, refineSeriesNarrativeAction } from "@/app/actions/marketing";
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
 import { SERIES_NARRATIVE_STEPS, type SeriesNarrativeStepId } from "@/lib/series-narrative-config";
+import { RefineWithAIButton } from "@/components/RefineWithAIButton";
 
 // shadcn
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ export function NewSeriesNarrativeScreen() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const resumeId = searchParams.get("resume");
-  const { data: resumedData, isLoading: isResuming } = (db as any).useDoc("seriesNarratives", resumeId);
+  const { data: resumedData, isLoading: isResuming } = (db as any).useDoc(user ? "seriesNarratives" : null, resumeId);
 
   const [step, setStep] = useState<Step>(SERIES_NARRATIVE_STEPS[0].id);
   const [data, setData] = useState<WizardData>({
@@ -229,13 +230,23 @@ export function NewSeriesNarrativeScreen() {
               </p>
               
               {currentStep.type === "text" ? (
-                <Textarea
-                  className="w-full bg-white/5 border-white/10 rounded-2xl p-6 text-xl min-h-[160px] focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-slate-600 resize-none"
-                  placeholder={currentStep.placeholder}
-                  value={data[currentStep.id as keyof WizardData]}
-                  onChange={(e) => updateData(currentStep.id as keyof WizardData, e.target.value)}
-                  autoFocus
-                />
+                <div className="relative group">
+                  <Textarea
+                    className="w-full bg-white/5 border-white/10 rounded-2xl p-6 text-xl min-h-[160px] pb-16 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-slate-600 resize-none"
+                    placeholder={currentStep.placeholder}
+                    value={data[currentStep.id as keyof WizardData]}
+                    onChange={(e) => updateData(currentStep.id as keyof WizardData, e.target.value)}
+                    autoFocus
+                  />
+                  <div className="absolute bottom-4 right-4 animate-in fade-in duration-300">
+                    <RefineWithAIButton 
+                      step={currentStep as any}
+                      currentValue={data[currentStep.id as keyof WizardData]}
+                      onRefined={(newVal) => updateData(currentStep.id as keyof WizardData, newVal)}
+                      className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30"
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {currentStep.choices?.map((choice) => (

@@ -10,7 +10,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { writeFile, unlink, readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { getFileUrl } from "../instantdb-storage";
+import { getFileUrl } from "@/lib/firebase-client";
 
 export interface SceneRenderOptions {
   format: "9:16" | "1:1" | "16:9"; // Aspect ratio

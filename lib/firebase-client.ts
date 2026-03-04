@@ -30,7 +30,8 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { useEffect, useState, useCallback } from 'react';
-import { db } from './firebase-config';
+import { db, storage } from './firebase-config';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Type definitions
 export interface FirestoreQuery {
@@ -195,7 +196,11 @@ export function useFirestoreQuery<T = any>(
                 setIsLoading(false);
               },
               (err) => {
-                console.error(`Firebase Permission/Query Error [${collectionName}]:`, err.message, err.code);
+                const userId = (db as any)._currentUser?.id || (db as any)._currentUser?.uid;
+                console.error(`Firebase Permission/Query Error [${collectionName}] for user [${userId}]:`, err.message, err.code, {
+                  where: queryConfig?.where,
+                  config: queryConfig
+                });
                 setError(err as Error);
                 setIsLoading(false);
               }
@@ -375,6 +380,30 @@ export async function transact(operations: Array<{
  */
 export function generateId(): string {
   return crypto.randomUUID();
+}
+
+/**
+ * Upload a file to Firebase Storage
+ */
+export async function uploadFile(path: string, file: File | Blob, opts?: { contentType?: string }) {
+  const storageRef = ref(storage, path);
+  const metadata = opts?.contentType ? { contentType: opts.contentType } : undefined;
+  await uploadBytes(storageRef, file, metadata);
+  return { path };
+}
+
+/**
+ * Get a public URL for a Firebase Storage file synchronously
+ */
+export function getFileUrl(path: string): string {
+  if (path.startsWith('http')) return path;
+  if (path.startsWith('data:')) return path;
+  
+  const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  if (!bucket) return path;
+  
+  // Format: https://firebasestorage.googleapis.com/v0/b/[bucket]/o/[path]?alt=media
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
 }
 
 /**

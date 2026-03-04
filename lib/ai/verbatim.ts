@@ -347,7 +347,7 @@ export async function generateVisualPromptsForVerbatimScenes(
   const prompt = injectStyleConstraint(promptTemplate, VISUAL_STYLE_CONSTRAINT);
 
   try {
-    const { text: rawText, cost } = await generateText(prompt, "You are an expert visual director.", "gpt-4o", 0.7);
+    const { text: rawText, cost } = await generateText(prompt, "You are an expert visual director.", "gemini-1.5-pro", 0.7);
 
 
     
@@ -480,7 +480,7 @@ export async function generateVerbatimPlan(
 
   let sceneTitles: string[] = [];
   try {
-    const { text: rawTitles, cost: titlesCost } = await generateText(sceneTitlesPrompt, "You are an expert content strategist.", "gpt-4o", 0.7);
+    const { text: rawTitles, cost: titlesCost } = await generateText(sceneTitlesPrompt, "You are an expert content strategist.", "gemini-1.5-pro", 0.7);
     totalCost += titlesCost;
 
 

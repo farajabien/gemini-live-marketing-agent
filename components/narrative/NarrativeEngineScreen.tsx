@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { db } from "@/lib/instant-client";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import type { ContentFormat } from "@/lib/types";
 import { toast } from "sonner";
+import { firebaseDb as db } from "@/lib/firebase-client";
 
 interface ContentPillar {
   id: string;
@@ -37,13 +37,14 @@ interface NarrativeEngineScreenProps {
 }
 
 export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProps) {
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading, refreshToken } = useAuth();
   const router = useRouter();
   const [isGeneratingPillars, setIsGeneratingPillars] = useState(false);
   
   // Inline generation state
   const [selectedAngle, setSelectedAngle] = useState<{ angle: string; pillarId: string } | null>(null);
   const [generationFormat, setGenerationFormat] = useState<ContentFormat>("linkedin-post");
+  const [generationMediaType, setGenerationMediaType] = useState<"text" | "video">("text");
   const [generationCount, setGenerationCount] = useState(3);
   const [isGeneratingAngle, setIsGeneratingAngle] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -123,8 +124,6 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
 
   const pillars = (pillarsData as any)?.contentPillars || [];
   const contentPieces = (piecesData as any)?.contentPieces || [];
-
-  const { refreshToken } = useAuth(); // Need refreshToken for the API
 
   const handleGenerateFromAngle = async (angle: string, pillarId: string) => {
     if (!refreshToken) return;
@@ -380,21 +379,47 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
                             ) : (
                               <div className="flex flex-wrap items-center gap-3 bg-black/20 p-2 rounded-xl border border-white/5">
                                 <Select
+                                  value={generationMediaType}
+                                  onValueChange={(v) => {
+                                    setGenerationMediaType(v as "text" | "video");
+                                    // Reset format to a valid default when type changes
+                                    if (v === "text") setGenerationFormat("linkedin-post");
+                                    else setGenerationFormat("short-video");
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[120px] bg-transparent border-0 focus:ring-0 text-xs font-bold text-slate-200 h-8">
+                                    <SelectValue placeholder="Media Type" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-[#0f1225] border-white/10 text-white">
+                                    <SelectItem value="text" className="text-xs">Text / Post</SelectItem>
+                                    <SelectItem value="video" className="text-xs">Video / Carousel</SelectItem>
+                                  </SelectContent>
+                                </Select>
+
+                                <div className="w-px h-6 bg-white/10" />
+
+                                <Select
                                   value={generationFormat}
                                   onValueChange={(v) => setGenerationFormat(v as ContentFormat)}
                                 >
-                                  <SelectTrigger className="w-[160px] bg-transparent border-0 focus:ring-0 text-xs font-bold text-slate-200 h-8">
-                                    <SelectValue />
+                                  <SelectTrigger className="w-[160px] bg-transparent border-0 focus:ring-0 text-xs font-bold text-blue-400 h-8">
+                                    <SelectValue placeholder="Format" />
                                   </SelectTrigger>
                                   <SelectContent className="bg-[#0f1225] border-white/10 text-white">
-                                    <SelectItem value="linkedin-post" className="text-xs">LinkedIn Post</SelectItem>
-                                    <SelectItem value="x-post" className="text-xs">X/Twitter Post</SelectItem>
-                                    <SelectItem value="thread" className="text-xs">Thread</SelectItem>
-                                    <SelectItem value="short-video" className="text-xs">Video Script</SelectItem>
-                                    <SelectItem value="carousel" className="text-xs">Carousel Copy</SelectItem>
-                                    <SelectItem value="tiktok-video" className="text-xs">TikTok Video</SelectItem>
-                                    <SelectItem value="tiktok-carousel" className="text-xs">TikTok Carousel</SelectItem>
-                                    <SelectItem value="blog-post" className="text-xs">Blog Post</SelectItem>
+                                    {generationMediaType === "text" ? (
+                                      <>
+                                        <SelectItem value="linkedin-post" className="text-xs">LinkedIn Post</SelectItem>
+                                        <SelectItem value="x-post" className="text-xs">X/Twitter Post</SelectItem>
+                                        <SelectItem value="blog-post" className="text-xs">Blog Post</SelectItem>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem value="short-video" className="text-xs">Short Video (TikTok/Reels/Shorts)</SelectItem>
+                                        <SelectItem value="long-video" className="text-xs">Long Video (YouTube)</SelectItem>
+                                        <SelectItem value="tiktok-carousel" className="text-xs">TikTok/IG Carousel</SelectItem>
+                                        <SelectItem value="carousel" className="text-xs">LinkedIn Carousel</SelectItem>
+                                      </>
+                                    )}
                                   </SelectContent>
                                 </Select>
 

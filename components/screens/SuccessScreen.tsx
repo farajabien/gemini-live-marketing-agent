@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 import { useAuth } from "@/hooks/use-auth";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
 import { toast } from "sonner";
 import { CarouselRenderer } from "@/components/CarouselRenderer";

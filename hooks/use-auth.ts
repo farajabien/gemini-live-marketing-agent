@@ -5,4 +5,4 @@
  * Kept for backward compatibility with existing imports.
  */
 
-export { useFirebaseAuth as useAuth } from "@/hooks/use-firebase-auth";
+export { useAuth } from "@/components/AuthProvider";

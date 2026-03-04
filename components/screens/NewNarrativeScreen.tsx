@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { db } from "@/lib/instant-client";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
 import { createBrandNarrative, refineBrandNarrativeAction } from "@/app/actions/marketing";
@@ -34,7 +34,7 @@ export function NewNarrativeScreen() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const resumeId = searchParams.get("resume");
-  const { data: resumedData, isLoading: isResuming } = (db as any).useDoc("narratives", resumeId);
+  const { data: resumedData, isLoading: isResuming } = (db as any).useDoc(user ? "narratives" : null, resumeId);
 
   const [step, setStep] = useState<Step>(NARRATIVE_STEPS[0].id);
   const [data, setData] = useState<WizardData>({
