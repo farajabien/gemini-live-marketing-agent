@@ -60,6 +60,19 @@ export interface NarrativeStrength {
 }
 
 
+export interface NarrativeFramework {
+  positioningStatement: string;
+  coreMessage: string;
+  contentPillars: {
+    title: string;
+    description: string;
+    angles: string[];
+  }[];
+  brandVoice: string;
+  cost?: number;
+}
+
+
 // === AI Extraction Functions ===
 
 export async function extractPositioning(input: NarrativeInput): Promise<ExtractedPositioning> {
@@ -288,6 +301,55 @@ Be honest. Score based on the actual inputs provided.
   }
 }
 
+export async function generateNarrativeFramework(
+  input: NarrativeInput,
+  positioning: ExtractedPositioning,
+  angles: ContentAngles
+): Promise<NarrativeFramework> {
+  const prompt = `
+You are a high-end brand strategist. Convert these raw strategic components into a polished "Narrative Framework".
+
+INPUTS:
+- Positioning: ${JSON.stringify(positioning, null, 2)}
+- Angles: ${JSON.stringify(angles, null, 2)}
+- Voice Preference: ${input.voice}
+
+TASK:
+1. "positioningStatement": A single, powerful sentence that captures the transformation (From [Pain] to [Promise] through [Mechanism]).
+2. "coreMessage": A 2-3 sentence paragraph that explains WHY this matters and how it works.
+3. "contentPillars": Cluster the provided angles into 3-4 cohesive pillars. Each pillar needs a punchy title, a short description, and 3-5 specific angles (drawn from the provided angles).
+4. "brandVoice": A definitive 1-sentence description of the brand's tone of voice.
+
+OUTPUT JSON ONLY:
+{
+  "positioningStatement": "...",
+  "coreMessage": "...",
+  "contentPillars": [
+    { "title": "...", "description": "...", "angles": ["...", "..."] }
+  ],
+  "brandVoice": "..."
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a brand strategist. Output JSON only.",
+    "gemini-1.5-pro",
+    0.6
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const result = JSON.parse(jsonMatch[0]);
+    console.log("[Narrative Intelligence] Synthesized Framework:", JSON.stringify(result, null, 2));
+    return { ...result, cost };
+  } catch (e) {
+    console.error("Failed to generate framework. Raw response:", response);
+    throw new Error("Failed to synthesize narrative framework");
+  }
+}
+
 // === Helper: Full Narrative Analysis ===
 
 export async function analyzeNarrative(input: NarrativeInput) {
@@ -304,16 +366,21 @@ export async function analyzeNarrative(input: NarrativeInput) {
     console.log("[Narrative Intelligence] Scoring narrative strength...");
     const strength = await scoreNarrativeStrength(input);
 
+    console.log("[Narrative Intelligence] Synthesizing final framework...");
+    const framework = await generateNarrativeFramework(input, positioning, angles);
+
     console.log("[Narrative Intelligence] Analysis complete.", {
       hasPositioning: !!positioning,
       hasAngles: !!angles,
-      hasStrength: !!strength
+      hasStrength: !!strength,
+      hasFramework: !!framework
     });
     const result = {
       positioning,
       angles,
       narrativeStrength: strength,
-      totalCost: positioning.cost + angles.cost + strength.cost
+      framework: framework,
+      totalCost: positioning.cost + angles.cost + strength.cost + (framework.cost || 0)
     };
     return result;
   } catch (error: any) {

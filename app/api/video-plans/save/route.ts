@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
     };
 
     // Save video plan
-    await serverDb.collection('videoPlans').doc(newPlanId).set(videoPlanData);
-
+    await (await serverDb.collection('videoPlans')).doc(newPlanId).set(videoPlanData);
+ 
     // Increment generation counters
-    const userRef = serverDb.collection('users').doc(userId);
+    const userRef = await serverDb.doc('users', userId);
     await userRef.set({
       lifetimeGenerations: FieldValue.increment(1),
       monthlyGenerations: FieldValue.increment(1),

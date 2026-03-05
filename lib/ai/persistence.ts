@@ -72,10 +72,10 @@ export async function saveVideoPlan(
   };
 
   // Create the video plan
-  await serverDb.collection('videoPlans').doc(planId).set(videoPlanData);
+  await (await serverDb.collection('videoPlans')).doc(planId).set(videoPlanData);
 
   // Increment generation counters using increment
-  const userRef = serverDb.collection('users').doc(userId);
+  const userRef = await serverDb.doc('users', userId);
   await userRef.set({
     lifetimeGenerations: FieldValue.increment(1),
     monthlyGenerations: FieldValue.increment(1),
@@ -153,7 +153,7 @@ export async function saveDraftVideoPlan(
     ...(sourceContentPieceId && { sourceContentPieceId }),
   };
 
-  await serverDb.collection('videoPlans').doc(planId).set(videoPlanData);
+  await (await serverDb.collection('videoPlans')).doc(planId).set(videoPlanData);
 
   return planId;
 }

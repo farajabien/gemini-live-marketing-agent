@@ -33,6 +33,7 @@ const isE2E = process.env.NEXT_PUBLIC_IS_E2E === "true";
 if (!isE2E) {
   // Only initialize if not already initialized (handles Next.js hot reload)
   if (!getApps().length) {
+    console.log('Initializing Firebase Client for project:', firebaseConfig.projectId);
     app = initializeApp(firebaseConfig);
   } else {
     app = getApps()[0];

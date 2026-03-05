@@ -5,7 +5,7 @@
  * Replaces InstantDB Admin SDK functionality.
  */
 
-import { initializeApp, getApps, cert, type ServiceAccount, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, type ServiceAccount, App, deleteApp } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -16,12 +16,21 @@ let adminAuth: Auth;
 let firestoreAdminDb: Firestore;
 let adminStorage: ReturnType<typeof getStorage>;
 
-function initializeFirebaseAdmin() {
+async function initializeFirebaseAdmin() {
+  const serviceAccountProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const targetProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || serviceAccountProjectId;
+
+  if (getApps().length > 0) {
+    const existingApp = getApps()[0];
+    if (existingApp.options.projectId !== targetProjectId) {
+      console.warn(`[Firebase Admin] Project ID mismatch (Existing: ${existingApp.options.projectId}, Target: ${targetProjectId}). Deleting app for re-init.`);
+      await deleteApp(existingApp);
+    }
+  }
+
   if (getApps().length === 0) {
     // Parse the private key - handle both escaped and unescaped newlines
     const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
-    const serviceAccountProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const targetProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || serviceAccountProjectId;
     const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
 
     if (!targetProjectId || !clientEmail || !privateKey) {
@@ -41,8 +50,10 @@ function initializeFirebaseAdmin() {
       projectId: targetProjectId,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
+    console.log(`[Firebase Admin] Initialized App ${adminApp.name} for project: ${targetProjectId} (Service Account: ${serviceAccountProjectId})`);
   } else {
     adminApp = getApps()[0];
+    console.log(`[Firebase Admin] Reusing existing App: ${adminApp.name} (Project: ${adminApp.options.projectId})`);
   }
 
   adminAuth = getAuth(adminApp);
@@ -57,9 +68,9 @@ let app: App | null = null;
 let auth: Auth | null = null;
 let firestoreDb: Firestore | null = null;
 
-function ensureInitialized() {
+async function ensureInitialized() {
   if (!app) {
-    const result = initializeFirebaseAdmin();
+    const result = await initializeFirebaseAdmin();
     app = result.app;
     auth = result.auth;
     firestoreDb = result.db;
@@ -67,10 +78,10 @@ function ensureInitialized() {
   return { app, auth, db: firestoreDb, storage: adminStorage };
 }
 
-// Helper to get firestore db
-function getDb(): Firestore {
-  ensureInitialized();
-  return firestoreDb!;
+// Helper to get firestore db - ASYNC
+async function getDb(): Promise<Firestore> {
+  const { db } = await ensureInitialized();
+  return db!;
 }
 
 /**
@@ -93,75 +104,74 @@ interface AdminQuery {
  * Execute a query against Firestore
  */
 async function executeQuery(queryObj: AdminQuery): Promise<any> {
-  ensureInitialized();
-  const results: Record<string, any[]> = {};
+    const db = await getDb();
+    const results: Record<string, any[]> = {};
 
-  for (const [collectionName, config] of Object.entries(queryObj)) {
-    if (!config) continue;
+    for (const [collectionName, config] of Object.entries(queryObj)) {
+        if (!config) continue;
 
-    const queryConfig = config.$;
-    let collectionRef = getDb().collection(collectionName);
-    let query: FirebaseFirestore.Query = collectionRef;
+        const queryConfig = config.$;
+        let collectionRef = db.collection(collectionName);
+        let query: FirebaseFirestore.Query = collectionRef;
 
-    if (queryConfig) {
-      // Apply where clauses
-      if (queryConfig.where) {
-        for (const [field, value] of Object.entries(queryConfig.where)) {
-          const targetField = (field === 'owner.id' || field === 'owner') ? 'userId' : field;
-          query = query.where(targetField, '==', value);
+        if (queryConfig) {
+            // Apply where clauses
+            if (queryConfig.where) {
+                for (const [field, value] of Object.entries(queryConfig.where)) {
+                    const targetField = (field === 'owner.id' || field === 'owner') ? 'userId' : field;
+                    query = query.where(targetField, '==', value);
+                }
+            }
+
+            // Apply order by
+            if (queryConfig.order) {
+                for (const [field, direction] of Object.entries(queryConfig.order)) {
+                    query = query.orderBy(field, direction === 'desc' ? 'desc' : 'asc');
+                }
+            }
+
+            // Apply limit
+            if (queryConfig.limit) {
+                query = query.limit(queryConfig.limit);
+            }
         }
-      }
 
-      // Apply order by
-      if (queryConfig.order) {
-        for (const [field, direction] of Object.entries(queryConfig.order)) {
-          query = query.orderBy(field, direction === 'desc' ? 'desc' : 'asc');
+        // Execute query
+        const snapshot = await query.get();
+        results[collectionName] = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        // Handle subcollections if specified
+        for (const [key, subConfig] of Object.entries(config)) {
+            if (key === '$') continue;
+
+            const docsWithSub = await Promise.all(
+                results[collectionName].map(async (doc) => {
+                    const subCollectionRef = db
+                        .collection(collectionName)
+                        .doc(doc.id)
+                        .collection(key);
+
+                    const subSnapshot = await subCollectionRef.get();
+                    const subDocs = subSnapshot.docs.map(subDoc => ({
+                        id: subDoc.id,
+                        ...subDoc.data(),
+                    }));
+
+                    return {
+                        ...doc,
+                        [key]: subDocs,
+                    };
+                })
+            );
+
+            results[collectionName] = docsWithSub;
         }
-      }
-
-      // Apply limit
-      if (queryConfig.limit) {
-        query = query.limit(queryConfig.limit);
-      }
     }
 
-    // Execute query
-    const snapshot = await query.get();
-    results[collectionName] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    // Handle subcollections if specified
-    for (const [key, subConfig] of Object.entries(config)) {
-      if (key === '$') continue;
-
-      // For each document, fetch the subcollection
-      const docsWithSub = await Promise.all(
-        results[collectionName].map(async (doc) => {
-          const subCollectionRef = getDb()
-            .collection(collectionName)
-            .doc(doc.id)
-            .collection(key);
-
-          const subSnapshot = await subCollectionRef.get();
-          const subDocs = subSnapshot.docs.map(subDoc => ({
-            id: subDoc.id,
-            ...subDoc.data(),
-          }));
-
-          return {
-            ...doc,
-            [key]: subDocs,
-          };
-        })
-      );
-
-      results[collectionName] = docsWithSub;
-    }
-  }
-
-  return results;
+    return results;
 }
 
 /**
@@ -178,11 +188,13 @@ interface TransactionOperation {
  * Execute a batch transaction
  */
 async function executeTransaction(operations: TransactionOperation[]): Promise<void> {
-  ensureInitialized();
-  const batch = getDb().batch();
+  const db = await getDb();
+  const projectId = (app?.options as any)?.projectId || 'unknown';
+  console.log(`[Transaction] Starting batch for ${operations.length} ops in project: ${projectId}`);
+  const batch = db.batch();
 
   for (const op of operations) {
-    const docRef = getDb().collection(op.collection).doc(op.id);
+    const docRef = db.collection(op.collection).doc(op.id);
 
     switch (op.action) {
       case 'set':
@@ -271,10 +283,9 @@ function createTx() {
  */
 async function verifyAuthToken(token: string) {
   try {
-    const { auth: initializedAuth } = ensureInitialized();
+    const { auth: initializedAuth } = await ensureInitialized();
     if (!initializedAuth) throw new Error("Auth failed to initialize");
 
-    // Fix Audience Mismatch: Initialize a lightweight app just for auth if needed
     const clientProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
     
@@ -308,7 +319,8 @@ async function verifyAuthToken(token: string) {
  * Create a custom token for a user
  */
 async function createCustomToken(uid: string): Promise<string> {
-  return await adminAuth.createCustomToken(uid);
+  const { auth: currentAuth } = await ensureInitialized();
+  return await currentAuth!.createCustomToken(uid);
 }
 
 /**
@@ -316,7 +328,8 @@ async function createCustomToken(uid: string): Promise<string> {
  */
 async function getUserById(uid: string) {
   try {
-    const userRecord = await adminAuth.getUser(uid);
+    const { auth: currentAuth } = await ensureInitialized();
+    const userRecord = await currentAuth!.getUser(uid);
     return userRecord;
   } catch (error) {
     console.error('Error getting user:', error);
@@ -350,8 +363,8 @@ export const adminDb = {
   },
   storage: {
     uploadFile: async (path: string, buffer: Buffer | Uint8Array, opts?: { contentType?: string }) => {
-      ensureInitialized();
-      const bucket = adminStorage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+      const { storage: currentStorage } = await ensureInitialized();
+      const bucket = currentStorage!.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
       const file = bucket.file(path);
       await file.save(buffer, {
         metadata: { contentType: opts?.contentType }
@@ -366,8 +379,10 @@ export const adminDb = {
   },
   tx: createTx(),
   get db() {
-    ensureInitialized();
-    return firestoreDb!;
+    // This getter is tricky because it's now async. 
+    // We should probably remove it or make it throw if not initialized
+    if (!firestoreDb) throw new Error("Firestore not initialized. Await getDb() or adminDb.query instead.");
+    return firestoreDb;
   },
 };
 
@@ -375,17 +390,17 @@ export const adminDb = {
  * Firestore server-side helpers
  */
 export const serverDb = {
-  collection: (name: string) => {
-    ensureInitialized();
-    return getDb().collection(name);
+  collection: async (name: string) => {
+    const db = await getDb();
+    return db.collection(name);
   },
-  doc: (collectionName: string, docId: string) => {
-    ensureInitialized();
-    return getDb().collection(collectionName).doc(docId);
+  doc: async (collectionName: string, docId: string) => {
+    const db = await getDb();
+    return db.collection(collectionName).doc(docId);
   },
-  batch: () => {
-    ensureInitialized();
-    return getDb().batch();
+  batch: async () => {
+    const db = await getDb();
+    return db.batch();
   },
   FieldValue,
 };
@@ -396,28 +411,6 @@ export const serverDb = {
 export function generateId(): string {
   return crypto.randomUUID();
 }
-
-// Export with lazy initialization
-export const db = {
-  get instance() {
-    ensureInitialized();
-    return firestoreDb!;
-  },
-};
-
-export const adminAuthExport = {
-  get instance() {
-    ensureInitialized();
-    return auth!;
-  },
-};
-
-export const appExport = {
-  get instance() {
-    ensureInitialized();
-    return app!;
-  },
-};
 
 export { FieldValue };
 export { generateId as id };

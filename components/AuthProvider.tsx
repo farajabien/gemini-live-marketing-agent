@@ -44,6 +44,7 @@ export interface AuthState {
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -51,6 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | undefined>(undefined);
+
+  // Handle mounting to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -296,7 +302,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     isLoading: isAuthLoading || isSigningIn,
-    isInitialLoading: isAuthLoading || isSigningIn || (firebaseUser ? isUserDataLoading : false),
+    isInitialLoading: !mounted || isAuthLoading || isSigningIn || (firebaseUser ? isUserDataLoading : false),
     error,
     signInAsGuest,
     signOut,
@@ -306,6 +312,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!firebaseUser,
     refreshToken,
   };
+
+  if (!mounted) {
+    return null; // Or a simple loader to prevent hydration "glitches"
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

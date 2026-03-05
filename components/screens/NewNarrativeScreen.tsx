@@ -62,6 +62,8 @@ export function NewNarrativeScreen() {
 
     const savedData = localStorage.getItem("narrative_wizard_data");
     const savedStep = localStorage.getItem("narrative_wizard_step");
+    const savedAnalysis = localStorage.getItem("narrative_last_analysis");
+    const savedId = localStorage.getItem("narrative_last_id");
     
     if (savedData) {
       try {
@@ -71,7 +73,15 @@ export function NewNarrativeScreen() {
       }
     }
     
-    if (savedStep && NARRATIVE_STEPS.some(s => s.id === savedStep)) {
+    if (savedAnalysis) {
+      try {
+        setGeneratedAnalysis(JSON.parse(savedAnalysis));
+        if (savedId) setNarrativeId(savedId);
+        setStep("review" as any);
+      } catch (e) {
+        console.error("Failed to parse saved analysis", e);
+      }
+    } else if (savedStep && NARRATIVE_STEPS.some(s => s.id === savedStep)) {
       setStep(savedStep as Step);
     }
     
@@ -151,11 +161,20 @@ export function NewNarrativeScreen() {
       setNarrativeId(result.narrativeId);
       setGeneratedAnalysis(result.analysis);
       
+      // Backup to localStorage immediately
+      localStorage.setItem("narrative_last_analysis", JSON.stringify(result.analysis));
+      localStorage.setItem("narrative_last_id", result.narrativeId);
+      
       toast.success("Brand Strategy designed!");
       setStep("review" as any);
       setIsSubmitting(false);
     } catch (error: any) {
       console.error("Failed to create narrative:", error);
+      
+      // If it's a Firestore error but we have the analysis (optimistically returned or from previous failure)
+      // Check if we can extract analysis from error if createBrandNarrative was modified to return it? 
+      // For now, we trust the server action to either succeed or throw.
+      
       toast.error(error.message || "Something went wrong. Please try again.");
       setStep(NARRATIVE_STEPS[NARRATIVE_STEPS.length - 1].id);
       setIsSubmitting(false);
@@ -170,6 +189,7 @@ export function NewNarrativeScreen() {
       const uid = user!.id || (user as any).uid;
       const refined = await refineBrandNarrativeAction(narrativeId, refineFeedback, uid);
       setGeneratedAnalysis(refined);
+      localStorage.setItem("narrative_last_analysis", JSON.stringify(refined));
       setRefineFeedback("");
       toast.success("Strategy refined!");
     } catch (e) {
@@ -182,7 +202,17 @@ export function NewNarrativeScreen() {
   const handleFinish = () => {
     localStorage.removeItem("narrative_wizard_data");
     localStorage.removeItem("narrative_wizard_step");
+    localStorage.removeItem("narrative_last_analysis");
+    localStorage.removeItem("narrative_last_id");
     router.push(`/narrative/${narrativeId}`);
+  };
+
+  const handleStartOver = () => {
+    localStorage.removeItem("narrative_wizard_data");
+    localStorage.removeItem("narrative_wizard_step");
+    localStorage.removeItem("narrative_last_analysis");
+    localStorage.removeItem("narrative_last_id");
+    window.location.href = "/narrative/new"; // Hard refresh to clear state
   };
 
   const updateData = (key: keyof WizardData, value: string) => {
@@ -315,7 +345,23 @@ export function NewNarrativeScreen() {
               <div className="space-y-10 mb-12">
                 <section>
                   <h3 className="text-red-500 font-bold uppercase text-xs tracking-wider mb-2">Positioning Statement</h3>
-                  <p className="text-xl text-white leading-relaxed font-medium italic">"{generatedAnalysis.positioningStatement}"</p>
+                  {generatedAnalysis.positioningStatement ? (
+                    <p className="text-xl text-white leading-relaxed font-medium italic">"{generatedAnalysis.positioningStatement}"</p>
+                  ) : (
+                    <div className="p-4 bg-red-600/10 border border-red-500/20 rounded-xl">
+                      <p className="text-red-400 text-sm font-bold flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">warning</span>
+                        Strategy data appears blank. This can happen if the AI fails to synthesize correctly or your cache is stale.
+                      </p>
+                      <Button 
+                        variant="link" 
+                        onClick={handleStartOver}
+                        className="text-red-500 underline text-xs p-0 mt-2 h-auto"
+                      >
+                        Click here to clear session and try again
+                      </Button>
+                    </div>
+                  )}
                 </section>
 
                 <section>
@@ -376,6 +422,16 @@ export function NewNarrativeScreen() {
                 </Button>
               </div>
 
+              <div className="flex justify-between items-center opacity-50 hover:opacity-100 transition-opacity">
+                 <button 
+                  onClick={handleStartOver}
+                  className="text-slate-500 text-xs flex items-center gap-1 hover:text-white transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">delete</span>
+                  Start Over (Clear Cache)
+                </button>
+                <div className="text-[10px] text-slate-600">ID: {narrativeId}</div>
+              </div>
               <div className="flex justify-end gap-4 border-t border-white/5 pt-8">
                  <Button
                   variant="ghost"

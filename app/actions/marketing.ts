@@ -14,14 +14,14 @@ export async function createBrandNarrative(
     // Check if this is new format (8-field wizard) or legacy (4-field)
     const isNewFormat = 'currentState' in input;
 
-    let analysis;
+    let analysis: any;
     let legacyPositioning;
     let legacyPillars;
 
     if (isNewFormat) {
       // NEW: Full narrative intelligence analysis
-      const { positioning: p, angles: a, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(input as NarrativeInput);
-      analysis = { positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
+      const { positioning: p, angles: a, framework: f, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(input as NarrativeInput);
+      analysis = { ...f, positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
     } else {
       // LEGACY: Old positioning system
       legacyPositioning = await generateBrandPositioning(input as PositioningInput);
@@ -33,7 +33,7 @@ export async function createBrandNarrative(
     const positioningId = id();
 
     // Transaction to create narrative
-    if (isNewFormat) {
+    if (isNewFormat && analysis) {
       const narrativeInput = input as NarrativeInput;
       await adminDb.transact([
         // Create Narrative with new structure
@@ -53,10 +53,14 @@ export async function createBrandNarrative(
           identityShift: narrativeInput.identityShift,
           voice: narrativeInput.voice,
           // AI-extracted data
-          aiPositioning: analysis!.positioning,
-          angles: analysis!.angles,
-          narrativeStrength: analysis!.narrativeStrength,
-          totalCost: analysis!.totalCost || 0,
+          aiPositioning: analysis.positioning,
+          angles: analysis.angles,
+          narrativeStrength: analysis.narrativeStrength,
+          totalCost: analysis.totalCost || 0,
+          // Polished framework for UI
+          positioningStatement: analysis.positioningStatement,
+          coreMessage: analysis.coreMessage,
+          brandVoice: analysis.brandVoice,
           // Version history
           versions: [{
             timestamp: Date.now(),
@@ -105,12 +109,8 @@ export async function createBrandNarrative(
     }
 
     // Create Pillars (both formats)
-    const pillarsToCreate = isNewFormat
-      ? Object.entries(analysis!.angles).map(([category, angles]) => ({
-          title: category.replace(/Angles$/, '').replace(/([A-Z])/g, ' $1').trim(),
-          description: `Content angles focused on ${category.replace(/Angles$/, '').toLowerCase()}`,
-          angles: angles as string[],
-        }))
+    const pillarsToCreate = (isNewFormat && analysis)
+      ? analysis.contentPillars
       : legacyPillars!;
 
     for (const pillar of pillarsToCreate) {
@@ -128,9 +128,30 @@ export async function createBrandNarrative(
         ]);
     }
 
+    // Verify synthesis integrity before returning
+    if (analysis && (!analysis.positioningStatement || !analysis.coreMessage)) {
+      console.error("!! [INTEGRITY FAILURE] Analysis missing key framework fields:", Object.keys(analysis));
+      // Try a last-ditch fallback or re-spread if somehow 'f' was lost
+      if (analysis.positioning && !analysis.positioningStatement) {
+         console.warn("[Action] Fallback: Using raw positioning promise as statement");
+         analysis.positioningStatement = analysis.positioning.promise;
+         analysis.coreMessage = `${analysis.positioning.contrast.before} but soon to be ${analysis.positioning.contrast.after}`;
+      }
+    }
+
+    console.log("[Action] Returning successful analysis. Keys:", Object.keys(analysis));
     return { narrativeId, analysis };
   } catch (error: any) {
-    console.error("Failed to create brand narrative:", error);
+    console.error("!! [DB FAILURE] Failed to create brand narrative document:", error.code, error.message);
+    
+    // If it's a Firestore 5 NOT_FOUND error, we likely have the analysis but can't save it.
+    // We throw but include the analysis in a structured way if possible, or just let the client know.
+    // Actually, to keep it simple, we'll throw a specific error message.
+    const isDbNotFound = error.message?.includes("NOT_FOUND") || error.code === 5;
+    if (isDbNotFound) {
+      console.error("!! CRITICAL: Firestore Database '(default)' seems to be missing in project:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+    }
+    
     throw new Error(error.message || "Failed to create narrative");
   }
 }
@@ -301,8 +322,8 @@ export async function regeneratePositioning(
 
     // Run analysis
     console.log(`[Action] Regenerating narrative for id: ${narrativeId}`);
-    const { positioning: p, angles: a, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(narrativeInput);
-    const analysis = { positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
+    const { positioning: p, angles: a, framework: f, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(narrativeInput);
+    const analysis = { ...f, positioning: p, angles: a, narrativeStrength: s, totalCost: cost };
     console.log("[Action] Analysis result:", JSON.stringify(analysis.positioning, null, 2));
 
 
@@ -335,6 +356,9 @@ export async function regeneratePositioning(
         aiPositioning: analysis.positioning,
         angles: analysis.angles,
         narrativeStrength: analysis.narrativeStrength,
+        positioningStatement: analysis.positioningStatement,
+        coreMessage: analysis.coreMessage,
+        brandVoice: analysis.brandVoice,
         totalCost: (narrative.totalCost || 0) + analysis.totalCost,
         versions: updatedVersions,
         updatedAt: Date.now(),

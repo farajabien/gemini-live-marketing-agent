@@ -382,6 +382,13 @@ export interface FounderNarrative {
     contrastScore: number;
     overallScore: number;
   };
+  
+  // Framework Synthesis (UI)
+  positioningStatement?: string;
+  coreMessage?: string;
+  brandVoice?: string;
+  contentPillars?: ContentPillar[];
+
   versions?: Array<{
     timestamp: number;
     changes: Record<string, { old: any; new: any }>;

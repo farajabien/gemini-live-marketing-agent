@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       ...(sourceContentPieceId && { sourceContentPieceId }),
     };
 
-    await serverDb.collection('videoPlans').doc(newPlanId).set(videoPlanData);
+    await (await serverDb.collection('videoPlans')).doc(newPlanId).set(videoPlanData);
 
     return NextResponse.json({ planId: newPlanId });
   } catch (error: any) {
