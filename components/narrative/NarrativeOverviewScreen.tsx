@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
@@ -28,13 +28,11 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
   const [editedOneLiner, setEditedOneLiner] = useState("");
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
 
-  const { data, isLoading, error } = (db as any).useQuery(
-    user ? { 
-      narratives: { 
-        $: { where: { id: narrativeId } }
-      } 
-    } : null
+  const narrativeQuery = useMemo(
+    () => user ? { narratives: { $: { where: { id: narrativeId } } } } : null,
+    [user?.id, narrativeId]
   );
+  const { data, isLoading, error } = (db as any).useQuery(narrativeQuery);
 
   if (error) {
     return (

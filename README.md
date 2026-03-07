@@ -2,11 +2,11 @@
 
 **Turn your brand narrative into an AI-powered content engine that learns what works and gets smarter over time.**
 
-IdeaToVideo is not a video editor. It's a **Narrative Intelligence System** that:
+IdeaToVideo is not a video editor. It's a **Dynamic Narrative Intelligence System** that:
 1. **Captures your brand positioning** through an 8-step strategic wizard
 2. **Generates content aligned to your narrative** with AI-powered tagging
-3. **Tracks what performs** with 24h/7d metrics on every piece of content
-4. **Suggests improvements** based on actual performance data
+3. **Evolves with you**: Every generation and refinement session distills new insights back into your "Brand Brain."
+4. **Tracks what matters**: Remembers every hook and angle generated to ensure diversity and strategic growth.
 
 ## 🎯 The Core Job
 
@@ -181,7 +181,29 @@ AI analyzes performance data (coming soon)
 Suggests narrative refinements based on what works
 ```
 
-### Key Files
+### 6. Dynamic Narrative Evolution (The "Brain" Loop)
+Every time you generate a video or refine a pillar, IdeaToVideo triggers a **Distillation Loop**:
+1. **Insight Extraction**: The AI reviews the generated script or refinement feedback.
+2. **Strategy Distillation**: Discovered sub-problems, emotional triggers, or better framings are distilled back into your core narrative fields.
+3. **Content History Tracking**: The system logs every hook and angle to a persistent `contentHistory` array, ensuring future content built on success without repeating past work.
+4. **Context-Aware Generation**: Future generation prompts automatically pull from this history to maintain diversity and depth.
+
+```
+User generates content/refinement
+  ↓
+analyzeDraftInsight() extracts sub-narratives
+  ↓
+evolveNarrative() updates core fields + contentHistory
+  ↓
+Narrative Brain grows smarter + more specific
+  ↓
+Future content pulls enriched context
+```
+
+### 7. Content History Tracking
+- **Angle Tracking**: Remembers which of the 25+ angles were used.
+- **Hook Persistence**: Logs the specific text anchors used in past videos.
+- **Format Variety**: Tracks whether we've over-indexed on one format vs others.
 
 - **`firestore.rules`**: Firebase security rules for all collections
 - **`firestore.indexes.json`**: Composite indexes for optimized queries

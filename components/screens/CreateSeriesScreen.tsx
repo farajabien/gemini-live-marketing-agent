@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
@@ -22,9 +22,11 @@ export function CreateSeriesScreen() {
   const [selectedNarrativeId, setSelectedNarrativeId] = useState<string | null>(null);
 
   // Fetch narratives
-  const { data: narrativesData } = (db as any).useQuery(
-    user ? { seriesNarratives: { $: { where: { userId: user.id } } } } : null
+  const seriesNarrativesQuery = useMemo(
+    () => user ? { seriesNarratives: { $: { where: { userId: user.id } } } } : null,
+    [user?.id]
   );
+  const { data: narrativesData } = (db as any).useQuery(seriesNarrativesQuery);
   const narratives = (narrativesData?.seriesNarratives || []) as any[];
 
 

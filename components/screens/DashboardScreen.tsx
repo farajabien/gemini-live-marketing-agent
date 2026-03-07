@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -45,45 +45,49 @@ export function DashboardScreen() {
   const [mediaFormatFilter, setMediaFormatFilter] = useState<string>("all");
 
   const { data, isLoading: isPlansLoading } = (db as any).useQuery(
-    user
-      ? {
-          videoPlans: {
-            $: {
-              where: { userId: user.id },
-              order: { createdAt: "desc" },
-              limit: 50,
-            },
-          },
-          series: {
-            $: {
-              where: { userId: user.id },
-              order: { createdAt: "desc" },
-              limit: 50,
-            },
-          },
-          seriesNarratives: {
-            $: {
-              where: { userId: user.id },
-              order: { createdAt: "desc" },
-              limit: 50,
-            },
-          },
-          narratives: {
-            $: {
-              where: { userId: user.id },
-              order: { createdAt: "desc" },
-              limit: 50,
-            },
-          },
-          contentPieces: {
-            $: {
-              where: { userId: user.id },
-              order: { createdAt: "desc" },
-              limit: 100,
-            },
-          },
-        }
-      : null
+    useMemo(
+      () =>
+        user
+          ? {
+              videoPlans: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 50,
+                },
+              },
+              series: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 50,
+                },
+              },
+              seriesNarratives: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 50,
+                },
+              },
+              narratives: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 50,
+                },
+              },
+              contentPieces: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 100,
+                },
+              },
+            }
+          : null,
+      [user?.id]
+    )
   );
 
   if (isAuthLoading) {

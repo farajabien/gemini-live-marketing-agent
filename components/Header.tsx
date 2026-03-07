@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { ProfileDialog } from "./ProfileDialog";
 import { SecureAccountDialog } from "./SecureAccountDialog";
@@ -19,9 +19,11 @@ export function Header({ transparent }: HeaderProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const [securityOpen, setSecurityOpen] = useState(false);
 
-    const { data } = (db as any).useQuery(
-        user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null
+    const narrativeQuery = useMemo(
+        () => user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null,
+        [user?.id]
     );
+    const { data } = (db as any).useQuery(narrativeQuery);
     const latestNarrative = data?.narratives?.[0];
 
     return (

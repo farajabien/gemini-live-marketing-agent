@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Firebase Configuration
  *
@@ -7,7 +9,7 @@
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // Firebase configuration from environment variables
@@ -41,7 +43,10 @@ if (!isE2E) {
 
   // Initialize Firebase services
   auth = getAuth(app);
-  db = getFirestore(app);
+  // persistentLocalCache must be set at init time — cannot race with Firestore ops
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache(),
+  });
   storage = getStorage(app);
 } else {
   // Mock Firebase for E2E testing

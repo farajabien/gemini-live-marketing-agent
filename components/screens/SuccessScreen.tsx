@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Confetti from "react-confetti";
@@ -92,9 +92,11 @@ export function SuccessScreen() {
   const [generatingCaptionFor, setGeneratingCaptionFor] = useState<number | null>(null);
   
   // Data Fetching
-  const { data } = db.useQuery(
-    planId ? { videoPlans: { $: { where: { id: planId } }, narrative: {} } } : null
+  const successPlanQuery = useMemo(
+    () => planId ? { videoPlans: { $: { where: { id: planId } }, narrative: {} } } : null,
+    [planId]
   );
+  const { data } = db.useQuery(successPlanQuery);
   const plan = (data && 'videoPlans' in data ? data.videoPlans?.[0] : undefined) as VideoPlan & { narrative?: { id: string }[] } | undefined;
 
   // Manual Trigger Function (can be called from UI)

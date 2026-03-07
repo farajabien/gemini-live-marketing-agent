@@ -115,6 +115,24 @@ async function executeQuery(queryObj: AdminQuery): Promise<any> {
         let query: FirebaseFirestore.Query = collectionRef;
 
         if (queryConfig) {
+            // Optimization: If querying by ID and it's the only constraint, use direct document access
+            if (queryConfig.where && queryConfig.where.id && Object.keys(queryConfig.where).length === 1 && !queryConfig.order && !queryConfig.limit) {
+                const docId = queryConfig.where.id;
+                const docSnap = await collectionRef.doc(docId).get();
+                if (docSnap.exists) {
+                    results[collectionName] = [{
+                        id: docSnap.id,
+                        ...docSnap.data(),
+                    }];
+                } else {
+                    results[collectionName] = [];
+                }
+                
+                // Still need to handle subcollections for the ID lookup result
+                await handleSubcollections(collectionName, config, results, db);
+                continue; 
+            }
+
             // Apply where clauses
             if (queryConfig.where) {
                 for (const [field, value] of Object.entries(queryConfig.where)) {
@@ -144,32 +162,43 @@ async function executeQuery(queryObj: AdminQuery): Promise<any> {
         }));
 
         // Handle subcollections if specified
-        for (const [key, subConfig] of Object.entries(config)) {
-            if (key === '$') continue;
-
-            const docsWithSub = await Promise.all(
-                results[collectionName].map(async (doc) => {
-                    const subCollectionRef = db
-                        .collection(collectionName)
-                        .doc(doc.id)
-                        .collection(key);
-
-                    const subSnapshot = await subCollectionRef.get();
-                    const subDocs = subSnapshot.docs.map(subDoc => ({
-                        id: subDoc.id,
-                        ...subDoc.data(),
-                    }));
-
-                    return {
-                        ...doc,
-                        [key]: subDocs,
-                    };
-                })
-            );
-
-            results[collectionName] = docsWithSub;
-        }
+        await handleSubcollections(collectionName, config, results, db);
     }
+
+    return results;
+}
+
+/**
+ * Extracted subcollection handler
+ */
+async function handleSubcollections(collectionName: string, config: any, results: any, db: FirebaseFirestore.Firestore) {
+    for (const [key, subConfig] of Object.entries(config)) {
+        if (key === '$') continue;
+
+        const docsWithSub = await Promise.all(
+            results[collectionName].map(async (doc: any) => {
+                const subCollectionRef = db
+                    .collection(collectionName)
+                    .doc(doc.id)
+                    .collection(key);
+
+                const subSnapshot = await subCollectionRef.get();
+                const subDocs = subSnapshot.docs.map(subDoc => ({
+                    id: subDoc.id,
+                    ...subDoc.data(),
+                }));
+
+                return {
+                    ...doc,
+                    [key]: subDocs,
+                };
+            })
+        );
+
+        results[collectionName] = docsWithSub;
+    }
+
+    
 
     return results;
 }

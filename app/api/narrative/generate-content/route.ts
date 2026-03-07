@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
           contentIds.push(contentId);
 
           await adminDb.transact([
-            adminDb.tx.contentPieces[contentId].update({
+            adminDb.tx.contentPieces[contentId].set({
               narrativeId: narrativeId, // Required by schema
               userId: user.id, // Required by security rules
               title: piece.title,

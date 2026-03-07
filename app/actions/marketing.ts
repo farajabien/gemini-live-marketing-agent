@@ -3,7 +3,7 @@
 import { adminDb, generateId as id } from "@/lib/firebase-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
-import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
+import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, refineContentPillar, refineFullStrategy, evolveNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
 
 // Legacy type for backward compatibility
 export async function createBrandNarrative(
@@ -53,14 +53,14 @@ export async function createBrandNarrative(
           identityShift: narrativeInput.identityShift,
           voice: narrativeInput.voice,
           // AI-extracted data
-          aiPositioning: analysis.positioning,
-          angles: analysis.angles,
-          narrativeStrength: analysis.narrativeStrength,
-          totalCost: analysis.totalCost || 0,
+          aiPositioning: analysis!.positioning,
+          angles: analysis!.angles,
+          narrativeStrength: analysis!.narrativeStrength,
+          totalCost: analysis!.totalCost || 0,
           // Polished framework for UI
-          positioningStatement: analysis.positioningStatement,
-          coreMessage: analysis.coreMessage,
-          brandVoice: analysis.brandVoice,
+          positioningStatement: analysis!.positioningStatement,
+          coreMessage: analysis!.coreMessage,
+          brandVoice: analysis!.brandVoice,
           // Version history
           versions: [{
             timestamp: Date.now(),
@@ -139,7 +139,7 @@ export async function createBrandNarrative(
       }
     }
 
-    console.log("[Action] Returning successful analysis. Keys:", Object.keys(analysis));
+    console.log("[Action] Returning successful analysis. Keys:", analysis ? Object.keys(analysis) : "null");
     return { narrativeId, analysis };
   } catch (error: any) {
     console.error("!! [DB FAILURE] Failed to create brand narrative document:", error.code, error.message);
@@ -161,42 +161,36 @@ export async function generateContentDraft(
   ownerId: string
 ): Promise<{ draftId: string }> {
     try {
-        // 1. Fetch previous content for this angle to ensure variety
-        const historyData = await adminDb.query({
-            videoPlans: {
-                $: {
-                    where: {
-                        narrative: input.narrativeId,
-                        // We might not have 'angle' field in videoPlans in all cases, 
-                        // but generateDraftFromAngle passes it in strategy
-                    }
-                }
-            }
+        // 1. Fetch Narrative Brain Context (for history + evolution)
+        const narrativeData = await adminDb.query({
+          narratives: { $: { where: { id: input.narrativeId } } }
         });
+        const narrative = (narrativeData as any).narratives?.[0];
+        if (!narrative) throw new Error("Narrative not found");
+
+        const contentHistory = narrative.contentHistory || [];
         
-        // Filter by angle if possible (VideoPlan has pillars linked, but angle might be in prompt)
-        // For now, let's just get the last few plans for this narrative to be safe
-        const previousPlans = (historyData as any).videoPlans || [];
-        const previousContentSummary = previousPlans
-            .slice(-3) // last 3 plans
-            .map((p: any) => `- ${p.title}: ${p.scenes?.map((s: any) => s.voiceover).join(" ")}`)
+        // 2. Format history for AI variety
+        const previousContentSummary = contentHistory
+            .slice(-10) // provide more context to avoid repetition
+            .map((h: any) => `- ${h.title} (${h.format}): ${h.hook}`)
             .join("\n\n");
 
         if (previousContentSummary) {
             input.previousContent = previousContentSummary;
         }
 
-        // 2. Generate Draft Content
+        // 3. Generate Draft Content
         const result = await generateDraftFromAngle(input);
         
-        // 2. Create Entities
+        // 4. Create Entities
         const draftId = id();
         const videoPlanId = id();
         
         await adminDb.transact([
             // Create Video Plan
              adminDb.tx.videoPlans[videoPlanId].set({
-                userId: ownerId, // Required by security rules
+                userId: ownerId, 
                 ...result.videoPlan,
                 status: "draft",
                 createdAt: Date.now(),
@@ -204,7 +198,7 @@ export async function generateContentDraft(
 
             // Create Content Draft
             adminDb.tx.contentDrafts[draftId].set({
-                userId: ownerId, // Required by security rules
+                userId: ownerId,
                 title: result.title,
                 angle: input.angle,
                 slides: result.slides,
@@ -214,12 +208,46 @@ export async function generateContentDraft(
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             }).link({ narrative: input.narrativeId })
-              // Link draft to video plan if schema allows (it does: videoPlanId field, but not explicit relation in schema yet?
-              // Wait, schema has `videoPlanId` string field on `contentDrafts` but no relation defined in `links`?
-              // Checking schema... `contentDrafts` has `videoPlanId` string. `videoPlans` has `narrative` relation.
-              // We can just store the ID for now or add relation later.
         ]);
         
+        // 5. EVOLVE THE NARRATIVE BRAIN (The Distillation Loop)
+        try {
+            const currentNarrative: NarrativeInput = {
+              audience: narrative.audience || "",
+              currentState: narrative.currentState || "",
+              problem: narrative.problem || "",
+              costOfInaction: narrative.costOfInaction || "",
+              solution: narrative.solution || "",
+              afterState: narrative.afterState || "",
+              identityShift: narrative.identityShift || "",
+              voice: narrative.voice || "calm",
+            };
+
+            // Distill the essence
+            const richInsight = `Content Angle used: "${input.angle}". Generated Title: "${result.title}". Core hook used: "${result.videoPlan.scenes[0]?.voiceover || ''}"`;
+            const evolved = await evolveNarrative(currentNarrative, richInsight);
+
+            // Update Brain: Evolution + Persist new history entry
+            const newHistoryEntry = {
+              timestamp: Date.now(),
+              angle: input.angle,
+              format: input.format,
+              title: result.title,
+              hook: result.videoPlan.scenes[0]?.voiceover || "No hook text",
+            };
+
+            await adminDb.transact([
+              adminDb.tx.narratives[input.narrativeId].update({
+                ...evolved,
+                contentHistory: [...contentHistory, newHistoryEntry].slice(-50), // Keep last 50 for context
+                updatedAt: Date.now(),
+              })
+            ]);
+            console.log("🧠 Narrative Brain Evolved & Content Tracked.");
+        } catch (evolutionError) {
+          console.error("Evolution semi-failure (non-blocking):", evolutionError);
+        }
+
         return { draftId };
     } catch (error) {
         console.error("Failed to generate draft:", error);
@@ -504,7 +532,6 @@ export async function generatePillarsForNarrative(
             title: category.replace(/Angles$/, '').replace(/([A-Z])/g, ' $1').trim(),
             description: `Content angles focused on ${category.replace(/Angles$/, '').toLowerCase()}`,
             angles: categoryAngles as string[],
-            status: "active",
             createdAt: Date.now(),
           }).link({ narrative: narrativeId })
         ]);
@@ -723,5 +750,247 @@ export async function refineBrandNarrativeAction(
   } catch (error: any) {
     console.error("Failed to refine brand narrative:", error);
     throw error;
+  }
+}
+
+export async function refineContentPillarAction(
+  narrativeId: string,
+  pillarId: string,
+  feedback: string
+) {
+  try {
+    // 1. Fetch Narrative Context
+    const narrativeData = await adminDb.query({
+      narratives: {
+        $: { where: { id: narrativeId } },
+      },
+    });
+    const narrative = (narrativeData as any).narratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    // 2. Fetch Pillar
+    const pillarData = await adminDb.query({
+      contentPillars: {
+        $: { where: { id: pillarId } },
+      },
+    });
+    const pillar = (pillarData as any).contentPillars?.[0];
+    if (!pillar) throw new Error("Pillar not found");
+
+    // 3. Refine via AI
+    const history = (narrative.contentHistory || [])
+      .slice(-10)
+      .map((h: any) => `- ${h.title}: ${h.hook}`)
+      .join("\n");
+
+    const refined = await refineContentPillar(
+      {
+        audience: narrative.audience,
+        currentState: narrative.currentState,
+        problem: narrative.problem,
+        costOfInaction: narrative.costOfInaction,
+        solution: narrative.solution,
+        afterState: narrative.afterState,
+        identityShift: narrative.identityShift,
+        voice: narrative.voice,
+      },
+      {
+        title: pillar.title,
+        description: pillar.description,
+        angles: pillar.angles,
+      },
+      feedback,
+      history
+    );
+
+    // 4. Update DB
+    await adminDb.transact([
+      adminDb.tx.contentPillars[pillarId].update({
+        title: refined.title,
+        description: refined.description,
+        angles: refined.angles,
+        updatedAt: Date.now(),
+      }),
+    ]);
+
+    // 5. EVOLVE THE NARRATIVE BRAIN based on feedback
+    try {
+      const currentNarrative: NarrativeInput = {
+        audience: narrative.audience,
+        currentState: narrative.currentState,
+        problem: narrative.problem,
+        costOfInaction: narrative.costOfInaction,
+        solution: narrative.solution,
+        afterState: narrative.afterState,
+        identityShift: narrative.identityShift,
+        voice: narrative.voice,
+      };
+
+      const evolved = await evolveNarrative(currentNarrative, feedback);
+      
+      await adminDb.transact([
+        adminDb.tx.narratives[narrativeId].update({
+          ...evolved,
+          updatedAt: Date.now(),
+        })
+      ]);
+      console.log("🧠 Narrative Brain evolved based on pillar refinement feedback.");
+    } catch (evoError) {
+      console.error("Evolution semi-failure (non-blocking):", evoError);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to refine content pillar:", error);
+    throw new Error(error.message || "Failed to refine pillar");
+  }
+}
+
+export async function refineFullContentEngineAction(
+  narrativeId: string,
+  feedback: string,
+  ownerId: string
+) {
+  try {
+    // 1. Fetch Narrative Brain
+    const narrativeData = await adminDb.query({
+      narratives: { $: { where: { id: narrativeId } } }
+    });
+    const narrative = (narrativeData as any).narratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    const contentHistory = (narrative.contentHistory || [])
+      .slice(-15)
+      .map((h: any) => `${h.title}: ${h.hook}`)
+      .join("\n");
+
+    const currentNarrativeInput: NarrativeInput = {
+      audience: narrative.audience || "",
+      currentState: narrative.currentState || "",
+      problem: narrative.problem || "",
+      costOfInaction: narrative.costOfInaction || "",
+      solution: narrative.solution || "",
+      afterState: narrative.afterState || "",
+      identityShift: narrative.identityShift || "",
+      voice: narrative.voice || "calm",
+    };
+
+    // 2. Snaphot current state for rollback
+    const existingPillars = await adminDb.query({
+      contentPillars: { $: { where: { narrative: narrativeId } } }
+    });
+    
+    const pillarsToSnapshot = (existingPillars as any).contentPillars.map((p: any) => ({
+      title: p.title,
+      description: p.description,
+      angles: p.angles
+    }));
+
+    const snapshot = {
+      timestamp: Date.now(),
+      narrative: currentNarrativeInput,
+      pillars: pillarsToSnapshot,
+      feedback: feedback
+    };
+
+    const updatedVersions = [snapshot, ...(narrative.versions || [])].slice(0, 3);
+
+    const deleteOps = (existingPillars as any).contentPillars.map((p: any) => 
+      adminDb.tx.contentPillars[p.id].delete()
+    );
+
+    // 3. AI Refinement (Narrative + New Pillars)
+    const result = await refineFullStrategy(currentNarrativeInput, feedback, contentHistory);
+
+    // 4. Batch Updates
+    const createOps = result.pillars.map(p => {
+      const pillarId = id();
+      return adminDb.tx.contentPillars[pillarId].set({
+        userId: ownerId,
+        narrativeId,
+        status: "active",
+        createdAt: Date.now(),
+        ...p
+      }).link({ narrative: narrativeId });
+    });
+
+    await adminDb.transact([
+      ...deleteOps,
+      ...createOps,
+      adminDb.tx.narratives[narrativeId].update({
+        ...result.narrative,
+        versions: updatedVersions,
+        updatedAt: Date.now()
+      })
+    ]);
+
+    console.log("🚀 Global Strategy Refined: Brain Evolved + Pillars Regenerated.");
+    return { success: true };
+
+  } catch (error: any) {
+    console.error("Failed to refine full strategy:", error);
+    throw new Error(error.message || "Failed to refine full strategy");
+  }
+}
+
+export async function rollbackNarrativeAction(
+  narrativeId: string,
+  versionIndex: number,
+  ownerId: string
+) {
+  try {
+    // 1. Fetch Narrative Brain
+    const narrativeData = await adminDb.query({
+      narratives: { $: { where: { id: narrativeId } } }
+    });
+    const narrative = (narrativeData as any).narratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    const versions = narrative.versions || [];
+    const targetVersion = versions[versionIndex];
+    if (!targetVersion) throw new Error("Version not found");
+
+    // 2. Clear existing pillars
+    const existingPillars = await adminDb.query({
+      contentPillars: { $: { where: { narrative: narrativeId } } }
+    });
+    
+    const deleteOps = (existingPillars as any).contentPillars.map((p: any) => 
+      adminDb.tx.contentPillars[p.id].delete()
+    );
+
+    // 3. Restore pillars from snapshot
+    const createOps = targetVersion.pillars.map((p: any) => {
+      const pillarId = id();
+      return adminDb.tx.contentPillars[pillarId].set({
+        userId: ownerId,
+        narrativeId,
+        status: "active",
+        createdAt: Date.now(),
+        ...p
+      }).link({ narrative: narrativeId });
+    });
+
+    // 4. Update versions array (remove the one we rolled back to, or just leave it?)
+    // Usually, rolling back to 'v1' means v1 becomes current, and we might want to keep the "bad" version as a snapshot too.
+    // For simplicity, let's just restore and remove that version from the array.
+    const updatedVersions = versions.filter((_: any, i: number) => i !== versionIndex);
+
+    await adminDb.transact([
+      ...deleteOps,
+      ...createOps,
+      adminDb.tx.narratives[narrativeId].update({
+        ...targetVersion.narrative,
+        versions: updatedVersions,
+        updatedAt: Date.now()
+      })
+    ]);
+
+    console.log("⏪ Rollback Successful: Strategy restored to version from ", new Date(targetVersion.timestamp).toLocaleString());
+    return { success: true };
+
+  } catch (error: any) {
+    console.error("Rollback failed:", error);
+    throw new Error(error.message || "Rollback failed");
   }
 }

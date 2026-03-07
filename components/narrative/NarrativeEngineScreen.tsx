@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, Brain, ArrowRight, Bot, CheckCircle2, Loader2, Target, ChevronDown } from "lucide-react";
-import { generatePillarsForNarrative } from "@/app/actions/marketing";
+import { generatePillarsForNarrative, refineContentPillarAction, refineFullContentEngineAction, rollbackNarrativeAction } from "@/app/actions/marketing";
 import {
   Select,
   SelectContent,
@@ -48,39 +48,37 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
   const [generationCount, setGenerationCount] = useState(3);
   const [isGeneratingAngle, setIsGeneratingAngle] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  
+  // Refinement state
+  const [isRefining, setIsRefining] = useState(false);
+  const [refinementFeedback, setRefinementFeedback] = useState("");
+  const [showRefineInput, setShowRefineInput] = useState<string | null>(null); // pillarId
+  const [showGlobalRefine, setShowGlobalRefine] = useState(false);
+  const [globalFeedback, setGlobalFeedback] = useState("");
+  const [isConfirmingGlobalRefine, setIsConfirmingGlobalRefine] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
 
   // Query the narrative document
-  const { data, isLoading, error } = (db as any).useQuery(
-    user
-      ? {
-          narratives: {
-            $: { where: { id: narrativeId } },
-          },
-        }
-      : null
+  const narrativeQuery = useMemo(
+    () => user ? { narratives: { $: { where: { id: narrativeId } } } } : null,
+    [user?.id, narrativeId]
   );
+  const { data, isLoading, error } = (db as any).useQuery(narrativeQuery);
 
   // Query content pillars linked to this narrative
-  const { data: pillarsData } = (db as any).useQuery(
-    user
-      ? {
-          contentPillars: {
-            $: { where: { narrative: narrativeId, userId: user.id } },
-          },
-        }
-      : null
+  const pillarsQuery = useMemo(
+    () => user ? { contentPillars: { $: { where: { narrative: narrativeId, userId: user.id } } } } : null,
+    [user?.id, narrativeId]
   );
+  const { data: pillarsData } = (db as any).useQuery(pillarsQuery);
 
   // Query content pieces linked to this narrative
-  const { data: piecesData } = (db as any).useQuery(
-    user
-      ? {
-          contentPieces: {
-            $: { where: { narrativeId: narrativeId, userId: user.id } },
-          },
-        }
-      : null
+  const piecesQuery = useMemo(
+    () => user ? { contentPieces: { $: { where: { narrativeId: narrativeId, userId: user.id } } } } : null,
+    [user?.id, narrativeId]
   );
+  const { data: piecesData } = (db as any).useQuery(piecesQuery);
 
   if (error) {
     return (
@@ -172,6 +170,14 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
                 setIsGeneratingAngle(false);
                 setSelectedAngle(null); // Close toolbar
                 toast.success(`Successfully generated ${eventData.count} posts!`);
+                
+                // NEW: Notify about brain evolution
+                setTimeout(() => {
+                  toast("🧠 Narrative Brain Evolved", {
+                    description: "Your brand strategy has been sharpened with new insights from this session.",
+                    duration: 5000,
+                  });
+                }, 1500);
                 return;
               } else if (eventData.type === "error") {
                 throw new Error(eventData.error);
@@ -203,9 +209,84 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
     }
   };
 
+  const handleRefinePillar = async (pillarId: string) => {
+    if (!refinementFeedback.trim()) return;
+    setIsRefining(true);
+    try {
+      await refineContentPillarAction(narrativeId, pillarId, refinementFeedback);
+      toast.success("Pillar refined successfully!");
+      
+      // NEW: Notify about brain evolution
+      setTimeout(() => {
+        toast("🧠 Narrative Brain Evolved", {
+          description: "Distilled your feedback into the core brand strategy.",
+          duration: 5000,
+        });
+      }, 1000);
+
+      setRefinementFeedback("");
+      setShowRefineInput(null);
+    } catch (err: any) {
+      console.error("Failed to refine pillar:", err);
+      toast.error(err.message || "Failed to refine pillar");
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleRefineFullStrategy = async () => {
+    if (!globalFeedback.trim()) return;
+    
+    if (!isConfirmingGlobalRefine) {
+      setIsConfirmingGlobalRefine(true);
+      return;
+    }
+
+    setIsRefining(true);
+    try {
+      if (!user?.id) throw new Error("User not authenticated");
+      await refineFullContentEngineAction(narrativeId, globalFeedback, user.id);
+      toast.success("Full strategy refined and pillars regenerated!");
+      
+      setTimeout(() => {
+        toast("🧠 Strategy Brain Evolved", {
+          description: "Your entire content ecosystem has been realigned.",
+          duration: 5000,
+        });
+      }, 1000);
+
+      setGlobalFeedback("");
+      setShowGlobalRefine(false);
+      setIsConfirmingGlobalRefine(false);
+    } catch (err: any) {
+      console.error("Failed to refine strategy:", err);
+      toast.error(err.message || "Failed to refine strategy");
+      setIsConfirmingGlobalRefine(false);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleRollback = async (index: number) => {
+    if (isRollingBack) return;
+    setIsRollingBack(true);
+    try {
+      if (!user?.id) throw new Error("User not authenticated");
+      await rollbackNarrativeAction(narrativeId, index, user.id);
+      toast.success("Strategy rolled back successfully!");
+      setShowHistory(false);
+      setShowGlobalRefine(false);
+    } catch (err: any) {
+      console.error("Rollback failed:", err);
+      toast.error(err.message || "Rollback failed");
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
   // Group Content by Angle -> Format -> Count
   const angleContentCounts = contentPieces.reduce((acc: Record<string, Record<string, number>>, piece: any) => {
-    if (!piece.angle || piece.status !== 'approved') return acc;
+    if (!piece.angle || piece.status === 'rejected') return acc;
     if (!acc[piece.angle]) acc[piece.angle] = {};
     acc[piece.angle][piece.format] = (acc[piece.angle][piece.format] || 0) + 1;
     return acc;
@@ -215,7 +296,7 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
   const pillarContentCounts = pillars.reduce((acc: Record<string, Record<string, number>>, pillar: any) => {
     acc[pillar.id] = {};
     contentPieces
-      .filter((p: any) => p.status === 'approved' && p.angle && pillar.angles.includes(p.angle))
+      .filter((p: any) => p.status !== 'rejected' && p.angle && pillar.angles.includes(p.angle))
       .forEach((piece: any) => {
         acc[pillar.id][piece.format] = (acc[pillar.id][piece.format] || 0) + 1;
       });
@@ -233,10 +314,120 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
             Your core pillars and angles. Click on any angle to generate content.
           </p>
         </div>
-        <Badge variant="outline" className="border-primary/30 text-primary text-xs">
-          {pillars.length} Pillars
-        </Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge variant="outline" className="border-primary/30 text-primary text-xs self-end">
+            {pillars.length} Pillars
+          </Badge>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              setShowGlobalRefine(!showGlobalRefine);
+              if (showHistory) setShowHistory(false);
+            }}
+            className="text-slate-400 hover:text-white"
+          >
+            <Sparkles className="size-4 mr-2" />
+            Refine Full Strategy
+          </Button>
+        </div>
       </div>
+
+      {showGlobalRefine && (
+        <div className="mb-8 p-6 bg-red-600/5 border border-red-500/20 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Brain className="size-5 text-red-500" />
+              <h3 className="font-black text-white">Global Strategy Refinement</h3>
+            </div>
+            {narrative.versions && narrative.versions.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowHistory(!showHistory)}
+                className="border-white/10 text-slate-400 hover:text-white rounded-full h-8 px-4"
+              >
+                <ArrowRight className={`size-3 mr-2 transition-transform duration-300 ${showHistory ? 'rotate-90' : ''}`} />
+                History ({narrative.versions.length})
+              </Button>
+            )}
+          </div>
+          
+          {!showHistory ? (
+            <>
+              <p className="text-slate-400 text-sm mb-4">
+                Provide feedback for your entire content engine. This will evolve your Brand Brain and regenerate ALL pillars.
+              </p>
+              <textarea
+                value={globalFeedback}
+                onChange={(e) => setGlobalFeedback(e.target.value)}
+                placeholder="e.g. 'Make the entire strategy more contrarian and focus on why traditional systems fail. Focus on the emotional cost of delay...'"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500/50 min-h-[100px] mb-4"
+              />
+            </>
+          ) : (
+            <div className="space-y-3 mb-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Available Backups</h4>
+              {narrative.versions?.map((version: any, idx: number) => (
+                <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between group">
+                  <div>
+                    <p className="text-white text-sm font-medium">Backup from {new Date(version.timestamp).toLocaleString()}</p>
+                    <p className="text-slate-500 text-xs mt-1 italic">"{version.feedback || 'Manual override'}"</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleRollback(idx)}
+                    disabled={isRollingBack}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity border-white/10 hover:bg-white/10 text-white rounded-full h-8"
+                  >
+                    {isRollingBack ? <Loader2 className="size-3 animate-spin" /> : 'Restore'}
+                  </Button>
+                </div>
+              ))}
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)} className="text-slate-500 hover:text-white mt-2">
+                Back to Refinement
+              </Button>
+            </div>
+          )}
+          {isConfirmingGlobalRefine && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4 animate-in fade-in zoom-in-95">
+              <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-1">⚠️ Destructive Action</p>
+              <p className="text-slate-300 text-sm">
+                This will delete all current pillars and rewrite your core strategy. Are you sure?
+              </p>
+            </div>
+          )}
+          {!showHistory && (
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setShowGlobalRefine(false);
+                  setIsConfirmingGlobalRefine(false);
+                }} 
+                className="text-slate-400"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleRefineFullStrategy} 
+                disabled={isRefining || !globalFeedback.trim()}
+                className={`${isConfirmingGlobalRefine ? 'bg-white text-black hover:bg-slate-200' : 'bg-red-600 hover:bg-red-500 text-white'} rounded-full px-6 transition-all duration-300`}
+              >
+                {isRefining ? (
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                ) : isConfirmingGlobalRefine ? (
+                  <CheckCircle2 className="size-4 mr-2" />
+                ) : (
+                  <Sparkles className="size-4 mr-2" />
+                )}
+                {isConfirmingGlobalRefine ? 'Confirm Strategy Overhaul' : 'Evolve & Regenerate All'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {pillars.length === 0 ? (
         <div className="bg-white/5 border border-white/10 border-dashed rounded-3xl flex flex-col items-center justify-center py-20 px-6 text-center">
@@ -309,11 +500,49 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
                   )}
                   
                   <div className="pt-6">
-                    <div className="flex items-center gap-3 text-slate-500">
+                    <div className="flex items-center gap-3 text-slate-500 mb-6">
                       <div className="h-px flex-1 bg-white/5" />
                       <span className="text-[10px] font-black uppercase tracking-[0.2em]">Strategy Overview</span>
                       <div className="h-px flex-1 bg-white/5" />
                     </div>
+
+                    {showRefineInput === pillar.id ? (
+                      <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
+                        <textarea
+                          placeholder="e.g., 'Make the angles more aggressive and focused on manual laundry errors'"
+                          className="w-full bg-white/5 border border-red-500/20 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500/40 min-h-[100px] resize-none"
+                          value={refinementFeedback}
+                          onChange={(e) => setRefinementFeedback(e.target.value)}
+                        />
+                        <div className="flex items-center justify-end gap-3">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-xs text-slate-500 font-bold"
+                            onClick={() => setShowRefineInput(null)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={!refinementFeedback.trim() || isRefining}
+                            className="bg-red-600 hover:bg-red-700 text-white font-black text-xs px-6 rounded-full"
+                            onClick={() => handleRefinePillar(pillar.id)}
+                          >
+                            {isRefining ? 'Refining...' : 'Update Pillar'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowRefineInput(pillar.id)}
+                        className="rounded-full border-white/5 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest px-6"
+                      >
+                        Refine This Pillar
+                      </Button>
+                    )}
                   </div>
                 </div>
 

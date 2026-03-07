@@ -8,6 +8,8 @@
  * When adding/modifying fields in the schema, update the corresponding types here.
  */
 
+import { NarrativeInput } from "./marketing/narrative-intelligence";
+
 // ============================================================================
 // Scene & Video Plan Types (Core Domain)
 // ============================================================================
@@ -388,11 +390,19 @@ export interface FounderNarrative {
   coreMessage?: string;
   brandVoice?: string;
   contentPillars?: ContentPillar[];
+  contentHistory?: Array<{
+    timestamp: number;
+    angle: string;
+    format: string;
+    hook: string;
+    title: string;
+  }>;
 
   versions?: Array<{
     timestamp: number;
-    changes: Record<string, { old: any; new: any }>;
-    updatedBy: string;
+    narrative: NarrativeInput;
+    pillars: Array<{ title: string; description: string; angles: string[] }>;
+    feedback?: string;
   }>;
 
   // === Legacy Wizard Fields (backward compatibility) ===

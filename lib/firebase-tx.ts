@@ -5,7 +5,7 @@
  * This is a lightweight wrapper around Firebase client operations.
  */
 
-import { updateDocument, deleteDocument } from '@/hooks/use-firestore';
+import { upsertDocument, deleteDocument } from '@/hooks/use-firestore';
 
 /**
  * Transaction builder for Firebase
@@ -17,10 +17,10 @@ export const tx = new Proxy({}, {
       get: (_target2, docId: string) => {
         return {
           update: async (data: any) => {
-            await updateDocument(collection, docId, data);
+            await upsertDocument(collection, docId, data);
           },
           merge: async (data: any) => {
-            await updateDocument(collection, docId, data);
+            await upsertDocument(collection, docId, data);
           },
           delete: async () => {
             await deleteDocument(collection, docId);

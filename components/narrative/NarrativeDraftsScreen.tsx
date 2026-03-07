@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";
 import type { FounderNarrative, ContentPiece, ContentFormat, ContentStatus } from "@/lib/types";
@@ -188,36 +188,31 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
     }
   }, [angleFromUrl]);
 
-  const { data, isLoading } = (db as any).useQuery(
-    user
-      ? {
-          narratives: {
-            $: { where: { id: narrativeId, userId: user.id } },
+  const draftsQuery = useMemo(
+    () =>
+      user
+        ? {
+            narratives: { $: { where: { id: narrativeId } } },
             contentPieces: {
-              $: { order: { createdAt: "desc" } },
-              generatedPlans: {},
+              $: {
+                where: { narrativeId: narrativeId, userId: user.id },
+                order: { createdAt: "desc" },
+              },
             },
-          },
-          videoPlans: {
-            $: {
-              where: {
-                userId: user.id,
-                "narrative.id": narrativeId
+            videoPlans: {
+              $: {
+                where: { userId: user.id, "narrative.id": narrativeId },
+                order: { createdAt: "desc" },
               },
-              order: { createdAt: "desc" }
-            }
-          },
-          series: {
-            $: {
-              where: {
-                userId: user.id
-              },
-              order: { createdAt: "desc" }
-            }
+            },
+            series: {
+              $: { where: { userId: user.id }, order: { createdAt: "desc" } },
+            },
           }
-        }
-      : null
+        : null,
+    [user?.id, narrativeId]
   );
+  const { data, isLoading } = (db as any).useQuery(draftsQuery);
 
   // Auto-trigger generation when navigating from engine screen
   useEffect(() => {
@@ -258,7 +253,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
     );
   }
 
-  const allContent = narrative.contentPieces || [];
+  const allContent = (data as any)?.contentPieces || [];
   const queueContent = allContent.filter(
     (c: ContentPiece) => (c.status === "suggested" || c.status === "edited")
   );

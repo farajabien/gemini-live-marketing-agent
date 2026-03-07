@@ -149,38 +149,43 @@ INPUTS:
 - After State: ${input.afterState}
 - Identity Shift: ${input.identityShift}
 
-For each category, generate 5 specific content angles/hooks that could become posts.
+For each category, generate 5 specific content angles. 
+
+CRITICAL RULES FOR ANGLES:
+1. Each angle MUST be a STANDALONE 30-60s video concept.
+2. Each angle MUST have a clear "Hook" (an opening that grabs attention).
+3. Each angle MUST be anchored in a specific PROBLEM or frustration.
+4. Each angle MUST have a specific resolution or takeaway.
+5. AVOID fragmented angles (e.g., don't make 5 angles that are just 5 steps of one process).
+6. Each angle should be able to function as a complete piece of content on its own.
 
 OUTPUT JSON ONLY:
 {
   "painAngles": [
-    "Specific way to talk about the problem",
-    "Another angle on the pain",
+    "Punchy standalone video hook + problem + quick resolution",
+    "Another standalone hook anchored in a vivid frustration",
     "etc..."
   ],
   "costAngles": [
-    "Specific consequence to highlight",
-    "Another cost angle",
+    "Hook centered on the consequences of inaction + standalone resolution",
+    "Another high-stakes standalone hook",
     "etc..."
   ],
   "mechanismAngles": [
-    "Way to explain your unique approach",
-    "Another mechanism angle",
+    "Hook explaining the 'how' as a standalone breakthrough",
     "etc..."
   ],
   "identityAngles": [
-    "Way to frame who they become",
-    "Another identity shift angle",
+    "Hook about the transformation from X to Y as a standalone story",
     "etc..."
   ],
   "outcomeAngles": [
-    "Specific outcome to highlight",
-    "Another result angle",
+    "Hook about the specific desired result as a standalone win",
     "etc..."
   ]
 }
 
-Make each angle concrete and specific to THIS audience and problem.
+Make each angle concrete, specific, and AUTHENTIC to this audience. NO generic marketing fluff.
 `;
 
   const { text: response, cost } = await generateText(
@@ -317,7 +322,7 @@ INPUTS:
 TASK:
 1. "positioningStatement": A single, powerful sentence that captures the transformation (From [Pain] to [Promise] through [Mechanism]).
 2. "coreMessage": A 2-3 sentence paragraph that explains WHY this matters and how it works.
-3. "contentPillars": Cluster the provided angles into 3-4 cohesive pillars. Each pillar needs a punchy title, a short description, and 3-5 specific angles (drawn from the provided angles).
+3. "contentPillars": Cluster the provided angles into 3-4 cohesive pillars. Each pillar needs a punchy title, a short description, and 3-5 specific angles (drawn from the provided angles). IMPORTANT: Maintain the standalone nature of the angles. Do not blend them into a single script.
 4. "brandVoice": A definitive 1-sentence description of the brand's tone of voice.
 
 OUTPUT JSON ONLY:
@@ -612,5 +617,212 @@ OUTPUT JSON ONLY (same structure as original):
   } catch (e) {
     console.error("Failed to refine brand narrative:", response);
     throw new Error("Failed to refine brand narrative");
+  }
+}
+
+export async function refineContentPillar(
+  input: NarrativeInput,
+  pillar: { title: string, description: string, angles: string[] },
+  feedback: string,
+  history?: string
+): Promise<{ title: string, description: string, angles: string[] }> {
+  const prompt = `
+You are a strategic content director. Refine this specific content pillar based on user feedback.
+
+NARRATIVE CONTEXT:
+- Audience: ${input.audience}
+- Problem: ${input.problem}
+- Solution: ${input.solution}
+
+${history ? `CONTENT ALREADY GENERATED (DO NOT REPEAT THESE HOOKS/ANGLES):\n${history}\n` : ""}
+
+CURRENT PILLAR:
+- Title: ${pillar.title}
+- Description: ${pillar.description}
+- Angles: ${JSON.stringify(pillar.angles)}
+
+USER FEEDBACK:
+"${feedback}"
+
+TASK:
+1. Regenerate the 5 angles for this pillar.
+2. Ensure each angle is a STANDALONE video concept with its own hook and problem anchor.
+3. Pivot the tone or focus based on the feedback.
+
+OUTPUT JSON ONLY:
+{
+  "title": "...",
+  "description": "...",
+  "angles": ["...", "..."]
+}
+`;
+
+  const { text: response } = await generateText(
+    prompt,
+    "You are a content director. Refine the pillar angles based on feedback. Output JSON only.",
+    "gemini-1.5-pro",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    return JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    console.error("Failed to refine content pillar:", response);
+    throw new Error("Failed to refine content pillar");
+  }
+}
+
+/**
+ * Distills new insights back into the core narrative.
+ * This makes the narrative an evolving "brain" that gets smarter with every interaction.
+ */
+export async function evolveNarrative(
+  current: NarrativeInput,
+  insight: string
+): Promise<NarrativeInput> {
+  const prompt = `
+You are a strategic narrative analyst and brand "brain". Your job is to EVOLVE a brand narrative based on new insights discovered during a content session.
+
+CURRENT NARRATIVE:
+- Audience: ${current.audience}
+- Current State: ${current.currentState}
+- Problem: ${current.problem}
+- Cost of Inaction: ${current.costOfInaction}
+- Solution: ${current.solution}
+- After State: ${current.afterState}
+- Identity Shift: ${current.identityShift}
+- Voice: ${current.voice}
+
+NEW INSIGHT / DISCOVERY:
+"${insight}"
+
+TASK:
+Refine the core narrative fields. 
+1. Incorporate the new insight to make the narrative more SPECIFIC and EMOTIONALLY RESONANT.
+2. Do not delete existing core facts, but sharpen them. 
+3. If the insight reveals a better way to frame the problem or solution, update those fields.
+4. Keep the text punchy and strategic.
+
+OUTPUT JSON ONLY (NarrativeInput structure):
+{
+  "audience": "...",
+  "currentState": "...",
+  "problem": "...",
+  "costOfInaction": "...",
+  "solution": "...",
+  "afterstate": "...",
+  "identityShift": "...",
+  "voice": "..."
+}
+`;
+
+  const { text: response } = await generateText(
+    prompt,
+    "You are a narrative strategist. Distill insights to evolve the brand brain. Output JSON only.",
+    "gemini-1.5-pro",
+    0.5
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    // Ensure we handle potential field naming slight variations from AI
+    const result = JSON.parse(jsonMatch[0]);
+    return {
+      audience: result.audience || current.audience,
+      currentState: result.currentState || current.currentState,
+      problem: result.problem || current.problem,
+      costOfInaction: result.costOfInaction || current.costOfInaction,
+      solution: result.solution || current.solution,
+      afterState: result.afterState || result.afterstate || current.afterState,
+      identityShift: result.identityShift || current.identityShift,
+      voice: result.voice || current.voice,
+    };
+  } catch (e) {
+    console.error("Failed to evolve narrative:", response);
+    return current; // Fallback to current
+  }
+}
+
+export async function refineFullStrategy(
+  current: NarrativeInput,
+  feedback: string,
+  contentHistory?: string
+): Promise<{ 
+  narrative: NarrativeInput, 
+  pillars: Array<{ title: string, description: string, angles: string[] }> 
+}> {
+  const prompt = `
+You are a Lead Content Strategist. Your task is to refine the ENTIRE content strategy for a brand based on user feedback.
+
+CURRENT NARRATIVE BRAIN:
+- Audience: ${current.audience}
+- Problem: ${current.problem}
+- Solution: ${current.solution}
+- Voice: ${current.voice}
+
+${contentHistory ? `PREVIOUS CONTENT HISTORY (DO NOT REPEAT):\n${contentHistory}\n` : ""}
+
+USER FEEDBACK FOR FULL STRATEGY:
+"${feedback}"
+
+TASK:
+1. EVOLVE the Narrative Brain fields based on the feedback. Make them more specific and strategically aligned with the feedback.
+2. REGENERATE 3 distinct Content Pillars based on the evolved narrative.
+3. For each pillar, generate 5 STANDALONE video concepts (angles).
+4. Each angle must have a clear hook and problem-anchor.
+
+OUTPUT JSON ONLY:
+{
+  "narrative": {
+    "audience": "...",
+    "currentState": "...",
+    "problem": "...",
+    "costOfInaction": "...",
+    "solution": "...",
+    "afterState": "...",
+    "identityShift": "...",
+    "voice": "..."
+  },
+  "pillars": [
+    {
+      "title": "...",
+      "description": "...",
+      "angles": ["...", "...", "...", "...", "..."]
+    }
+  ]
+}
+`;
+
+  const { text: response } = await generateText(
+    prompt,
+    "You are a lead content strategist. Refine the full strategy. Output JSON only.",
+    "gemini-1.5-pro",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const result = JSON.parse(jsonMatch[0]);
+    
+    return {
+      narrative: {
+        audience: result.narrative.audience || current.audience,
+        currentState: result.narrative.currentState || current.currentState,
+        problem: result.narrative.problem || current.problem,
+        costOfInaction: result.narrative.costOfInaction || current.costOfInaction,
+        solution: result.narrative.solution || current.solution,
+        afterState: result.narrative.afterState || result.narrative.afterstate || current.afterState,
+        identityShift: result.narrative.identityShift || current.identityShift,
+        voice: result.narrative.voice || current.voice,
+      },
+      pillars: result.pillars
+    };
+  } catch (e) {
+    console.error("Failed to refine full strategy:", response);
+    throw new Error("Failed to refine full strategy");
   }
 }

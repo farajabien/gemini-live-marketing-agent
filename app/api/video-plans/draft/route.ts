@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
         boosted: false,
         organic: true,
       },
+      id: newPlanId,
       ...(narrativeId && { narrativeId }),
       ...(sourceContentPieceId && { sourceContentPieceId }),
     };

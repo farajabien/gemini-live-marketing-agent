@@ -227,6 +227,23 @@ export async function updateDocument<T extends Record<string, any>>(
   });
 }
 
+/**
+ * Upsert a document (create or update)
+ */
+export async function upsertDocument<T extends Record<string, any>>(
+  collectionName: string,
+  documentId: string,
+  data: T
+): Promise<void> {
+  const docRef = doc(db, collectionName, documentId);
+
+  await setDoc(docRef, {
+    ...data,
+    id: documentId,
+    updatedAt: Date.now(),
+  }, { merge: true });
+}
+
 export async function deleteDocument(
   collectionName: string,
   documentId: string

@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { EpisodeCard } from "@/components/series/EpisodeCard";
@@ -19,12 +19,11 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const { user, refreshToken, isLoading: isAuthLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
 
-  const { data, isLoading: isSeriesLoading, error } = db.useQuery({
-    series: {
-      $: { where: { id: seriesId } },
-      episodes: {}
-    }
-  });
+  const seriesQuery = useMemo(
+    () => ({ series: { $: { where: { id: seriesId } }, episodes: {} } }),
+    [seriesId]
+  );
+  const { data, isLoading: isSeriesLoading, error } = db.useQuery(seriesQuery);
 
   const seriesData = (data && 'series' in data ? data.series?.[0] : null) as SeriesWithEpisodes;
 

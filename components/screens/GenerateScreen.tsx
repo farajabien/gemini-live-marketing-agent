@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {  generateVideoPlanWithOptions } from "@/lib/ai/generation";
@@ -87,32 +87,30 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const [selectedDraftId, setSelectedDraftId] = useState<string | undefined>(undefined);
   
   // Fetch ALL user narratives for the project selection
-  const { data: narrativesData } = (db as any).useQuery(
-    user
-      ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
-      : null
+  const narrativesQuery = useMemo(
+    () => user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } } : null,
+    [user?.id]
   );
+  const { data: narrativesData } = (db as any).useQuery(narrativesQuery);
   const narratives = (narrativesData?.narratives || []) as FounderNarrative[];
-  
+
   // Fetch approved content pieces for the selected narrative
-  const { data: draftsData } = (db as any).useQuery(
-    user && selectedNarrativeId && selectedNarrativeId !== "new"
-      ? { 
-          narratives: { 
-            $: { where: { id: selectedNarrativeId } },
-            contentPieces: {
-              $: { 
-                where: { 
-                    status: { "in": ["approved", "published"] } 
-                },
-                order: { createdAt: "desc" } 
+  const draftsDataQuery = useMemo(
+    () =>
+      user && selectedNarrativeId && selectedNarrativeId !== "new"
+        ? {
+            narratives: {
+              $: { where: { id: selectedNarrativeId } },
+              contentPieces: {
+                $: { where: { status: { in: ["approved", "published"] } }, order: { createdAt: "desc" } },
+                generatedPlans: {},
               },
-              generatedPlans: {}
-            }
-          } 
-        }
-      : null
+            },
+          }
+        : null,
+    [user?.id, selectedNarrativeId]
   );
+  const { data: draftsData } = (db as any).useQuery(draftsDataQuery);
   const approvedDrafts = (draftsData?.narratives?.[0]?.contentPieces || []) as ContentPiece[];
 
   // If propNarrativeId changes, update selection

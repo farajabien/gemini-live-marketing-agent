@@ -5,6 +5,7 @@ import {
   signInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  onIdTokenChanged,
   User as FirebaseUser,
   getIdToken,
   signInWithEmailAndPassword,
@@ -58,23 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Listen to Firebase auth state changes
+  // ── Auth state ───────────────────────────────────────────────────────────
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (fbUser) => {
+      (fbUser) => {
         setFirebaseUser(fbUser);
         setIsAuthLoading(false);
-
-        if (fbUser) {
-          try {
-            // Get ID token for API calls
-            const token = await getIdToken(fbUser);
-            setRefreshToken(token);
-          } catch (tokenErr) {
-            console.error('Failed to get ID token:', tokenErr);
-          }
-        } else {
+        if (!fbUser) {
           setRefreshToken(undefined);
           setUser(null);
         }
@@ -86,6 +78,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    return () => unsubscribe();
+  }, []);
+
+  // ── Token refresh — fires immediately on sign-in and every ~55 min ──────
+  // onIdTokenChanged is the authoritative hook: it keeps refreshToken always
+  // valid without manual polling or one-shot getIdToken calls on mount.
+  useEffect(() => {
+    const unsubscribe = onIdTokenChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const token = await getIdToken(fbUser);
+          setRefreshToken(token);
+        } catch (err) {
+          console.error('Failed to get ID token:', err);
+        }
+      } else {
+        setRefreshToken(undefined);
+      }
+    });
     return () => unsubscribe();
   }, []);
 

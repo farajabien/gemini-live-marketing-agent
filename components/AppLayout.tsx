@@ -113,19 +113,25 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
   }, [searchParams, isGenerateOpen, narrativeId, initialPlanId]);
 
   // Fetch current narrative if ID present - with userId guard
-  const { data: currentNarrativeData } = (db as any).useQuery(
-    narrativeId && user
-      ? { narratives: { $: { where: { id: narrativeId, userId: user.id } } } }
-      : null
+  const currentNarrativeQuery = useMemo(
+    () =>
+      narrativeId && user
+        ? { narratives: { $: { where: { id: narrativeId, userId: user.id } } } }
+        : null,
+    [narrativeId, user?.id]
   );
+  const { data: currentNarrativeData } = (db as any).useQuery(currentNarrativeQuery);
   const narrative = currentNarrativeData?.narratives?.[0] as FounderNarrative | undefined;
 
   // Fetch ALL user narratives for the switcher and count
-  const { data: allNarrativesData } = (db as any).useQuery(
-    user
-      ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
-      : null
+  const allNarrativesQuery = useMemo(
+    () =>
+      user
+        ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
+        : null,
+    [user?.id]
   );
+  const { data: allNarrativesData } = (db as any).useQuery(allNarrativesQuery);
   const allNarratives = (allNarrativesData?.narratives || []) as FounderNarrative[];
   const narrativeCount = allNarratives.length;
 

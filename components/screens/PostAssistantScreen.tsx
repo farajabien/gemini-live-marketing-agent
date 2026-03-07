@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { VideoPlan, Scene } from "@/lib/types";
@@ -17,9 +17,11 @@ export function PostAssistantScreen({ planId }: PostAssistantScreenProps) {
   const { user, refreshToken, isLoading: isAuthLoading } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data, isLoading } = db.useQuery(
-    planId ? { videoPlans: { $: { where: { id: planId } } } } : null
+  const planQuery = useMemo(
+    () => planId ? { videoPlans: { $: { where: { id: planId } } } } : null,
+    [planId]
   );
+  const { data, isLoading } = db.useQuery(planQuery);
 
   const plan = (data && 'videoPlans' in data ? data.videoPlans?.[0] : undefined) as VideoPlan | undefined;
 

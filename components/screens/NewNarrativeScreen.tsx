@@ -29,6 +29,23 @@ interface WizardData {
   voice: string;
 }
 
+const EXTRACTION_PROMPT = `
+I am filling out a 8-step marketing narrative wizard for my business. 
+Based on our previous discussion, please extract the following 8 details for me. 
+Be specific, vivid, and use the language of my business.
+
+1. audience: Who am I helping? (Specific role/industry, situation)
+2. currentState: What is their world like today? (Their current frustration)
+3. problem: What is the core "villain" or pain they face?
+4. costOfInaction: What happens if they change nothing? (The stakes)
+5. solution: What is my unique mechanism/solution?
+6. afterState: How is their life different after using my solution?
+7. identityShift: From who to who? (e.g. From "Frustrated Freelancer" to "High-Ticket Consultant")
+8. voice: The brand voice. Choose ONLY ONE from: calm, bold, sharp, witty, authoritative.
+
+RETURN ONLY A VALID JSON OBJECT with these 8 keys. No other text.
+`;
+
 export function NewNarrativeScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -54,6 +71,8 @@ export function NewNarrativeScreen() {
   const [refineFeedback, setRefineFeedback] = useState("");
   const [isRefining, setIsRefining] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showHelper, setShowHelper] = useState(false);
+  const [pastedJson, setPastedJson] = useState("");
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -219,6 +238,35 @@ export function NewNarrativeScreen() {
     setData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleCopyPrompt = () => {
+    navigator.clipboard.writeText(EXTRACTION_PROMPT);
+    toast.success("Extraction prompt copied!");
+  };
+
+  const handleApplyJson = () => {
+    try {
+      const parsed = JSON.parse(pastedJson);
+      const newData: WizardData = { ...data };
+      
+      // Map keys carefully
+      if (parsed.audience) newData.audience = parsed.audience;
+      if (parsed.currentState) newData.currentState = parsed.currentState;
+      if (parsed.problem) newData.problem = parsed.problem;
+      if (parsed.costOfInaction) newData.costOfInaction = parsed.costOfInaction;
+      if (parsed.solution) newData.solution = parsed.solution;
+      if (parsed.afterState) newData.afterState = parsed.afterState;
+      if (parsed.identityShift) newData.identityShift = parsed.identityShift;
+      if (parsed.voice) newData.voice = parsed.voice;
+
+      setData(newData);
+      toast.success("Wizard data populated!");
+      setShowHelper(false);
+      setPastedJson("");
+    } catch (e) {
+      toast.error("Invalid JSON format. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050510] font-sans text-slate-100 flex flex-col">
       <Header transparent />
@@ -251,9 +299,22 @@ export function NewNarrativeScreen() {
 
           {step !== "generating" && currentStep && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-300" key={step}>
-              <span className="text-red-500 font-bold tracking-widest text-xs uppercase mb-4 block">
-                Step {currentStepIndex + 1} of {NARRATIVE_STEPS.length}
-              </span>
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-red-500 font-bold tracking-widest text-xs uppercase block">
+                  Step {currentStepIndex + 1} of {NARRATIVE_STEPS.length}
+                </span>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowHelper(true)}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-[10px] h-7 px-3 rounded-full gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-xs">auto_fix_high</span>
+                  AI Helper
+                </Button>
+              </div>
+
               <h1 className="text-4xl font-black mb-4">{currentStep.title}</h1>
               <p className="text-slate-400 mb-8 text-lg">
                 {currentStep.description}
@@ -486,6 +547,52 @@ export function NewNarrativeScreen() {
         onClose={() => setShowAuthChoice(false)}
         onContinueAsGuest={() => setShowAuthChoice(false)}
       />
+
+      {/* AI Helper Modal */}
+      {showHelper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0A0A15] border border-white/10 rounded-3xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-200 no-scrollbar">
+             <div className="flex justify-between items-center mb-6 sticky top-0 bg-[#0A0A15] z-10 py-2">
+                <h2 className="text-2xl font-black">AI Prompt Helper</h2>
+                <button onClick={() => setShowHelper(false)} className="text-slate-500 hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+             </div>
+
+             <div className="space-y-6">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                  <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider mb-2">Step 1: Get the Data</h3>
+                  <p className="text-slate-400 text-sm mb-4">Copy this prompt to your business discussion in Gemini or ChatGPT to extract the wizard fields.</p>
+                  <Button 
+                    onClick={handleCopyPrompt} 
+                    className="w-full bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl"
+                  >
+                    <span className="material-symbols-outlined mr-2">content_copy</span>
+                    Copy Extraction Prompt
+                  </Button>
+                </div>
+
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                  <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider mb-2">Step 2: Paste the Response</h3>
+                  <p className="text-slate-400 text-sm mb-4">Paste the JSON response from the AI here to auto-fill the entire 8-step wizard.</p>
+                  <Textarea 
+                    className="w-full bg-black/40 border-white/5 rounded-xl p-4 text-xs font-mono mb-4 min-h-[200px] whitespace-pre-wrap break-words"
+                    placeholder='{ "audience": "...", "currentState": "...", ... }'
+                    value={pastedJson}
+                    onChange={(e) => setPastedJson(e.target.value)}
+                  />
+                  <Button 
+                    onClick={handleApplyJson} 
+                    disabled={!pastedJson.trim()} 
+                    className="w-full bg-white text-black hover:bg-slate-200 font-bold rounded-xl"
+                  >
+                    Apply Data to Wizard
+                  </Button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
