@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           // Check for errors
           if (operation.error) {
             console.error(`Operation failed for scene ${index}:`, operation.error);
-            scene.operationId = null;
+            scene.operationId = undefined;
             await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
             continue;
           }
@@ -95,14 +95,14 @@ export async function POST(request: NextRequest) {
 
           if (!videoUri) {
             console.error(`No video URI in completed operation for scene ${index}`);
-            scene.operationId = null;
+            scene.operationId = undefined;
             await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
             continue;
           }
 
           // Store the video URI directly (it's a GCS URI accessible via the API)
           scene.videoClipUrl = videoUri;
-          scene.operationId = null;
+          scene.operationId = undefined;
 
           // Save incrementally
           await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
