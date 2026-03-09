@@ -2,7 +2,6 @@
  * Firebase Admin SDK Wrapper
  *
  * Server-side Firebase operations for API routes and server components.
- * Replaces InstantDB Admin SDK functionality.
  */
 
 import { initializeApp, getApps, cert, type ServiceAccount, App, deleteApp } from 'firebase-admin/app';
@@ -85,7 +84,7 @@ async function getDb(): Promise<Firestore> {
 }
 
 /**
- * Query builder compatible with InstantDB Admin query pattern
+ * Query builder for Firestore queries
  */
 interface AdminQueryConfig {
   where?: Record<string, any>;
@@ -247,7 +246,7 @@ async function executeTransaction(operations: TransactionOperation[]): Promise<v
 }
 
 /**
- * Transaction builder for InstantDB-style tx API
+ * Transaction builder for Firestore batch operations
  */
 class TransactionBuilder {
   private operations: TransactionOperation[] = [];
@@ -367,7 +366,7 @@ async function getUserById(uid: string) {
 }
 
 /**
- * Export admin interface compatible with InstantDB Admin SDK
+ * Export Firebase Admin interface
  */
 export const adminDb = {
   query: executeQuery,

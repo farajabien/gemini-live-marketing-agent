@@ -153,7 +153,7 @@ export interface ContentSettings {
 }
 
 // ============================================================================
-// User & Plan Types (InstantDB Schema Aligned)
+// User & Plan Types (Firestore Schema)
 // ============================================================================
 
 export interface User {

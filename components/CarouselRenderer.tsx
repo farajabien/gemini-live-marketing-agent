@@ -33,7 +33,7 @@ export const CarouselRenderer = forwardRef<HTMLDivElement, CarouselRendererProps
                   // For HTTP URLs, proxy them through our streaming proxy
                   if (rawUrl.startsWith('http')) return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
                   
-                  // For InstantDB storage paths, use path parameter (more reliable)
+                  // For Firebase storage paths, use path parameter (resolved via proxy)
                   // The proxy will now stream the response, satisfying CORS
                   return `/api/proxy-image?path=${encodeURIComponent(rawUrl)}`;
               })()}

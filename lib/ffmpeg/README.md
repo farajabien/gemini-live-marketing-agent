@@ -320,7 +320,7 @@ sudo apt-get install ffmpeg
 
 ### **Error: "Asset download failed"**
 
-Check InstantDB storage permissions and URL access.
+Check Firebase Storage permissions and URL access.
 
 ### **Slow rendering on macOS**
 

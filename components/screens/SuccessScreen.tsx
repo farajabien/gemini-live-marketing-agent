@@ -355,24 +355,25 @@ export function SuccessScreen() {
                     <div className="w-full max-w-[350px] max-h-[500px] overflow-y-auto rounded-2xl border border-slate-200 dark:border-[#232948] shadow-xl">
                       <div className="p-3 space-y-3">
                         {(plan.scenes || []).map((scene, i) => {
-                          // Construct InstantDB CDN URL directly (avoids permission issues with SDK method)
-                          const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID || "";
+                          // Resolve storage path via proxy (handles Firebase Storage access)
                           const imageUrl = scene.imageUrl?.startsWith("http") || scene.imageUrl?.startsWith("data:")
                             ? scene.imageUrl
-                            : `https://api.instantdb.com/runtime/storage/${APP_ID}/${scene.imageUrl}`;
+                            : scene.imageUrl
+                              ? `/api/proxy-image?path=${encodeURIComponent(scene.imageUrl)}`
+                              : undefined;
 
                           // Debug logging for image issues
                           if (!scene.imageUrl) {
                             console.log(`[Scene ${i}] No imageUrl - generation may still be in progress`);
                           } else if (!scene.imageUrl.startsWith("http") && !scene.imageUrl.startsWith("data:")) {
-                            console.log(`[Scene ${i}] InstantDB path: ${scene.imageUrl} → ${imageUrl}`);
+                            console.log(`[Scene ${i}] Storage path: ${scene.imageUrl} → proxy`);
                           }
 
                           return (
                             <div key={i} className="bg-white dark:bg-[#101322] rounded-xl overflow-hidden border border-slate-100 dark:border-white/5 hover:shadow-lg transition-shadow">
                               {/* Slide Image */}
                               <div className="aspect-square relative bg-slate-100 dark:bg-[#0d101b]">
-                                {scene.imageUrl ? (
+                                {scene.imageUrl && imageUrl ? (
                                   <RetryingImage
                                     src={imageUrl}
                                     alt={`Slide ${i + 1}`}

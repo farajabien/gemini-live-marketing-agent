@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new user
-    // Note: InstantDB creates users via client SDK normally
     // For test purposes, we'll create a user record directly
     const userId = crypto.randomUUID();
     

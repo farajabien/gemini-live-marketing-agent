@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
     const token = authHeader.split(" ")[1];
 
-    // Verify the token with InstantDB
+    // Verify the token with Firebase Auth
     const authUser = await adminDb.auth.verifyToken(token);
     if (!authUser || !authUser.id) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });

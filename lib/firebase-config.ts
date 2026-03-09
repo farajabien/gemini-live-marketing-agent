@@ -4,7 +4,6 @@
  * Firebase Configuration
  *
  * Initializes Firebase client SDK for use throughout the application.
- * This replaces the InstantDB client initialization.
  */
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';

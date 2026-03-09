@@ -131,7 +131,7 @@ export async function downloadPlanAssets(plan: VideoPlan, carouselElement: HTMLE
     );
     await Promise.all(slideBlobs);
 
-    // Download raw images (without text overlays) from InstantDB storage
+    // Download raw images (without text overlays) from Firebase Storage
     console.log(`Downloading ${plan.scenes.length} raw images...`);
     const rawImagePromises = plan.scenes.map(async (scene: Scene, i: number) => {
       if (!scene.imageUrl) {

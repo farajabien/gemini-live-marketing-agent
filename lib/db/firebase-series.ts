@@ -2,7 +2,6 @@
  * Firebase Database Helper Functions for Series & Episodes
  *
  * Server-side utilities for managing serial content with Firebase.
- * This replaces the InstantDB-based series.ts file.
  */
 
 import { batchWrite } from '@/hooks/use-firestore';

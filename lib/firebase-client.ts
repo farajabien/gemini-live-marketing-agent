@@ -3,8 +3,7 @@
 /**
  * Firebase Client Wrapper
  *
- * Provides a similar API to InstantDB for querying Firestore.
- * This wrapper maintains compatibility with existing code patterns.
+ * Client-side Firestore query hooks and transaction utilities.
  */
 
 import {
@@ -52,7 +51,7 @@ export interface QueryResult<T = any> {
 }
 
 /**
- * Parse InstantDB-style where clause to Firestore where constraints
+ * Parse where clause to Firestore where constraints
  */
 function parseWhereClause(whereClause: Record<string, any>): QueryConstraint[] {
   const constraints: QueryConstraint[] = [];
@@ -72,7 +71,7 @@ function parseWhereClause(whereClause: Record<string, any>): QueryConstraint[] {
 }
 
 /**
- * Parse InstantDB-style order clause to Firestore orderBy constraints
+ * Parse order clause to Firestore orderBy constraints
  */
 function parseOrderClause(orderClause: Record<string, 'asc' | 'desc'>): QueryConstraint[] {
   const constraints: QueryConstraint[] = [];
@@ -85,7 +84,7 @@ function parseOrderClause(orderClause: Record<string, 'asc' | 'desc'>): QueryCon
 }
 
 /**
- * Build a Firestore query from InstantDB-style query object
+ * Build a Firestore query from a query config object
  */
 function buildFirestoreQuery(
   collectionName: string,
@@ -121,7 +120,7 @@ function buildFirestoreQuery(
 
 /**
  * Hook to query Firestore with real-time updates
- * Compatible with InstantDB's useQuery pattern
+ * Real-time Firestore query hook with snapshot listeners
  */
 export function useFirestoreQuery<T = any>(
   queryObj: FirestoreQuery | null
@@ -271,7 +270,7 @@ export function useFirestoreDoc<T = any>(
 }
 
 /**
- * Transaction builder compatible with InstantDB's tx pattern
+ * Transaction builder for Firestore batch writes
  */
 export class FirestoreTransaction {
   private batch: WriteBatch;
@@ -341,7 +340,7 @@ export function createTransaction() {
 }
 
 /**
- * Execute multiple operations in a batch (compatible with InstantDB transact)
+ * Execute multiple operations in a Firestore batch
  */
 export async function transact(operations: Array<{
   collection: string;
@@ -376,7 +375,7 @@ export async function transact(operations: Array<{
 }
 
 /**
- * Generate a unique ID (compatible with InstantDB's id())
+ * Generate a unique ID
  */
 export function generateId(): string {
   return crypto.randomUUID();
@@ -407,7 +406,7 @@ export function getFileUrl(path: string): string {
 }
 
 /**
- * Export main interface compatible with InstantDB
+ * Export Firebase client interface
  */
 export const firebaseDb = {
   useQuery: useFirestoreQuery,

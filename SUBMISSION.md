@@ -80,7 +80,7 @@ IdeaToVideo is a **Narrative Intelligence Platform** that transforms brand posit
    - Parallel audio synthesis (75% faster)
    - Scene-level caching for instant re-renders
 
-4. **Firebase Migration**: Complete migration from InstantDB to Firebase with 182-line security rules and 14 composite indexes
+4. **Firebase Integration**: Firebase Firestore with 182-line security rules and 14 composite indexes
 
 5. **Production-Ready**: Full TypeScript strict mode, passing build, Vercel deployment configuration
 

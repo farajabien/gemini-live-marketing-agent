@@ -1,15 +1,14 @@
 /**
  * Firebase Transaction Helper
  *
- * Provides a similar API to InstantDB's tx for easier migration.
- * This is a lightweight wrapper around Firebase client operations.
+ * Proxy-based transaction builder for Firestore.
+ * Usage: tx.collectionName[documentId].update({ field: value })
  */
 
 import { upsertDocument, deleteDocument } from '@/hooks/use-firestore';
 
 /**
- * Transaction builder for Firebase
- * Mimics InstantDB's tx API for easier migration
+ * Transaction builder for Firestore client-side operations
  */
 export const tx = new Proxy({}, {
   get: (_target, collection: string) => {

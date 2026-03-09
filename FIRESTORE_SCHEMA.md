@@ -1,6 +1,6 @@
 # Firestore Schema Documentation
 
-This document describes the Firestore database schema for the IdeaToVideo application, migrated from InstantDB.
+This document describes the Firestore database schema for the IdeaToVideo application.
 
 ## Collections Overview
 
@@ -494,11 +494,11 @@ The following cascade delete behaviors should be implemented via Cloud Functions
 
 ---
 
-## Migration Notes
+## Design Notes
 
-### Key Differences from InstantDB
+### Key Firestore Design Decisions
 
-1. **No Built-in Links:** Firestore doesn't have InstantDB's link syntax. Use document references or foreign key fields.
+1. **No Built-in Links:** Firestore does not support built-in relational links. Use document references or foreign key fields instead.
 
 2. **Manual Cascade Deletes:** Implement cascade deletes using Cloud Functions (Firestore triggers).
 
@@ -506,22 +506,9 @@ The following cascade delete behaviors should be implemented via Cloud Functions
 
 4. **Indexes:** Composite indexes must be created manually or via `firestore.indexes.json`.
 
-5. **JSON Fields:** Fields that were `i.json()` in InstantDB are stored as objects/arrays in Firestore.
+5. **JSON Fields:** Complex nested data is stored as native objects/arrays in Firestore documents.
 
-### Query Translation Examples
-
-**InstantDB:**
-```typescript
-db.useQuery({
-  videoPlans: {
-    $: {
-      where: { "owner.id": userId },
-      order: { createdAt: "desc" },
-      limit: 50,
-    },
-  },
-});
-```
+### Query Examples
 
 **Firestore:**
 ```typescript

@@ -67,15 +67,6 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
   };
-    
-    /*
-    // Direct access (Failed due to permissions/CORS/User-Agent blocking)
-    const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
-    if (!APP_ID) {
-        console.error("CRITICAL: process.env.NEXT_PUBLIC_INSTANT_APP_ID is missing in Remotion bundle!");
-    }
-    return `https://api.instantdb.com/runtime/storage/${APP_ID || ""}/${url}`;
-    */
 
   // --- NEW: Text Motion & GIF+Voice Mode ---
   if (visualMode === 'text_motion' || visualMode === 'gif_voice') {

@@ -87,7 +87,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     description: "Detailed look at the 10-step pipeline and engineering.",
     promptContext: `STYLE: Technical Deep Dive. Show the engineering under the hood.
       - Reference the 10-step pipeline (Extraction, Semantic Analysis, etc.)
-      - Mention the tech stack (GitHub Models, GPT-4o, InstantDB)
+      - Mention the tech stack (GitHub Models, GPT-4o, Firebase)
       - Discuss semantic matching and gap analysis logic
       - Appeal to the logic of the transformation engine
       - Tone: Analytical, detailed, intellectual`,

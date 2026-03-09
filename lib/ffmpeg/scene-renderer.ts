@@ -44,12 +44,12 @@ function getVideoDimensions(format: "9:16" | "1:1" | "16:9", resolution: "1080p"
 }
 
 /**
- * Download an asset from URL or InstantDB storage to temp file
+ * Download an asset from URL or Firebase Storage to temp file
  */
 async function downloadAsset(url: string, ext: string): Promise<string> {
   const tempPath = join(tmpdir(), `asset-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`);
 
-  // If it's an InstantDB path (not a full URL), get the signed URL
+  // If it's a storage path (not a full URL), get the download URL
   const downloadUrl = url.startsWith("http") ? url : getFileUrl(url);
 
   console.log(`[FFmpeg] Downloading asset: ${downloadUrl.substring(0, 60)}...`);

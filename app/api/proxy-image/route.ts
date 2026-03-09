@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb as db } from "@/lib/firebase-admin";
 
-const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID!;
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
 // HEAD handler for asset verification (lightweight check without downloading full asset)
 export async function HEAD(request: NextRequest) {
@@ -33,8 +33,13 @@ export async function HEAD(request: NextRequest) {
       }
 
       if (!targetUrl || typeof targetUrl !== 'string') {
-        targetUrl = `https://api.instantdb.com/runtime/storage/${APP_ID}/${storagePath}`;
-        console.log(`[HEAD Proxy] Fallback to public URL: ${targetUrl}`);
+        if (STORAGE_BUCKET) {
+          targetUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(storagePath)}?alt=media`;
+          console.log(`[HEAD Proxy] Fallback to Firebase Storage URL`);
+        } else {
+          console.log(`[HEAD Proxy] No storage bucket configured`);
+          return new NextResponse(null, { status: 404 });
+        }
       }
     }
 
@@ -80,10 +85,9 @@ export async function GET(request: NextRequest) {
   try {
     let targetUrl = imageUrl;
 
-    // If it's an InstantDB storage path, try to resolve it
+    // If it's a storage path, resolve it via Firebase Admin SDK
     if (storagePath) {
         try {
-          // @ts-ignore
           const storage = (db as any).storage;
           if (storage?.getDownloadUrl) {
             const result = await storage.getDownloadUrl(storagePath);
@@ -94,10 +98,12 @@ export async function GET(request: NextRequest) {
         } catch (e) {
             console.warn("Proxy resolution error:", e);
         }
-        
-        // Fallback to public URL pattern
+
+        // Fallback to direct Firebase Storage URL
         if (!targetUrl || typeof targetUrl !== 'string') {
-            targetUrl = `https://api.instantdb.com/runtime/storage/${APP_ID}/${storagePath}`;
+            if (STORAGE_BUCKET) {
+              targetUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(storagePath)}?alt=media`;
+            }
         }
     }
 
