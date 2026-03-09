@@ -399,10 +399,36 @@ export const adminDb = {
       });
       return { path };
     },
+    fileExists: async (path: string): Promise<boolean> => {
+      if (path.startsWith('http') || path.startsWith('data:')) return false;
+      try {
+        const { storage: currentStorage } = await ensureInitialized();
+        const bucket = currentStorage!.bucket();
+        const file = bucket.file(path);
+        const [exists] = await file.exists();
+        return exists;
+      } catch (err) {
+        console.warn(`[Storage] fileExists check failed for ${path}:`, err);
+        return false;
+      }
+    },
     getDownloadUrl: async (path: string) => {
       if (path.startsWith('http')) return path;
-      const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
+      if (path.startsWith('data:')) return path;
+      try {
+        const { storage: currentStorage } = await ensureInitialized();
+        const bucket = currentStorage!.bucket();
+        const file = bucket.file(path);
+        const [url] = await file.getSignedUrl({
+          action: 'read',
+          expires: Date.now() + 60 * 60 * 1000, // 1 hour
+        });
+        return url;
+      } catch (err) {
+        console.warn(`[Storage] getSignedUrl failed for ${path}, falling back to public URL:`, err);
+        const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+        return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(path)}?alt=media`;
+      }
     }
   },
   tx: createTx(),

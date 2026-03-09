@@ -110,9 +110,11 @@ export async function GET(request: NextRequest) {
     if (!targetUrl) throw new Error("Could not resolve target URL");
 
     // Fetch the image from the target URL
+    console.log(`[Proxy GET] Fetching: ${storagePath || imageUrl} → ${targetUrl.substring(0, 120)}...`);
     const response = await fetch(targetUrl);
 
     if (!response.ok) {
+        console.error(`[Proxy GET] Upstream ${response.status} for path: ${storagePath || imageUrl}`);
         throw new Error(`Failed to fetch upstream: ${response.status}`);
     }
 

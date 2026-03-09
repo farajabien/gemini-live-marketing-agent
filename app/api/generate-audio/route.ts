@@ -106,8 +106,26 @@ export async function POST(request: NextRequest) {
     ): Promise<Scene> {
       // Skip if audio already exists (but treat stale Firebase Storage URLs as missing)
       if (scene.audioUrl && !scene.audioUrl.startsWith("https://firebasestorage.googleapis.com/")) {
-        console.log(`Scene ${index} already has audio, skipping...`);
-        return scene;
+        // Data URIs don't need storage verification
+        if (scene.audioUrl.startsWith('data:')) {
+          console.log(`Scene ${index} already has audio (data URI), skipping...`);
+          return scene;
+        }
+        // Verify the file actually exists in Storage before skipping
+        const storageCheck = adminDb as unknown as { storage?: { fileExists: (path: string) => Promise<boolean> } };
+        if (storageCheck.storage?.fileExists) {
+          const exists = await storageCheck.storage.fileExists(scene.audioUrl);
+          if (!exists) {
+            console.log(`[Audio ${index}] audioUrl set (${scene.audioUrl}) but file NOT found in Storage. Will regenerate.`);
+            // Fall through to regeneration
+          } else {
+            console.log(`[Audio ${index}] already has audio (verified in Storage), skipping...`);
+            return scene;
+          }
+        } else {
+          console.log(`Scene ${index} already has audio, skipping...`);
+          return scene;
+        }
       }
 
       try {
@@ -130,22 +148,18 @@ export async function POST(request: NextRequest) {
         console.log(`[Audio ${index}] Processing - Hash: ${cacheHash.substring(0, 8)}...`);
 
         // --- 1. CHECK CACHE IN STORAGE ---
-        let cachedUrl: string | null = null;
+        let cachedInStorage = false;
         try {
-           const storageDb = adminDb as unknown as { storage?: { getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
-           if (storageDb.storage && storageDb.storage.getDownloadUrl) {
-               const result = await storageDb.storage.getDownloadUrl(cacheFileName);
-               if (result) {
-                   const urlResult = typeof result === 'string' ? result : (result.url || result.data || result.signedUrl || null);
-                   cachedUrl = urlResult || null;
-               }
+           const storageDb = adminDb as unknown as { storage?: { fileExists: (path: string) => Promise<boolean> } };
+           if (storageDb.storage?.fileExists) {
+               cachedInStorage = await storageDb.storage.fileExists(cacheFileName);
            }
         } catch (_cacheErr) {
             // Ignore cache read errors, proceed to generation
         }
 
-        if (cachedUrl) {
-            console.log(`[Audio ${index}] ✅ Cache HIT. Using existing audio.`);
+        if (cachedInStorage) {
+            console.log(`[Audio ${index}] ✅ Cache HIT. File verified in Storage.`);
             scene.audioUrl = cacheFileName;
             return scene;
         }
@@ -167,7 +181,7 @@ export async function POST(request: NextRequest) {
         });
         
         if (!buffer) {
-          scene.audioUrl = undefined;
+          scene.audioUrl = null as any;
           return scene;
         }
 
@@ -232,7 +246,7 @@ export async function POST(request: NextRequest) {
         
       } catch (audioError: unknown) {
         console.error(`[Audio ${index}] Failed to generate audio:`, audioError);
-        scene.audioUrl = undefined;
+        scene.audioUrl = null as any;
         return scene;
       }
     }
@@ -281,10 +295,32 @@ export async function POST(request: NextRequest) {
     // If we have failures and one of them was a 429, signal it to the frontend
     if (failureCount > 0 && (global as any).lastGenerateAudioError === 429) {
       delete (global as any).lastGenerateAudioError;
-      return NextResponse.json({ 
-        error: "Gemini Quota Exhausted", 
-        rateLimited: true 
+      return NextResponse.json({
+        error: "Gemini Quota Exhausted",
+        rateLimited: true
       }, { status: 429 });
+    }
+
+    // Count scenes that ended up without audio (TTS failed silently via fulfilled promises)
+    const scenesWithoutAudio = updatedScenes.filter((s) => !s.audioUrl).length;
+    if (scenesWithoutAudio > 0 && successCount === 0) {
+      // Sanitize scenes: Firestore does not accept `undefined` values
+      const sanitizedScenes = updatedScenes.map((s) => ({
+        ...s,
+        audioUrl: s.audioUrl ?? null,
+      }));
+      // All attempts failed — clear broken audioUrls in Firestore and return error
+      await adminDb.transact([
+        adminDb.tx.videoPlans[planId].update({
+          scenes: sanitizedScenes,
+          status: "generating_audio",
+        }),
+      ]);
+      console.error(`[Audio] All ${scenesWithoutAudio} scene(s) failed audio generation. Cleared stale audioUrls.`);
+      return NextResponse.json(
+        { error: "Audio generation failed for all scenes", failedScenes: scenesWithoutAudio },
+        { status: 500 }
+      );
     }
 
 

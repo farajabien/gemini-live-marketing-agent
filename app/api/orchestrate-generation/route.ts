@@ -162,24 +162,41 @@ export async function POST(request: NextRequest) {
     // STEP 4: Generate Audio (non-carousel only)
     // ========================================================================
     if (!isCarousel) {
-      const audioMissing = ((postVisualsPlan?.scenes || []) as Scene[]).some((s) => {
-        // Treat full Firebase Storage URLs as missing — they 404 during Remotion render
-        // Valid audioUrls should be relative paths (e.g., "audio-cache/xxx.wav") routed through proxy
-        if (s.audioUrl && s.audioUrl.startsWith("https://firebasestorage.googleapis.com/")) return true;
-        return !s.audioUrl;
-      });
+      // Check if audio files are actually present in Storage (not just referenced in Firestore)
+      let audioMissing = false;
+      const scenes = (postVisualsPlan?.scenes || []) as Scene[];
+      for (const s of scenes) {
+        if (!s.audioUrl) { audioMissing = true; break; }
+        // Treat full Firebase Storage URLs as stale
+        if (s.audioUrl.startsWith("https://firebasestorage.googleapis.com/")) { audioMissing = true; break; }
+        // Skip data URIs — they're always valid
+        if (s.audioUrl.startsWith("data:")) continue;
+        // Verify the file actually exists in Storage
+        const exists = await (adminDb as any).storage.fileExists(s.audioUrl);
+        if (!exists) {
+          console.log(`[Orchestrate] Audio file missing in Storage: ${s.audioUrl}`);
+          audioMissing = true;
+          break;
+        }
+      }
 
       if (audioMissing && postVisualsPlan?.visualMode !== "text_motion") {
         await updateStatus(planId, "generating_audio");
 
-        const audioResult = await callApi("/api/generate-audio", { planId });
+        let audioResult = await callApi("/api/generate-audio", { planId });
         console.log(`[Orchestrate] Audio: ${audioResult.ok ? "OK" : "FAILED"}`);
 
         if (audioResult.status === 429) {
           console.warn("[Orchestrate] Audio rate-limited. Will retry once after delay.");
           await new Promise((resolve) => setTimeout(resolve, 10000));
-          const retryResult = await callApi("/api/generate-audio", { planId });
-          console.log(`[Orchestrate] Audio retry: ${retryResult.ok ? "OK" : "FAILED"}`);
+          audioResult = await callApi("/api/generate-audio", { planId });
+          console.log(`[Orchestrate] Audio retry: ${audioResult.ok ? "OK" : "FAILED"}`);
+        }
+
+        if (!audioResult.ok) {
+          console.error(`[Orchestrate] Audio generation failed (${audioResult.status}). Stopping pipeline.`);
+          await updateStatus(planId, "audio_failed");
+          return NextResponse.json({ success: false, status: "audio_failed", error: audioResult.data });
         }
       } else {
         console.log("[Orchestrate] Audio already complete or not needed.");
