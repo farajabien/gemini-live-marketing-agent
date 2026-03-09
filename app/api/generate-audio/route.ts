@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
     const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
-        owner: {},
       },
     });
 
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
@@ -105,8 +104,8 @@ export async function POST(request: NextRequest) {
       isVerbatimMode: boolean,
       verbatimTone: VoiceTone
     ): Promise<Scene> {
-      // Skip if audio already exists
-      if (scene.audioUrl) {
+      // Skip if audio already exists (but treat stale Firebase Storage URLs as missing)
+      if (scene.audioUrl && !scene.audioUrl.startsWith("https://firebasestorage.googleapis.com/")) {
         console.log(`Scene ${index} already has audio, skipping...`);
         return scene;
       }
@@ -147,7 +146,7 @@ export async function POST(request: NextRequest) {
 
         if (cachedUrl) {
             console.log(`[Audio ${index}] ✅ Cache HIT. Using existing audio.`);
-            scene.audioUrl = cachedUrl;
+            scene.audioUrl = cacheFileName;
             return scene;
         }
         
@@ -207,9 +206,9 @@ export async function POST(request: NextRequest) {
 
                 const cacheResult = await storageDb.storage.getDownloadUrl(cacheFileName);
                 const newCachedUrl = typeof cacheResult === 'string' ? cacheResult : (cacheResult?.url || cacheResult?.data || cacheResult?.signedUrl || null);
-                
+
                 if (newCachedUrl) {
-                    scene.audioUrl = newCachedUrl;
+                    scene.audioUrl = cacheFileName;
                     console.log(`[Audio ${index}] ✅ Stored and linked cached audio`);
                 } else {
                     throw new Error("Upload verification failed");

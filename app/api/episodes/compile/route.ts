@@ -32,9 +32,7 @@ export async function POST(request: NextRequest) {
     const queryResult = await adminDb.query({
       episodes: {
         $: { where: { id: episodeId } },
-        series: {
-          owner: {}
-        }
+        series: {}
       }
     });
 
@@ -49,8 +47,8 @@ export async function POST(request: NextRequest) {
     }
     
     // Security check: ensure the authenticated user owns this series
-    const owner = series.owner;
-    if (!owner || owner.id !== authUser.id) {
+    const seriesUserId = (series as any).userId;
+    if (!seriesUserId || seriesUserId !== authUser.id) {
       return NextResponse.json({ error: "Forbidden: You do not own this series" }, { status: 403 });
     }
 

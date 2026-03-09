@@ -129,7 +129,7 @@ export function ProjectCard({ plan, onPreview }: ProjectCardProps) {
         })()}
 
         {/* Badge */}
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 flex gap-1.5">
           <Badge
             variant="secondary"
             className={cn(
@@ -140,6 +140,15 @@ export function ProjectCard({ plan, onPreview }: ProjectCardProps) {
           >
             {plan.type}
           </Badge>
+          {plan.status && plan.status !== "completed" && plan.status !== "draft" && (
+            <Badge className="bg-amber-500 text-white border-0 gap-1 animate-pulse">
+              <span className="size-1.5 rounded-full bg-white inline-block" />
+              {plan.status === "generating" ? "Generating" :
+               plan.status === "generating_audio" ? "Audio" :
+               plan.status === "rendering_video" || plan.status === "rendering" ? "Rendering" :
+               "Processing"}
+            </Badge>
+          )}
         </div>
 
         {/* Menu Button */}

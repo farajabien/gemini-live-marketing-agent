@@ -36,7 +36,6 @@ export async function GET(
             id: planId,
           },
         },
-        owner: {},
       },
     });
 
@@ -50,7 +49,7 @@ export async function GET(
     const plan = result.videoPlans[0];
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }

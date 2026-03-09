@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
         const narrativeResult = await adminDb.query({
           narratives: {
             $: { where: { id: narrativeId } },
-            owner: {},
           },
         });
 
@@ -109,9 +108,9 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Security check: If there's an owner, it must be the current user.
-        // If there's NO owner yet, we allow it if it's in 'wizard' status (handling race conditions)
-        const narrativeOwnerId = narrative.owner?.[0]?.id;
+        // Security check: If there's a userId, it must be the current user.
+        // If there's NO userId yet, we allow it if it's in 'wizard' status (handling race conditions)
+        const narrativeOwnerId = (narrative as any).userId;
         if (narrativeOwnerId && narrativeOwnerId !== user.id) {
           sendError(controller, "Forbidden: You do not own this narrative");
           controller.close();

@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
         const queryResult = await adminDb.query({
             videoPlans: {
                 $: { where: { id: planId } },
-                owner: {},
             },
         });
 
@@ -151,43 +150,15 @@ export async function POST(request: NextRequest) {
                 // Log base64 image length
                 console.log(`[Gemini] base64Image length for scene ${index}:`, base64Image.length);
 
-                // Upload logic
+                // Upload to Firebase Storage
                 const fileName = `generated/${planId}/${index}-${Date.now()}.png`;
                 const buffer = Buffer.from(base64Image, 'base64');
-                // Log buffer size
-                console.log(`[Gemini] buffer size for scene ${index}:`, buffer.length);
+                console.log(`[Parallel] Uploading scene ${index}, buffer size: ${buffer.length} bytes`);
 
-                // TODO: Migrate to Firebase Storage
-                // Using data URLs temporarily
-                const dataUrl = `data:image/png;base64,${base64Image}`;
-                let storagePath = dataUrl;
-                const publicUrl = dataUrl;
-                let fetchOk = true;
-                for (let checkAttempt = 1; checkAttempt <= 3; checkAttempt++) {
-                    try {
-                        const resp = await fetch(publicUrl);
-                        if (resp.ok) {
-                            const blob = await resp.blob();
-                            if (blob && blob.size > 0) {
-                                fetchOk = true;
-                                break;
-                            } else {
-                                console.warn(`[Parallel] Post-upload check: empty blob for ${publicUrl}, attempt ${checkAttempt}`);
-                            }
-                        } else {
-                            console.warn(`[Parallel] Post-upload check: fetch failed for ${publicUrl}, status ${resp.status}, attempt ${checkAttempt}`);
-                        }
-                    } catch (fetchErr) {
-                        console.error(`[Parallel] Post-upload fetch error for ${publicUrl}, attempt ${checkAttempt}:`, fetchErr);
-                    }
-                    // Wait before retrying
-                    await new Promise(r => setTimeout(r, 1000 * checkAttempt));
-                }
-                if (!fetchOk) {
-                    throw new Error(`Image not available after upload: ${publicUrl}`);
-                }
+                await adminDb.storage.uploadFile(fileName, buffer, { contentType: 'image/png' });
+                console.log(`[Parallel] ✅ Uploaded scene ${index}`);
 
-                scene.imageUrl = storagePath;
+                scene.imageUrl = fileName;
 
                 // SAVE INCREMENTALLY (per scene, for progress visibility)
                 await adminDb.transact([

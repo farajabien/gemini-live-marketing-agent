@@ -14,7 +14,7 @@ import { VideoPreview } from "@/components/VideoPreview";
 import { toBlob } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
-import type { VideoPlan, Scene, ContentStatus } from "@/lib/types";
+import type { VideoPlan, Scene } from "@/lib/types";
 import { downloadPlanAssets } from "@/lib/download-utils";
 
 import { Header } from "@/components/Header";
@@ -75,11 +75,7 @@ export function SuccessScreen() {
   const [isManuallyTriggering, setIsManuallyTriggering] = useState(false);
   
   // Ref Flags to prevent double-firing
-  const imageGenerationStarted = useRef(false);
-  const audioGenerationStarted = useRef(false);
-  const videoPollingStarted = useRef(false);
-  const renderStarted = useRef(false);
-  const thumbnailRef = useRef(false); // Prevent thumbnail retry loop
+  const orchestrationStarted = useRef(false);
 
 
   // UI State
@@ -101,30 +97,31 @@ export function SuccessScreen() {
 
   // Manual Trigger Function (can be called from UI)
   const triggerVisualsManually = () => {
-    if (!plan || imageGenerationStarted.current) return;
-    
+    if (!plan) return;
+
     setIsManuallyTriggering(true);
-    imageGenerationStarted.current = true;
-    console.log("🛠️ Manual visual generation triggered");
-    
-    fetch("/api/generate-visuals", {
+    orchestrationStarted.current = false; // Allow re-trigger
+    console.log("Manual re-trigger of orchestration pipeline");
+
+    fetch("/api/orchestrate-generation", {
         method: "POST",
-        headers: { 
+        headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${refreshToken}`
         },
         body: JSON.stringify({ planId: plan.id })
     })
     .then(res => {
-        console.log("✅ Manual trigger response:", res.status);
-        toast.success("Restarted visual generation!");
+        console.log("Orchestration re-trigger response:", res.status);
+        if (res.ok) toast.success("Generation restarted!");
+        else toast.error("Failed to restart generation");
     })
     .catch(err => {
-        console.error("❌ Manual trigger failed:", err);
+        console.error("Orchestration re-trigger failed:", err);
         toast.error("Failed to restart generation");
     })
     .finally(() => {
-        imageGenerationStarted.current = false;
+        orchestrationStarted.current = true;
         setIsManuallyTriggering(false);
     });
   };
@@ -137,16 +134,18 @@ export function SuccessScreen() {
         setIsManuallyTriggering(true);
         console.log("🔥 Deep restart initiated for plan:", plan.id);
         
-        const resetScenes = plan.scenes.map((s: Scene) => ({
+        const resetScenes = (plan.scenes || []).map((s: Scene) => ({
             ...s,
             imageUrl: null,
             videoClipUrl: null,
             operationId: null
         }));
 
+        const docId = planId || plan.id;
+        if (!docId) { toast.error("Missing plan ID"); return; }
         type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
         await (db as DbWithTransact).transact([
-            tx.videoPlans[plan.id!].update({ 
+            tx.videoPlans[docId].update({
                 status: 'pending',
                 scenes: resetScenes,
                 thumbnailUrl: null
@@ -154,9 +153,7 @@ export function SuccessScreen() {
         ]);
 
         toast.success("Project reset! Starting fresh...");
-        imageGenerationStarted.current = false;
-        audioGenerationStarted.current = false;
-        renderStarted.current = false;
+        orchestrationStarted.current = false;
 
     } catch (err) {
         console.error("❌ Deep restart failed:", err);
@@ -166,300 +163,96 @@ export function SuccessScreen() {
     }
   };
 
-  // 1. Trigger Generation (Serve-Side)
+  // 1. Trigger Server-Side Orchestration (fires once)
   useEffect(() => {
-    if (!plan) return;
-
-    // If completed, just mark ready
+    if (!plan || !plan.scenes) return;
     if (plan.status === 'completed') {
       setIsReady(true);
       setVisualProgress(100);
       return;
     }
+    if (orchestrationStarted.current) return;
 
-    const visualMode = plan.visualMode || "image";
-
-    // Trigger Visuals - Images or B-Roll
-    const missingVisuals = visualMode === "broll"
-      ? plan.scenes.some((s: Scene) => !s.videoClipUrl && !s.operationId)
-      : plan.scenes.some((s: Scene) => !s.imageUrl);
-    
     const canTrigger = !plan.status || plan.status === 'pending' || plan.status === 'draft' || plan.status === 'generating';
+    if (!canTrigger) return;
 
-    console.log("🔍 [SuccessScreen] Orchestration DEBUG:", {
-        planId: plan.id,
-        status: plan.status,
-        visualMode,
-        missingVisuals,
-        canTrigger,
-        imageGenStarted: imageGenerationStarted.current,
-        totalScenes: plan.scenes?.length,
-        visualsDone: visualMode === "broll" 
-            ? plan.scenes?.filter((s: any) => s.videoClipUrl).length 
-            : plan.scenes?.filter((s: any) => s.imageUrl).length
-    });
+    orchestrationStarted.current = true;
+    console.log("[SuccessScreen] Triggering server-side orchestration pipeline...");
 
-    if (missingVisuals && canTrigger && !imageGenerationStarted.current) {
-        imageGenerationStarted.current = true;
-        console.log(`🚀 [SuccessScreen] Triggering ${visualMode} generation...`);
-        
-        if (plan.status !== 'generating') {
-            type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-            (db as DbWithTransact).transact([tx.videoPlans[plan.id!].update({ status: 'generating' })]);
-        }
+    fetch("/api/orchestrate-generation", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${refreshToken}`,
+      },
+      body: JSON.stringify({ planId: plan.id }),
+    })
+      .then((res) => {
+        console.log("[SuccessScreen] Orchestration response:", res.status);
+      })
+      .catch((err) => {
+        console.error("[SuccessScreen] Orchestration failed:", err);
+        orchestrationStarted.current = false; // Allow retry
+      });
+  }, [plan, refreshToken]);
 
-        fetch("/api/generate-visuals", {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${refreshToken}`
-            },
-            body: JSON.stringify({ planId: plan.id })
-        }).then(res => {
-            console.log("✅ [SuccessScreen] Visual generation API responded:", res.status);
-        }).catch(err => {
-            console.error("❌ [SuccessScreen] Visual generation failed:", err);
-        }).finally(() => {
-            imageGenerationStarted.current = false;
-        });
-    }
-
-    // Poll B-Roll Operations if needed
-    if (visualMode === "broll" && !videoPollingStarted.current) {
-        const hasOperations = plan.scenes.some((s: Scene) => !!s.operationId);
-        if (hasOperations) {
-            videoPollingStarted.current = true;
-            console.log("Starting B-roll polling...");
-
-            const pollInterval = setInterval(() => {
-                fetch("/api/poll-video-clips", {
-                    method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${refreshToken}`
-                    },
-                    body: JSON.stringify({ planId: plan.id })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.allComplete) {
-                        console.log("All B-roll clips ready");
-                        clearInterval(pollInterval);
-                        videoPollingStarted.current = false;
-                    }
-                })
-                .catch(err => console.error("Polling failed:", err));
-            }, 10000); // Poll every 10 seconds
-
-            // Cleanup
-            return () => clearInterval(pollInterval);
-        }
-    }
-
-    // Trigger Audio - only after first visual is ready
-    const firstVisualExists = visualMode === "broll"
-      ? !!plan.scenes[0]?.videoClipUrl
-      : !!plan.scenes[0]?.imageUrl;
-    const firstAudioMissing = !plan.scenes[0]?.audioUrl;
-
-    // CRITICAL FIX: Generate audio even if status is 'completed' but audio is missing
-    // This handles cases where audio generation failed silently
-    if (!audioGenerationStarted.current && firstVisualExists && firstAudioMissing && !isCarousel) {
-        audioGenerationStarted.current = true;
-        console.log("Triggering audio generation (missing audio detected)...");
-        fetch("/api/generate-audio", {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${refreshToken}`
-            },
-            body: JSON.stringify({ planId: plan.id })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) {
-            console.error("Audio generation failed:", data.error);
-          } else {
-            console.log("Audio generation successful:", data);
-          }
-          audioGenerationStarted.current = false;
-        })
-        .catch(err => {
-          console.error("Audio trigger failed:", err);
-          audioGenerationStarted.current = false;
-        });
-    }
-
-    // Trigger Thumbnail - only if missing and not failed yet
-    if (plan.thumbnailUrl && thumbnailRef.current) {
-        console.log("✅ Thumbnail already exists, resetting ref flag");
-        thumbnailRef.current = false;
-    }
-
-    if (plan.thumbnailPrompt && !plan.thumbnailUrl && !thumbnailRef.current) {
-        console.log("Thumbnail generation requested for plan:", plan.id);
-        thumbnailRef.current = true;
-        fetch("/api/generate-thumbnail", {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${refreshToken}`
-            },
-            body: JSON.stringify({ planId: plan.id })
-        })
-        .then(res => {
-          if (res.ok) {
-            console.log("✅ Thumbnail generated successfully");
-          } else if (res.status === 503) {
-            console.warn("⚠️ Thumbnail service unavailable, skipping retries");
-          } else {
-            console.error("Thumbnail generation failed:", res.status);
-          }
-        })
-        .catch(err => console.error("Thumbnail trigger failed:", err));
-    }
-  }, [plan, isCarousel]);
-
-  // 2. Poll Status & Update Progress UI + Orchestrate Remaining Steps
+  // 2. Observe Status & Update Progress UI (server-side orchestration handles the pipeline)
   useEffect(() => {
-    if (!plan) return;
+    if (!plan || !plan.scenes) return;
 
     const visualMode = plan.visualMode || "image";
     const scenes = (plan.scenes || []) as Scene[];
     const totalScenes = scenes.length;
-    
+
     // Count completed assets
     const visualsDone = visualMode === "broll"
       ? scenes.filter((s: Scene) => !!s.videoClipUrl).length
       : scenes.filter((s: Scene) => !!s.imageUrl).length;
-    
+
     const audioDone = scenes.filter((s: Scene) => !!s.audioUrl).length;
     const allVisualsDone = visualsDone === totalScenes;
     const allAudioDone = audioDone === totalScenes;
     const allAssetsDone = isCarousel ? allVisualsDone : (allVisualsDone && allAudioDone);
-    
-    // Status Text Logic
+
+    // Status Text Logic — derived from plan.status + asset counts
     let text = "Initializing...";
     let target = 5;
 
-    if (plan.status === 'generating' || plan.status === 'pending') {
-         text = visualMode === "broll" ? "Starting AI Video Generation..." : "Starting AI Engines...";
-         target = 10;
-    }
-
-    if (plan.thumbnailPrompt && !plan.thumbnailUrl) {
-         text = "Designing Viral Thumbnail...";
-         target = 15;
-    } else if (plan.thumbnailUrl) {
-         target = 20;
-    }
-
-    if (totalScenes > 0) {
+    switch (plan.status) {
+      case 'generating':
         if (!allVisualsDone) {
-            if (visualMode === "broll") {
-                text = `Generating B-Roll Clip ${visualsDone + 1} of ${totalScenes}... (⏱ This may take several minutes)`;
-            } else {
-                text = `Designing Scene ${visualsDone + 1} of ${totalScenes}...`;
-            }
-            target = 20 + ((visualsDone / totalScenes) * 40); // 20% -> 60%
-        } else if (!isCarousel && !allAudioDone) {
-             text = `Synthesizing Voiceover (${audioDone}/${totalScenes})...`;
-             target = 60 + ((audioDone / totalScenes) * 25); // 60% -> 85%
-        } else if (allAssetsDone && !plan.videoUrl && !isCarousel) {
-             text = "Rendering Final MP4...";
-             target = 90;
-        } else if (allAssetsDone) {
-             text = "Finalizing Assets...";
-             target = 98;
+          text = visualMode === "broll"
+            ? `Generating B-Roll Clip ${visualsDone + 1} of ${totalScenes}...`
+            : `Designing Scene ${visualsDone + 1} of ${totalScenes}...`;
+          target = 20 + ((visualsDone / totalScenes) * 40);
+        } else {
+          text = "Visuals Complete! Preparing next step...";
+          target = 60;
         }
-    }
-
-    // **ORCHESTRATION LOGIC** - Trigger next steps automatically
-    
-    // Step 1: If visuals done and audio missing, trigger audio (non-carousel only)
-    if (allVisualsDone && !allAudioDone && !isCarousel && !audioGenerationStarted.current) {
-        audioGenerationStarted.current = true;
-        console.log("🎙️ Visuals complete - triggering audio generation...");
-        console.log("🎙️ Debug - allVisualsDone:", allVisualsDone, "allAudioDone:", allAudioDone, "visualsDone:", visualsDone, "audioDone:", audioDone, "totalScenes:", totalScenes);
-        
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        (db as DbWithTransact).transact([tx.videoPlans[plan.id!].update({ status: 'generating_audio' })]);
-        
-        fetch("/api/generate-audio", {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${refreshToken}`
-            },
-            body: JSON.stringify({ planId: plan.id })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) console.error("Audio generation failed:", data.error);
-          else console.log("✅ Audio generation complete");
-          audioGenerationStarted.current = false;
-        })
-        .catch(err => {
-          console.error("Audio trigger failed:", err);
-          audioGenerationStarted.current = false;
-        });
-    }
-
-    // Step 2: If all assets done and video missing, trigger video render (non-carousel only)
-    if (allAssetsDone && !plan.videoUrl && !isCarousel && !renderStarted.current) {
-        renderStarted.current = true;
-        console.log("🎬 Audio complete - triggering MP4 render...");
-        
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        (db as DbWithTransact).transact([tx.videoPlans[plan.id!].update({ status: 'rendering_video' })]);
-        
-        const triggerRender = () => {
-            fetch("/api/generate-video", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${refreshToken}`
-                },
-                body: JSON.stringify({ planId: plan.id, background: true })
-            })
-            .then(async (res) => {
-                if (res.status === 425) {
-                    console.log("⏳ Assets not ready (425), retrying render in 5s...");
-                    setTimeout(triggerRender, 5000);
-                    return;
-                }
-                if (!res.ok) {
-                    const data = await res.json();
-                    console.error("Background render failed:", data.error || res.statusText);
-                } else {
-                    console.log("✅ Render started successfully");
-                }
-            })
-            .catch(err => console.error("Background render request failed:", err));
-        };
-        
-        triggerRender();
-    }
-
-    // Step 3: If everything is done, mark completed
-    const fullyComplete = isCarousel 
-      ? allVisualsDone 
-      : (allAssetsDone && !!plan.videoUrl);
-    
-    if (fullyComplete && plan.status !== 'completed') {
-        console.log("✅ ALL STEPS COMPLETE - marking as completed");
-        setIsReady(true);
-        text = "Ready to Viral! 🚀";
-        target = 100;
-        
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        (db as DbWithTransact).transact([tx.videoPlans[plan.id!].update({ status: 'completed' })]);
-    }
-
-    if (plan.status === 'completed') {
-        text = "Ready to Viral! 🚀";
+        break;
+      case 'generating_audio':
+        text = `Synthesizing Voiceover (${audioDone}/${totalScenes})...`;
+        target = 60 + ((audioDone / totalScenes) * 25);
+        break;
+      case 'rendering_video':
+      case 'rendering':
+        text = "Rendering Final MP4...";
+        target = 90;
+        break;
+      case 'completed':
+        text = "Ready!";
         target = 100;
         if (!isReady) setIsReady(true);
+        break;
+      default:
+        // pending, draft, or unknown
+        if (plan.thumbnailPrompt && !plan.thumbnailUrl) {
+          text = "Designing Thumbnail...";
+          target = 15;
+        } else {
+          text = "Starting AI Engines...";
+          target = 10;
+        }
     }
 
     setStatusText(text);
@@ -468,12 +261,12 @@ export function SuccessScreen() {
     const interval = setInterval(() => {
         setVisualProgress(prev => {
             if (prev >= target) return prev;
-            return prev + (target - prev) * 0.1; 
+            return prev + (target - prev) * 0.1;
         });
     }, 100);
 
     return () => clearInterval(interval);
-  }, [plan, isReady, isCarousel, statusText]);
+  }, [plan, isReady, isCarousel]);
 
   if (isAuthLoading) {
     return (
@@ -561,7 +354,7 @@ export function SuccessScreen() {
                     /* Carousel Preview - Grid of Slides */
                     <div className="w-full max-w-[350px] max-h-[500px] overflow-y-auto rounded-2xl border border-slate-200 dark:border-[#232948] shadow-xl">
                       <div className="p-3 space-y-3">
-                        {plan.scenes.map((scene, i) => {
+                        {(plan.scenes || []).map((scene, i) => {
                           // Construct InstantDB CDN URL directly (avoids permission issues with SDK method)
                           const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID || "";
                           const imageUrl = scene.imageUrl?.startsWith("http") || scene.imageUrl?.startsWith("data:")
@@ -593,7 +386,7 @@ export function SuccessScreen() {
                                 )}
                                 {/* Slide Number Badge */}
                                 <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-black">
-                                  {i + 1}/{plan.scenes.length}
+                                  {i + 1}/{(plan.scenes || []).length}
                                 </div>
                               </div>
 

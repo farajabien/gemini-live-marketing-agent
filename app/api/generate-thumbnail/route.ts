@@ -34,11 +34,10 @@ export async function POST(req: NextRequest) {
     console.log(`Thumbnail generation requested for plan: ${planId} (requested by ${userId})`);
 
     // 1. Get Plan using Admin SDK
-    const planQuery = await adminDb.query({ 
-      videoPlans: { 
+    const planQuery = await adminDb.query({
+      videoPlans: {
         $: { where: { id: planId } },
-        owner: {}
-      } 
+      }
     });
     const plan = planQuery.videoPlans?.[0] as VideoPlanWithOwner | undefined;
 
@@ -51,19 +50,16 @@ export async function POST(req: NextRequest) {
     console.log("[DEBUG] Plan owner check:", {
       planId,
       userId,
-      planOwner: plan.owner,
-      planOwnerId: plan.owner?.[0]?.id,
-      ownerLength: plan.owner?.length,
-      matches: plan.owner?.[0]?.id === userId
+      planUserId: (plan as any).userId,
+      matches: (plan as any).userId === userId
     });
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       console.error("[ERROR] Ownership check failed:", {
         expected: userId,
         actual: planOwnerId,
-        ownerArray: plan.owner
       });
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
@@ -102,7 +98,6 @@ export async function POST(req: NextRequest) {
             responseModalities: ["IMAGE"],
             imageConfig: {
               aspectRatio: "16:9",
-              imageSize: "1080p",
             },
             safetySettings: [
                 { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -129,31 +124,21 @@ export async function POST(req: NextRequest) {
             throw new Error("No image data found in Gemini response");
         }
 
+        // 5. Upload thumbnail to Firebase Storage
         const buffer = Buffer.from(base64Image, "base64");
-        const contentType = "image/png";
+        const thumbnailPath = `thumbnails/${planId}-${Date.now()}.png`;
+        console.log(`[Gemini] Uploading thumbnail, buffer size: ${buffer.length} bytes`);
 
-        console.log(`[Gemini] Thumbnail base64 length: ${base64Image.length}`);
-        console.log(`[Gemini] Thumbnail buffer size: ${buffer.length}`);
-
-        // 5. Upload to InstantDB Storage
-        const fileName = `thumbnails/${planId}-${Date.now()}.png`;
-
-        // Use Admin SDK for upload
-        const storageDb = adminDb as any;
-        if (storageDb.storage && storageDb.storage.uploadFile) {
-            console.log(`Uploading thumbnail to storage: ${fileName}`);
-            await storageDb.storage.uploadFile(fileName, buffer, { contentType: contentType });
-        } else {
-            throw new Error("InstantDB Admin SDK storage.uploadFile not found");
-        }
+        await adminDb.storage.uploadFile(thumbnailPath, buffer, { contentType: "image/png" });
+        console.log(`✅ Thumbnail uploaded to ${thumbnailPath}`);
 
       // 6. Update DB with thumbnail storage path
       await adminDb.transact([
-        adminDb.tx.videoPlans[planId].update({ thumbnailUrl: fileName })
+        adminDb.tx.videoPlans[planId].update({ thumbnailUrl: thumbnailPath })
       ]);
 
-      console.log("✅ Thumbnail generated and uploaded successfully");
-      return NextResponse.json({ success: true, url: fileName });
+      console.log("✅ Thumbnail generated and saved successfully");
+      return NextResponse.json({ success: true, url: thumbnailPath });
 
     } catch (genError: unknown) {
       const message = getErrorMessage(genError);

@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
     const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
-        owner: {},
       },
     });
 
@@ -49,19 +48,16 @@ export async function POST(request: NextRequest) {
     console.log("[DEBUG] Plan owner check:", {
       planId,
       userId,
-      planOwner: plan.owner,
-      planOwnerId: plan.owner?.[0]?.id,
-      ownerLength: plan.owner?.length,
-      matches: plan.owner?.[0]?.id === userId
+      planUserId: (plan as any).userId,
+      matches: (plan as any).userId === userId
     });
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       console.error("[ERROR] Ownership check failed:", {
         expected: userId,
         actual: planOwnerId,
-        ownerArray: plan.owner
       });
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
@@ -259,7 +255,7 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
       throw new Error(`No image data found in response for ${logPrefix}`);
     }
 
-    // Upload to storage with sub-scene index if applicable
+    // Upload to Firebase Storage
     const fileName = visual.isSubScene
       ? `generated/${planId}/${visual.sceneIndex}-sub-${visual.subSceneIndex}-${Date.now()}.png`
       : `generated/${planId}/${visual.sceneIndex}-${Date.now()}.png`;
@@ -267,31 +263,42 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
 
     console.log(`[Gemini] Uploading ${logPrefix}, buffer size: ${buffer.length} bytes`);
 
-    const storageDb = adminDb as { storage?: { uploadFile: (fileName: string, buffer: Buffer, options: { contentType: string }) => Promise<unknown> } };
-    if (storageDb.storage && storageDb.storage.uploadFile) {
-      await storageDb.storage.uploadFile(fileName, buffer, { contentType: "image/png" });
-      console.log(`✅ Uploaded ${logPrefix} successfully`);
-    } else {
-      throw new Error("InstantDB Admin SDK storage.uploadFile not found");
-    }
+    await adminDb.storage.uploadFile(fileName, buffer, { contentType: "image/png" });
+    console.log(`✅ Uploaded ${logPrefix} successfully`);
 
     return { visual, fileName };
   };
 
-  // Process all visuals in parallel
-  const imagePromises = visualsToGenerate.map((visual, index) =>
-    generateSingleVisual(visual, index)
-      .then(result => ({ status: 'fulfilled' as const, value: result }))
-      .catch(error => ({ status: 'rejected' as const, reason: error, visual }))
-  );
+  // Process visuals in batches to stay under Gemini's 20 RPM quota
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 2000;
+  type BatchResult = { status: 'fulfilled'; value: { visual: VisualToGenerate; fileName: string } } | { status: 'rejected'; reason: any; visual: VisualToGenerate };
+  const allResults: BatchResult[] = [];
 
-  const results = await Promise.allSettled(imagePromises);
+  for (let i = 0; i < visualsToGenerate.length; i += BATCH_SIZE) {
+    const batch = visualsToGenerate.slice(i, i + BATCH_SIZE);
+    console.log(`[Gemini] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(visualsToGenerate.length / BATCH_SIZE)} (${batch.length} images)`);
+
+    const batchResults = await Promise.all(
+      batch.map((visual, idx) =>
+        generateSingleVisual(visual, i + idx)
+          .then(result => ({ status: 'fulfilled' as const, value: result }))
+          .catch(error => ({ status: 'rejected' as const, reason: error, visual }))
+      )
+    );
+    allResults.push(...batchResults);
+
+    // Wait between batches to avoid rate limiting
+    if (i + BATCH_SIZE < visualsToGenerate.length) {
+      await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+    }
+  }
 
   // Update scenes with successful results (both parent scenes and sub-scenes)
   let successCount = 0;
-  for (const result of results) {
-    if (result.status === 'fulfilled' && result.value.status === 'fulfilled') {
-      const { visual, fileName } = result.value.value;
+  for (const result of allResults) {
+    if (result.status === 'fulfilled') {
+      const { visual, fileName } = result.value;
 
       if (visual.isSubScene && visual.subSceneIndex !== undefined) {
         // Update sub-scene
@@ -308,12 +315,11 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
       }
 
       successCount++;
-    } else if (result.status === 'fulfilled' && result.value.status === 'rejected') {
-      const error = result.value;
-      const visualInfo = error.visual.isSubScene
-        ? `scene ${error.visual.sceneIndex} sub-scene ${error.visual.subSceneIndex}`
-        : `scene ${error.visual.sceneIndex}`;
-      console.error(`Failed to generate image for ${visualInfo}:`, error.reason);
+    } else {
+      const visualInfo = result.visual.isSubScene
+        ? `scene ${result.visual.sceneIndex} sub-scene ${result.visual.subSceneIndex}`
+        : `scene ${result.visual.sceneIndex}`;
+      console.error(`Failed to generate image for ${visualInfo}:`, result.reason);
     }
   }
 

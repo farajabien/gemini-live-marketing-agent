@@ -5,6 +5,9 @@ import { getTierConfig, PRICING_TIERS } from "@/lib/pricing";
 import { startOfMonth } from "date-fns";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase-config";
+import { toast } from "sonner";
 
 interface ProfileDialogProps {
   isOpen: boolean;
@@ -20,7 +23,39 @@ export function ProfileDialog({ isOpen, onClose, onOpenSecurity }: ProfileDialog
 
   const handleClose = () => {
     setLinkStep('none');
+    setAccessCode("");
+    setIsUpgrading(false);
     onClose();
+  };
+
+  const [accessCode, setAccessCode] = useState("");
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const handleUpgradeWithCode = async () => {
+    if (!user || !accessCode) return;
+    
+    const masterCode = process.env.NEXT_PUBLIC_HACKATHON_ACCESS_CODE;
+    if (accessCode.trim() !== masterCode) {
+      toast.error("Invalid access code");
+      return;
+    }
+
+    setIsUpgrading(true);
+    try {
+      const userDocRef = doc(db, 'users', user.id);
+      await updateDoc(userDocRef, {
+        planId: 'pro_max',
+        type: 'user'
+      });
+      toast.success("Welcome to Pro Max! Plan upgraded.");
+      setAccessCode("");
+      // The onSnapshot in AuthProvider will pick up the change
+    } catch (err) {
+      console.error("Failed to upgrade plan:", err);
+      toast.error("Failed to upgrade plan. Please try again.");
+    } finally {
+      setIsUpgrading(false);
+    }
   };
 
   if (!isOpen || !user) return null;
@@ -121,6 +156,29 @@ export function ProfileDialog({ isOpen, onClose, onOpenSecurity }: ProfileDialog
                     ))}
                 </div>
             </div>
+
+            {/* Hackathon Access Code */}
+            {user && 'planId' in user && user.planId !== 'pro_max' && (
+                <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-4">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Hackathon Access</h3>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text"
+                            placeholder="Enter access code"
+                            value={accessCode}
+                            onChange={(e) => setAccessCode(e.target.value)}
+                            className="flex-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all"
+                        />
+                        <button
+                            onClick={handleUpgradeWithCode}
+                            disabled={isUpgrading || !accessCode}
+                            className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                            {isUpgrading ? "..." : "Apply"}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
 
         {/* CTA & Actions (Fixed) */}

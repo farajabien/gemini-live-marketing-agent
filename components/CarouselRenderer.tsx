@@ -13,7 +13,7 @@ export const CarouselRenderer = forwardRef<HTMLDivElement, CarouselRendererProps
     return (
       <div ref={ref} className="fixed top-0 left-0 -z-50 pointer-events-none opacity-0">
         {/* We render ALL slides at once in a hidden container so we can capture them individually */}
-        {plan.scenes.map((slide, index) => (
+        {(plan.scenes || []).map((slide, index) => (
           <div
             key={slide.id || index}
             id={`slide-${index}`}
@@ -49,7 +49,7 @@ export const CarouselRenderer = forwardRef<HTMLDivElement, CarouselRendererProps
             {/* Header */}
             <div className="flex justify-between items-center z-10 w-full">
               <span className="text-3xl font-bold tracking-wider opacity-90 uppercase text-white drop-shadow-md">
-                {index === 0 ? "Swipe ->" : `${index + 1} / ${plan.scenes.length}`}
+                {index === 0 ? "Swipe ->" : `${index + 1} / ${(plan.scenes || []).length}`}
               </span>
               <span className="px-4 py-2 bg-white/10 rounded-full text-2xl font-bold backdrop-blur-md text-white border border-white/20 flex items-center gap-2">
                 <Image width={100} height={100} src={LOGO.icon} alt={LOGO.alt} className="h-7 w-7 rounded-md" style={{ height: 'auto', width: 'auto' }} />

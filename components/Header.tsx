@@ -6,6 +6,7 @@ import { useState, useMemo } from "react";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { ProfileDialog } from "./ProfileDialog";
 import { SecureAccountDialog } from "./SecureAccountDialog";
+import { AuthChoiceDialog } from "./AuthChoiceDialog";
 import { LOGO } from "@/lib/branding";
 import Image from "next/image";
 
@@ -18,6 +19,7 @@ export function Header({ transparent }: HeaderProps) {
     const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [securityOpen, setSecurityOpen] = useState(false);
+    const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
 
     const narrativeQuery = useMemo(
         () => user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null,
@@ -82,8 +84,8 @@ export function Header({ transparent }: HeaderProps) {
                                                 onClick={() => setCreateMenuOpen(false)}
                                             />
                                             <div className="absolute right-0 mt-2 w-56 bg-[#101322]/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-2xl p-1.5 z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                                                <Link 
-                                                    href="/narrative/new" 
+                                                <Link
+                                                    href="/narrative/new"
                                                     onClick={() => setCreateMenuOpen(false)}
                                                     className="flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group"
                                                 >
@@ -97,7 +99,7 @@ export function Header({ transparent }: HeaderProps) {
                                                 </Link>
                                                 <div className="h-px bg-white/5 my-1.5" />
                                                 {latestNarrative ? (
-                                                    <Link 
+                                                    <Link
                                                         href={`/narrative/${latestNarrative.id}/drafts`}
                                                         onClick={() => setCreateMenuOpen(false)}
                                                         className="w-full text-left flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group cursor-pointer focus:outline-none"
@@ -111,8 +113,8 @@ export function Header({ transparent }: HeaderProps) {
                                                         </div>
                                                     </Link>
                                                 ) : (
-                                                    <Link 
-                                                        href="/narrative/new" 
+                                                    <Link
+                                                        href="/narrative/new"
                                                         onClick={() => setCreateMenuOpen(false)}
                                                         className="flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group"
                                                     >
@@ -125,32 +127,6 @@ export function Header({ transparent }: HeaderProps) {
                                                         </div>
                                                     </Link>
                                                 )}
-                                                <Link 
-                                                    href="/create-series" 
-                                                    onClick={() => setCreateMenuOpen(false)}
-                                                    className="flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group"
-                                                >
-                                                    <div className="h-8 w-8 rounded-full bg-red-600/10 flex items-center justify-center text-red-500 group-hover:bg-red-600 group-hover:text-white transition-all scale-90">
-                                                        <span className="material-symbols-outlined text-base">auto_stories</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white">Serial Series</span>
-                                                        <span className="text-[9px] font-bold text-slate-500">Multi-episode narrative</span>
-                                                    </div>
-                                                </Link>
-                                                <Link 
-                                                    href="/demo-narrator" 
-                                                    onClick={() => setCreateMenuOpen(false)}
-                                                    className="flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group"
-                                                >
-                                                    <div className="h-8 w-8 rounded-full bg-red-600/10 flex items-center justify-center text-red-500 group-hover:bg-red-600 group-hover:text-white transition-all scale-90">
-                                                        <span className="material-symbols-outlined text-base">mic</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white">Demo Narrator</span>
-                                                        <span className="text-[9px] font-bold text-slate-500">Video voiceover package</span>
-                                                    </div>
-                                                </Link>
                                             </div>
                                         </>
                                     )}
@@ -168,12 +144,12 @@ export function Header({ transparent }: HeaderProps) {
                             </>
                         ) : (
                             <>
-                                {/* <Link
-                                    href="/#pricing"
+                                <button
+                                    onClick={() => setAuthChoiceOpen(true)}
                                     className="text-xs font-bold text-[#929bc9] transition hover:text-white"
                                 >
-                                    Pricing
-                                </Link> */}
+                                    Login
+                                </button>
                                 <Link
                                     href="/narrative/new"
                                     className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20"
@@ -185,6 +161,12 @@ export function Header({ transparent }: HeaderProps) {
                     </div>
                 </div>
             </nav>
+
+            <AuthChoiceDialog 
+                isOpen={authChoiceOpen} 
+                onClose={() => setAuthChoiceOpen(false)}
+                onContinueAsGuest={() => setAuthChoiceOpen(false)}
+            />
 
             <ProfileDialog 
                 isOpen={profileOpen} 

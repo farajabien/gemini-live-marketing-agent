@@ -6,7 +6,8 @@ import { tx } from "@/lib/firebase-tx";
 import { useState, useEffect, useMemo } from "react";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import Link from "next/link";
-import type { FounderNarrative, ContentPiece, ContentFormat, ContentStatus } from "@/lib/types";
+import type { FounderNarrative, ContentPiece, ContentFormat, ContentStatus, VideoPlan, VideoPlanStatus } from "@/lib/types";
+import { ACTIVE_GENERATION_STATUSES } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContentCard } from "@/components/narrative/ContentCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -14,7 +15,7 @@ import { SeriesCard } from "@/components/dashboard/SeriesCard";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
-import type { VideoPlan, Series } from "@/lib/types";
+import type { Series } from "@/lib/types";
 
 // shadcn
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -276,6 +277,25 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   );
 
   const allPlans = ((data as any)?.videoPlans || []) as VideoPlan[];
+
+  // Build live plan map for real-time status lookups in ContentCard
+  const livePlanMap = new Map<string, VideoPlan>();
+  for (const p of allPlans) {
+    if (p.id) livePlanMap.set(p.id, p);
+  }
+
+  // Helper: does a content piece have any actively-generating plans?
+  const isContentPieceGenerating = (piece: ContentPiece): boolean => {
+    if (!piece.generatedPlans || piece.generatedPlans.length === 0) return false;
+    return piece.generatedPlans.some((gp) => {
+      const livePlan = livePlanMap.get(gp.id!);
+      return livePlan && ACTIVE_GENERATION_STATUSES.includes(livePlan.status as VideoPlanStatus);
+    });
+  };
+
+  const queueGeneratingCount = filteredQueueContent.filter(isContentPieceGenerating).length;
+  const approvedGeneratingCount = filteredApprovedContent.filter(isContentPieceGenerating).length;
+
   const allSeries = ((data as any)?.series || []) as Series[];
   const combinedMedia = [
     ...allPlans.map(p => ({ ...p, _kind: "plan" as const })),
@@ -553,6 +573,12 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
             >
               {filteredQueueContent.length}
             </Badge>
+            {queueGeneratingCount > 0 && (
+              <Badge className="ml-1 text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse gap-1">
+                <span className="size-1.5 rounded-full bg-amber-400 inline-block" />
+                {queueGeneratingCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger
             value="approved"
@@ -568,6 +594,12 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
             >
               {filteredApprovedContent.length}
             </Badge>
+            {approvedGeneratingCount > 0 && (
+              <Badge className="ml-1 text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse gap-1">
+                <span className="size-1.5 rounded-full bg-amber-400 inline-block" />
+                {approvedGeneratingCount}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger
             value="media"
@@ -655,6 +687,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
                 onCreateCarousel={handleCreateCarouselFromScript}
                 onSave={handleSaveContent}
                 onDelete={handleDeleteContent}
+                livePlanMap={livePlanMap}
               />
             ))
           )}
@@ -690,6 +723,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
                 onCreateCarousel={handleCreateCarouselFromScript}
                 onSave={handleSaveContent}
                 onDelete={handleDeleteContent}
+                livePlanMap={livePlanMap}
               />
             ))
           )}

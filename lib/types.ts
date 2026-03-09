@@ -103,7 +103,11 @@ export interface VideoPlan {
   };
 }
 
-export type VideoPlanStatus = "draft" | "pending" | "generating" | "rendering" | "rendering_video" | "completed";
+export type VideoPlanStatus = "draft" | "pending" | "generating" | "generating_audio" | "rendering" | "rendering_video" | "completed";
+
+export const ACTIVE_GENERATION_STATUSES: VideoPlanStatus[] = [
+  "pending", "generating", "generating_audio", "rendering_video", "rendering",
+];
 
 // ============================================================================
 // Content Settings Types (New Dropdown Options)

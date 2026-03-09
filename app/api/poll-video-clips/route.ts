@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
     const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
-        owner: {},
       },
     });
 
@@ -43,13 +42,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
 
-    const updatedScenes: Scene[] = [...(plan.scenes as Scene[])];
-    const { GoogleGenAI } = await import("@google/genai");
+    const updatedScenes: Scene[] = [...((plan.scenes || []) as Scene[])];
+    const { GoogleGenAI, GenerateVideosOperation } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
     let completedCount = 0;
@@ -72,56 +71,43 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Checking operation ${scene.operationId} for scene ${index}...`);
 
-        // Poll operation status using operation name directly
-        // @ts-expect-error - SDK types may not be fully typed for operations
-        const operation = await ai.operations.get(scene.operationId);
+        // Reconstruct operation object from stored name
+        const operationRef = new GenerateVideosOperation();
+        operationRef.name = scene.operationId;
+
+        const operation = await ai.operations.getVideosOperation({
+          operation: operationRef,
+        });
 
         if (operation.done) {
+          // Check for errors
+          if (operation.error) {
+            console.error(`Operation failed for scene ${index}:`, operation.error);
+            scene.operationId = null;
+            await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
+            continue;
+          }
+
           console.log(`Operation complete for scene ${index}`);
 
-          // Extract video file reference from response
-          const response = operation.response as Record<string, unknown>;
-          const generatedVideos = response?.generatedVideos as Array<{ video?: unknown }> | undefined;
-          const video = generatedVideos?.[0];
-          
-          if (!video?.video) {
-            throw new Error("No video data in completed operation");
+          // Extract video URI from response
+          const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+
+          if (!videoUri) {
+            console.error(`No video URI in completed operation for scene ${index}`);
+            scene.operationId = null;
+            await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
+            continue;
           }
 
-          // Download video using file object
-          console.log(`Downloading video for scene ${index}...`);
-          // Note: Veo SDK API may evolve - adjust based on actual response structure
-          // @ts-expect-error - Download file API signature varies in early Veo releases
-          const videoBlob = await ai.files.download(video.video) as unknown as Blob;
-
-          // Upload to InstantDB Storage
-          const fileName = `broll/${planId}/${index}-${Date.now()}.mp4`;
-          
-          // Convert blob to buffer for upload
-          const arrayBuffer = await videoBlob.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const file = new File([buffer], fileName, { type: "video/mp4" });
-
-          type AdminStorage = {
-            storage?: { uploadFile?: (path: string, file: File, opts?: { contentType?: string }) => Promise<unknown> };
-          };
-          const storageDb = adminDb as unknown as AdminStorage;
-
-          if (storageDb.storage?.uploadFile) {
-            await storageDb.storage.uploadFile(fileName, file, { contentType: "video/mp4" });
-          } else {
-            // TODO: Migrate to Firebase Storage
-            console.warn("Storage upload unavailable, using data URL");
-          }
-
-          // Update scene with video clip URL
-          scene.videoClipUrl = fileName;
-          scene.operationId = undefined; // Clear operation ID
+          // Store the video URI directly (it's a GCS URI accessible via the API)
+          scene.videoClipUrl = videoUri;
+          scene.operationId = null;
 
           // Save incrementally
           await adminDb.transact([adminDb.tx.videoPlans[planId].update({ scenes: updatedScenes })]);
 
-          console.log(`Video clip saved for scene ${index}: ${fileName}`);
+          console.log(`Video clip saved for scene ${index}: ${videoUri}`);
           completedCount++;
         } else {
           console.log(`Operation still pending for scene ${index}`);

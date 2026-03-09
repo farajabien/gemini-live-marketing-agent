@@ -38,9 +38,7 @@ export async function PATCH(
     const contentQuery = await adminDb.query({
       contentPieces: {
         $: { where: { id: contentId } },
-        narrative: {
-          owner: {},
-        },
+        narrative: {},
       },
     });
 
@@ -49,9 +47,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Content not found" }, { status: 404 });
     }
 
-    const narrativeOwnerId = (content as any).narrative?.[0]?.owner?.[0]?.id;
-    // Security check: If there's an owner, it must be the current user.
-    // We allow it if there's no owner link yet, provided the user is authenticated (handled above)
+    const narrativeOwnerId = (content as any).narrative?.[0]?.userId;
+    // Security check: If there's a userId, it must be the current user.
+    // We allow it if there's no userId yet, provided the user is authenticated (handled above)
     if (narrativeOwnerId && narrativeOwnerId !== user.id) {
       return NextResponse.json({ error: "Forbidden: You do not own this content" }, { status: 403 });
     }

@@ -10,22 +10,23 @@ interface VideoPreviewProps {
 }
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
+  const scenes = plan.scenes || [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   // Determine if we should use auto-timer
-  const hasAudio = !!plan.scenes[currentIndex].audioUrl;
-  
+  const hasAudio = !!scenes[currentIndex]?.audioUrl;
+
   // Auto-play timer (Only if NO audio for this slide)
   useInterval(
     () => {
-      setCurrentIndex((prev) => (prev + 1) % plan.scenes.length);
+      setCurrentIndex((prev) => (prev + 1) % (scenes.length || 1));
     },
-    isPlaying && !hasAudio ? 4000 : null
+    isPlaying && !hasAudio && scenes.length > 0 ? 4000 : null
   );
 
-  const slide = plan.scenes[currentIndex];
+  const slide = scenes[currentIndex];
 
   // Handle audio playback when slide changes
   useEffect(() => {
@@ -41,7 +42,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
         audioElementRef.current = null;
       }
 
-      if (slide.audioUrl && isPlaying && !plan.videoUrl) {
+      if (slide?.audioUrl && isPlaying && !plan.videoUrl) {
         try {
           const audio = new Audio(slide.audioUrl);
           audio.volume = 1.0;
@@ -50,7 +51,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
           // Sync slide duration with audio duration
           audio.onended = () => {
             if (!isCancelled) {
-               setCurrentIndex((prev) => (prev + 1) % plan.scenes.length);
+               setCurrentIndex((prev) => (prev + 1) % (scenes.length || 1));
             }
           };
 
@@ -74,7 +75,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
         activeAudio.currentTime = 0;
       }
     };
-  }, [currentIndex, slide.audioUrl, isPlaying, plan.scenes.length, plan.videoUrl]);
+  }, [currentIndex, slide?.audioUrl, isPlaying, scenes.length, plan.videoUrl]);
 
   // Cleanup audio when playing state changes
   useEffect(() => {
@@ -82,6 +83,14 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
       audioElementRef.current.pause();
     }
   }, [isPlaying]);
+
+  if (scenes.length === 0 && !plan.videoUrl) {
+    return (
+      <div className="flex items-center justify-center h-full w-full">
+        <p className="text-slate-500 text-sm">Loading scenes...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4 h-full w-full max-h-full">
@@ -123,7 +132,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
 
             {/* Progress Bar */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gray-800 z-30 flex gap-0.5">
-                {plan.scenes.map((_, idx) => (
+                {scenes.map((_, idx) => (
                     <div 
                         key={idx} 
                         className={`h-full flex-1 transition-colors duration-300 ${
@@ -136,7 +145,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
             {/* Preload next image in a hidden div if it exists */}
             {/* Preload next image in a hidden div if it exists AND is not a video */}
             {(() => {
-                const next = plan.scenes[currentIndex + 1];
+                const next = scenes[currentIndex + 1];
                 if (!next?.imageUrl) return null;
                 
                 const rawUrl = next.imageUrl;
@@ -225,7 +234,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
 
       {/* External Controls / Info - simplified */}
       <div className="flex justify-between w-full text-xs text-slate-500 font-mono px-2">
-        <span>{plan.videoUrl ? "HQ Preview Mode" : `${plan.type === 'carousel' ? 'Slide' : 'Scene'} ${currentIndex + 1}/${plan.scenes.length}`}</span>
+        <span>{plan.videoUrl ? "HQ Preview Mode" : `${plan.type === 'carousel' ? 'Slide' : 'Scene'} ${currentIndex + 1}/${scenes.length}`}</span>
         <div className="flex items-center gap-2">
           {plan.type !== 'carousel' && (
             <>

@@ -100,28 +100,29 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                            .filter(Boolean) as string[];
 
                        if (staleIds.length > 0) {
-                           type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-                           await (db as DbWithTransact).transact(staleIds.map((uuid: string) => tx.voices[uuid].delete()));
+                           // Delete one-by-one to avoid passing empty paths
+                           for (const uuid of staleIds) {
+                               if (uuid) await tx.voices[uuid].delete();
+                           }
                        }
                    }
 
                    const chunkSize = 20;
                    for (let i = 0; i < apiVoices.length; i += chunkSize) {
                        const chunk = apiVoices.slice(i, i + chunkSize);
-                       const txs = chunk.map(v => {
+                       for (const v of chunk) {
                          // Use existing UUID if available, otherwise generate new one
                          const entityId = voiceIdToUuidMap.get(v.voice_id) || id();
-                         
-                         return tx.voices[entityId].update({
+                         if (!entityId) continue; // Guard against empty paths
+
+                         await tx.voices[entityId].update({
                             voice_id: v.voice_id,
                             name: v.name,
                             category: v.category || "premade",
                             description: v.description || "",
                             preview_url: v.preview_url || ""
-                         })
-                       });
-                       type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-                       await (db as DbWithTransact).transact(txs);
+                         });
+                       }
                    }
                    console.log("Voices cached to DB successfully.");
                } catch (dbErr) {
@@ -184,8 +185,11 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
   useEffect(() => {
       // Check against displayVoices (combined list)
       if (displayVoices.length > 0 && !displayVoices.find((v: Voice) => v.voice_id === selectedVoiceId)) {
-          console.log("Selected voice not found, defaulting to first available.");
-          onVoiceSelect(displayVoices[0].voice_id);
+          const firstVoice = displayVoices.find((v: Voice) => !!v.voice_id);
+          if (firstVoice) {
+              console.log("Selected voice not found, defaulting to first available.");
+              onVoiceSelect(firstVoice.voice_id);
+          }
       }
   }, [displayVoices, selectedVoiceId, onVoiceSelect]); // Updated dep
 
@@ -271,7 +275,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                         <div 
                             key={voice.voice_id}
                             onClick={() => {
-                                onVoiceSelect(voice.voice_id);
+                                if (voice.voice_id) onVoiceSelect(voice.voice_id);
                                 setIsOpen(false);
                             }}
                             className={`flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-[#232948] cursor-pointer border-b border-slate-100 dark:border-[#232948] last:border-0 ${selectedVoiceId === voice.voice_id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}

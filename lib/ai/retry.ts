@@ -16,9 +16,9 @@ export async function withRetry<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const {
-    maxAttempts = 3,
-    initialDelay = 1000,
-    maxDelay = 10000,
+    maxAttempts = 5,
+    initialDelay = 5000,
+    maxDelay = 30000,
     factor = 2,
     retryOnStatusCodes = [429, 500, 502, 503, 504],
   } = options;
@@ -38,9 +38,11 @@ export async function withRetry<T>(
         throw error;
       }
 
-      console.warn(`[Retry] Attempt ${attempt} failed with status ${status}. Retrying in ${delay}ms...`);
-      
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Add jitter to avoid thundering herd (0.5x to 1.5x of delay)
+      const jitteredDelay = Math.round(delay * (0.5 + Math.random()));
+      console.warn(`[Retry] Attempt ${attempt} failed with status ${status}. Retrying in ${jitteredDelay}ms...`);
+
+      await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
 
       attempt++;
       delay = Math.min(delay * factor, maxDelay);

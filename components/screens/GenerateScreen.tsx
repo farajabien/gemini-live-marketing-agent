@@ -69,7 +69,6 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const [verbatimMode, setVerbatimMode] = useState(false); // Use exact script for voiceover
   const [verbatimTone, setVerbatimTone] = useState<VoiceTone>("neutral"); // Tone affects prosody only
   const [seamlessMode, setSeamlessMode] = useState(false); // Carousel only: seamless transitions
-  const [autoCleanScript, setAutoCleanScript] = useState(true); // Auto-preprocess scripts for verbatim mode
   
   // Strategic Inputs (Unified Narrative)
   const [problem, setProblem] = useState("");
@@ -386,9 +385,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
       if (verbatimMode) {
         // VERBATIM MODE: Use exact script, AI only generates visuals
 
-        // Optional preprocessing: Clean and format script
+        // Always preprocess script in verbatim mode
         let scriptToUse = idea;
-        if (autoCleanScript) {
+        {
           setStatusText("Cleaning script format...");
           const preprocessResult = await preprocessVerbatimScript(idea);
 
@@ -826,21 +825,14 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                   />
                 </div>
 
-                {/* Auto-Clean Toggle (Only visible when verbatim mode is ON) */}
+                {/* Auto-format info (Verbatim mode - always on) */}
                 {verbatimMode && (
-                  <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-500/20">
-                    <div className="flex items-center gap-3">
-                      <Sparkles className="size-4 text-blue-600" />
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs font-bold text-blue-700 dark:text-blue-400">Auto-format script</Label>
-                        <span className="text-[10px] text-blue-600/60 dark:text-blue-400/60 hidden sm:inline">(Detects & fixes [Visual:] markers)</span>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={autoCleanScript}
-                      onCheckedChange={setAutoCleanScript}
-                      className="scale-90"
-                    />
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-500/20">
+                    <Sparkles className="size-4 text-blue-600 shrink-0" />
+                    <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 leading-relaxed">
+                      <span className="font-bold text-blue-700 dark:text-blue-400">Auto-format is on.</span>{" "}
+                      Use <span className="font-mono bg-blue-100 dark:bg-blue-900/30 px-1 rounded text-blue-700 dark:text-blue-300">[Visual: description]</span> markers for scene directions. Blank lines = scene breaks.
+                    </p>
                   </div>
                 )}
               </div>
@@ -884,7 +876,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                             <Badge className="h-3.5 px-1 py-0 bg-gradient-to-r from-red-500 to-orange-500 text-[7px] text-white border-none leading-none">PRO</Badge>
                           )}
                         </TabsTrigger>
-                        <TabsTrigger value="gif_voice" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600">GIF + Voice</TabsTrigger>
+                        {/* <TabsTrigger value="gif_voice" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600">GIF + Voice</TabsTrigger> */}
                       </TabsList>
                     </div>
                   </Tabs>
@@ -987,7 +979,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                     <div className="flex flex-wrap gap-2">
                         <div className="px-3 py-1 bg-red-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20">{plan.tone}</div>
                         <div className="px-3 py-1 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/5">
-                            {plan.scenes.length} {plan.type === 'carousel' ? 'Slides' : 'Scenes'}
+                            {(plan.scenes || []).length} {plan.type === 'carousel' ? 'Slides' : 'Scenes'}
                         </div>
                         {plan.type === 'video' && (
                             <div className="px-3 py-1 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/5">
@@ -1006,7 +998,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                 </div>
 
                 <div className="overflow-y-auto p-6 space-y-5 flex-1 scrollbar-hide hover:scrollbar-default">
-                  {plan.scenes.map((scene, i) => (
+                  {(plan.scenes || []).map((scene, i) => (
                     <div key={i} className="group/scene p-6 bg-slate-50/50 dark:bg-black/20 rounded-3xl border border-slate-100 dark:border-white/5 transition-hover hover:bg-white dark:hover:bg-[#161a2d]">
                       <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">
@@ -1016,7 +1008,15 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                       </div>
                       
                       <p className="text-base font-bold mb-6 text-slate-800 dark:text-slate-100 leading-relaxed italic">
-                        &quot;{scene.voiceover}&quot;
+                        &quot;{scene.voiceover?.split(/(\[(?:Visual|Scene|Image):\s*[^\]]+\])/gi).map((part, j) =>
+                          /^\[(?:Visual|Scene|Image):\s*[^\]]+\]$/i.test(part) ? (
+                            <span key={j} className="not-italic text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-1.5 py-0.5 rounded-md mx-0.5 inline-block">
+                              {part}
+                            </span>
+                          ) : (
+                            <span key={j}>{part}</span>
+                          )
+                        )}&quot;
                       </p>
 
                          <div className="relative group/visual rounded-2xl overflow-hidden bg-white dark:bg-[#0d101b] border border-slate-200 dark:border-white/5">

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from "@/components/AuthProvider";
 import { PayPalProvider } from "@/components/PayPalProvider";
+import { GenerationStatusToast } from "@/components/GenerationStatusToast";
 import { Toaster } from "sonner";
 
 export default function RootLayout({
@@ -40,6 +41,7 @@ export default function RootLayout({
             <PayPalProvider>
               {children}
             </PayPalProvider>
+            <GenerationStatusToast />
           </AuthProvider>
           <Toaster 
             position="top-right" 

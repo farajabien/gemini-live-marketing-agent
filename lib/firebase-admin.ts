@@ -393,7 +393,7 @@ export const adminDb = {
   storage: {
     uploadFile: async (path: string, buffer: Buffer | Uint8Array, opts?: { contentType?: string }) => {
       const { storage: currentStorage } = await ensureInitialized();
-      const bucket = currentStorage!.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+      const bucket = currentStorage!.bucket();
       const file = bucket.file(path);
       await file.save(buffer, {
         metadata: { contentType: opts?.contentType }

@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
     const queryResult = await adminDb.query({
       videoPlans: {
         $: { where: { id: planId } },
-        owner: {},
       },
     });
     const plan = queryResult.videoPlans?.[0] as VideoPlanWithOwner | undefined;
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
 
     // Security check: ensure the authenticated user owns this plan
-    const planOwnerId = plan.owner?.[0]?.id;
+    const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
@@ -108,7 +107,10 @@ export async function POST(request: NextRequest) {
     // Log scene durations for debugging
     console.log(`[VideoGen] Plan has ${scenes.length} scenes with durations:`);
     scenes.forEach((scene, i) => {
-      console.log(`  Scene ${i}: ${scene.duration}s - Audio: ${scene.audioUrl ? 'YES' : 'NO'} - Visual: ${scene.imageUrl || scene.videoClipUrl ? 'YES' : 'NO'}`);
+      const hasVisual = (scene as any).subScenes?.length > 0
+        ? (scene as any).subScenes.every((sub: any) => !!sub.imageUrl)
+        : !!(scene.imageUrl || scene.videoClipUrl);
+      console.log(`  Scene ${i}: ${scene.duration}s - Audio: ${scene.audioUrl ? 'YES' : 'NO'} - Visual: ${hasVisual ? 'YES' : 'NO'}${(scene as any).subScenes?.length ? ` (${(scene as any).subScenes.length} sub-scenes)` : ''}`);
     });
     const totalDuration = scenes.reduce((sum, scene) => sum + scene.duration, 0);
     console.log(`[VideoGen] Total video duration should be: ${totalDuration.toFixed(2)}s`);
@@ -120,11 +122,21 @@ export async function POST(request: NextRequest) {
       }
     } else if (visualMode === "text_motion") {
       // Text Motion is silent first, so we only check for imageUrl (which holds the Giphy URL)
-      if (scenes.some((s) => !s.imageUrl)) {
+      if (scenes.some((s: any) => {
+        if (s.subScenes && s.subScenes.length > 0) {
+          return s.subScenes.some((sub: any) => !sub.imageUrl);
+        }
+        return !s.imageUrl;
+      })) {
         return NextResponse.json({ error: "Visuals not ready" }, { status: 400 });
       }
     } else {
-      if (scenes.some((s) => !s.imageUrl || !s.audioUrl)) {
+      if (scenes.some((s: any) => {
+        const hasVisuals = s.subScenes && s.subScenes.length > 0
+          ? s.subScenes.every((sub: any) => !!sub.imageUrl)
+          : !!s.imageUrl;
+        return !hasVisuals || !s.audioUrl;
+      })) {
         return NextResponse.json({ error: "Images or audio not ready" }, { status: 400 });
       }
     }
@@ -140,7 +152,15 @@ export async function POST(request: NextRequest) {
     const videoPath = join(tmpdir(), `render-${planId}.mp4`);
 
     // Choose renderer: FFmpeg (new, fast) or Remotion (legacy)
-    const shouldUseFFmpeg = useFFmpeg !== undefined ? useFFmpeg : USE_FFMPEG_RENDERER;
+    // FFmpeg doesn't support sub-scenes — force Remotion when sub-scenes are present
+    const hasSubScenes = scenes.some((s: any) => s.subScenes && s.subScenes.length > 0);
+    const shouldUseFFmpeg = hasSubScenes
+      ? false
+      : (useFFmpeg !== undefined ? useFFmpeg : USE_FFMPEG_RENDERER);
+
+    if (hasSubScenes) {
+      console.log('[VideoGen] Plan has sub-scenes — forcing Remotion renderer (FFmpeg does not support sub-scenes)');
+    }
 
     if (shouldUseFFmpeg) {
       // NEW: FFmpeg renderer with scene caching
