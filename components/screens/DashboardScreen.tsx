@@ -463,8 +463,8 @@ export function DashboardScreen() {
                         }
                         onUpdateStatus={handleUpdateStatus}
                         onCopy={handleCopyPost}
-                        onCreateVideo={(body) => handleCreateVideoFromScript(body, piece.narrativeId)}
-                        onCreateCarousel={(body) => handleCreateCarouselFromScript(body, piece.narrativeId)}
+                        onCreateVideo={(body, draftId) => handleCreateVideoFromScript(body, piece.narrativeId)}
+                        onCreateCarousel={(body, draftId) => handleCreateCarouselFromScript(body, piece.narrativeId)}
                       />
                     ))
                   )}
@@ -490,8 +490,8 @@ export function DashboardScreen() {
                         }
                         onUpdateStatus={handleUpdateStatus}
                         onCopy={handleCopyPost}
-                        onCreateVideo={(body) => handleCreateVideoFromScript(body, piece.narrativeId)}
-                        onCreateCarousel={(body) => handleCreateCarouselFromScript(body, piece.narrativeId)}
+                        onCreateVideo={(body, draftId) => handleCreateVideoFromScript(body, piece.narrativeId)}
+                        onCreateCarousel={(body, draftId) => handleCreateCarouselFromScript(body, piece.narrativeId)}
                       />
                     ))
                   )}

@@ -230,11 +230,17 @@ export async function POST(request: NextRequest) {
       if (readyForRender && !preRenderPlan?.videoUrl) {
         await updateStatus(planId, "rendering_video");
 
-        const renderResult = await callApi("/api/generate-video", {
-          planId,
-          background: true,
+        // Fire-and-forget: generate-video self-marks "completed" in Firestore.
+        // The SuccessScreen watches Firestore reactively, so we don't need to wait.
+        fetch(`${baseUrl}/api/generate-video`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ planId, background: true }),
+        }).catch((err) => {
+          console.error("[Orchestrate] generate-video fire-and-forget error:", err);
         });
-        console.log(`[Orchestrate] Render: ${renderResult.ok ? "OK" : "FAILED"}`);
+
+        console.log("[Orchestrate] Render dispatched (fire-and-forget).");
       } else if (preRenderPlan?.videoUrl) {
         console.log("[Orchestrate] Video already rendered.");
       } else {

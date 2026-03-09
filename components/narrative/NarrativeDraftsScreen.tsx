@@ -408,20 +408,20 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
 
   const handleDeleteContent = async (contentId: string) => {
     try {
-        type DbWithTransact = typeof db & { transact: (txns: unknown[]) => Promise<void> };
-        await (db as DbWithTransact).transact([tx.contentPieces[contentId].delete()]);
+        await tx.contentPieces[contentId].delete();
     } catch (err: any) {
         console.error("Failed to delete content:", err);
         throw err;
     }
   };
 
-  const handleCreateVideoFromScript = (body: string) => {
+  const handleCreateVideoFromScript = (body: string, draftId: string) => {
     // Navigate to dedicated generate route instead of opening dialog
     const params = new URLSearchParams({
       mode: "verbatim",
       format: "video",
       narrativeId: narrativeId,
+      draftId: draftId,
     });
 
     // Store script in localStorage temporarily (URL has length limits)
@@ -430,12 +430,13 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
     router.push(`/generate?${params.toString()}`);
   };
 
-  const handleCreateCarouselFromScript = (body: string) => {
+  const handleCreateCarouselFromScript = (body: string, draftId: string) => {
     // Navigate to dedicated generate route instead of opening dialog
     const params = new URLSearchParams({
       mode: "verbatim",
       format: "carousel",
       narrativeId: narrativeId,
+      draftId: draftId,
     });
 
     // Store script in sessionStorage temporarily

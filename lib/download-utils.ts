@@ -43,28 +43,54 @@ export async function downloadPlanAssets(plan: VideoPlan, carouselElement: HTMLE
   const isCarousel = plan.type === "carousel";
 
   try {
-    // For video plans, try to generate full MP4 (even if silent)
+    // For video plans, try to download the rendered MP4
     if (!isCarousel && plan.id) {
       try {
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (authToken) {
-          headers["Authorization"] = `Bearer ${authToken}`;
+        // If video already exists, fetch it directly via proxy
+        if (plan.videoUrl) {
+          const videoBlob = await fetchStorageBlob(plan.videoUrl);
+          if (videoBlob && videoBlob.size > 0) {
+            saveAs(videoBlob, `ideatovideo-${plan.title.substring(0, 20).replace(/[^a-z0-9]/gi, "-")}.mp4`);
+            return;
+          }
+          console.warn("Video URL exists but fetch failed, falling back to ZIP");
+        } else {
+          // No videoUrl yet — try triggering generation
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (authToken) {
+            headers["Authorization"] = `Bearer ${authToken}`;
+          }
+
+          const response = await fetch("/api/generate-video", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ planId: plan.id }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Video generation failed");
+          }
+
+          // Check if response is JSON (cache hit) or blob (direct render)
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("video/")) {
+            const blob = await response.blob();
+            saveAs(blob, `ideatovideo-${plan.title.substring(0, 20).replace(/[^a-z0-9]/gi, "-")}.mp4`);
+            return;
+          } else {
+            // JSON response with URL — fetch the video via proxy
+            const data = await response.json();
+            if (data.url) {
+              const videoBlob = await fetchStorageBlob(data.url);
+              if (videoBlob && videoBlob.size > 0) {
+                saveAs(videoBlob, `ideatovideo-${plan.title.substring(0, 20).replace(/[^a-z0-9]/gi, "-")}.mp4`);
+                return;
+              }
+            }
+            throw new Error("Could not fetch rendered video");
+          }
         }
-
-        const response = await fetch("/api/generate-video", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ planId: plan.id }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Video generation failed");
-        }
-
-        const blob = await response.blob();
-        saveAs(blob, `ideatovideo-${plan.title.substring(0, 20).replace(/[^a-z0-9]/gi, "-")}.mp4`);
-        return;
       } catch (videoError) {
         console.error("Video generation failed, falling back to ZIP:", videoError);
         // Fall through to ZIP generation

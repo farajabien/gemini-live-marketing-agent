@@ -14,6 +14,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Determine if we should use auto-timer
   const hasAudio = !!scenes[currentIndex]?.audioUrl;
@@ -84,6 +85,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
     }
   }, [isPlaying]);
 
+  // Sync video muted state with isPlaying toggle
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isPlaying;
+    }
+  }, [isPlaying]);
+
   if (scenes.length === 0 && !plan.videoUrl) {
     return (
       <div className="flex items-center justify-center h-full w-full">
@@ -99,13 +107,15 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
         
         {plan.videoUrl ? (
           /* Actual Video Preview */
-          <video 
+          <video
+             ref={videoRef}
              key={plan.videoUrl}
              src={`/api/proxy-image?path=${encodeURIComponent(plan.videoUrl)}`}
              autoPlay
              loop
-             muted={!isPlaying}
+             muted
              playsInline
+             onLoadedData={() => videoRef.current?.play().catch(() => {})}
              className="absolute inset-0 w-full h-full object-cover z-0"
           />
         ) : (

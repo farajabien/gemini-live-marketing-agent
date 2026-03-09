@@ -11,8 +11,8 @@ interface ContentCardProps {
   onToggle: () => void;
   onUpdateStatus: (contentId: string, status: ContentStatus) => Promise<void>;
   onCopy: (body: string) => void;
-  onCreateVideo: (body: string) => void;
-  onCreateCarousel: (body: string) => void;
+  onCreateVideo: (body: string, draftId: string) => void;
+  onCreateCarousel: (body: string, draftId: string) => void;
   onSave?: (contentId: string, newBody: string) => Promise<void>;
   onDelete?: (contentId: string) => Promise<void>;
   livePlanMap?: Map<string, VideoPlan>;
@@ -239,7 +239,7 @@ export function ContentCard({
 
                 {piece.status === "approved" && isVideo && !hasBeenGenerated && (
                 <button
-                    onClick={() => onCreateVideo(displayBody)}
+                    onClick={() => onCreateVideo(displayBody, piece.id)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
                 >
                     <span className="material-symbols-outlined text-base">movie_creation</span>
@@ -249,7 +249,7 @@ export function ContentCard({
 
                 {piece.status === "approved" && isCarousel && !hasBeenGenerated && (
                 <button
-                    onClick={() => onCreateCarousel(displayBody)}
+                    onClick={() => onCreateCarousel(displayBody, piece.id)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 transition-colors shadow-lg shadow-purple-500/20"
                 >
                     <span className="material-symbols-outlined text-base">view_carousel</span>

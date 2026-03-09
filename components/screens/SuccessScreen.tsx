@@ -204,13 +204,28 @@ export function SuccessScreen() {
     const scenes = (plan.scenes || []) as Scene[];
     const totalScenes = scenes.length;
 
-    // Count completed assets
-    const visualsDone = visualMode === "broll"
-      ? scenes.filter((s: Scene) => !!s.videoClipUrl).length
-      : scenes.filter((s: Scene) => !!s.imageUrl).length;
+    // Count completed assets — including sub-scenes
+    let visualsDone = 0;
+    let totalVisuals = 0;
+
+    if (visualMode === "broll") {
+      totalVisuals = totalScenes;
+      visualsDone = scenes.filter((s: Scene) => !!s.videoClipUrl).length;
+    } else {
+      for (const s of scenes) {
+        const subs = (s as any).subScenes;
+        if (subs && subs.length > 0) {
+          totalVisuals += subs.length;
+          visualsDone += subs.filter((sub: any) => !!sub.imageUrl).length;
+        } else {
+          totalVisuals += 1;
+          if (s.imageUrl) visualsDone += 1;
+        }
+      }
+    }
 
     const audioDone = scenes.filter((s: Scene) => !!s.audioUrl).length;
-    const allVisualsDone = visualsDone === totalScenes;
+    const allVisualsDone = visualsDone === totalVisuals;
     const allAudioDone = audioDone === totalScenes;
     const allAssetsDone = isCarousel ? allVisualsDone : (allVisualsDone && allAudioDone);
 
@@ -222,9 +237,9 @@ export function SuccessScreen() {
       case 'generating':
         if (!allVisualsDone) {
           text = visualMode === "broll"
-            ? `Generating B-Roll Clip ${visualsDone + 1} of ${totalScenes}...`
-            : `Designing Scene ${visualsDone + 1} of ${totalScenes}...`;
-          target = 20 + ((visualsDone / totalScenes) * 40);
+            ? `Generating B-Roll Clip ${visualsDone + 1} of ${totalVisuals}...`
+            : `Designing Visual ${visualsDone + 1} of ${totalVisuals}...`;
+          target = 20 + ((visualsDone / totalVisuals) * 40);
         } else {
           text = "Visuals Complete! Preparing next step...";
           target = 60;
@@ -235,10 +250,12 @@ export function SuccessScreen() {
         target = 60 + ((audioDone / totalScenes) * 25);
         break;
       case 'rendering_video':
-      case 'rendering':
-        text = "Rendering Final MP4...";
-        target = 90;
+      case 'rendering': {
+        const renderPct = (plan as any).renderProgress || 0;
+        text = renderPct > 0 ? `Rendering MP4... ${renderPct}%` : "Rendering Final MP4...";
+        target = 90 + (renderPct / 100) * 9;
         break;
+      }
       case 'completed':
         text = "Ready!";
         target = 100;
@@ -289,7 +306,7 @@ export function SuccessScreen() {
     if (!plan) return;
     setIsDownloading(true);
     try {
-      await downloadPlanAssets(plan, carouselRef.current);
+      await downloadPlanAssets(plan, carouselRef.current, refreshToken);
     } catch (err: any) {
       console.error("Download failed:", err);
       toast.error(`Download failed: ${err.message || 'Unknown error'}`);

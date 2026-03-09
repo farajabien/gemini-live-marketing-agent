@@ -147,7 +147,22 @@ export async function POST(request: NextRequest) {
     console.log("[VideoGen] Trusting Remotion's built-in asset loading (no pre-verification needed)");
 
     // Set status to rendering
-    await adminDb.transact([adminDb.tx.videoPlans[planId].update({ status: 'rendering' })]);
+    await adminDb.transact([adminDb.tx.videoPlans[planId].update({ status: 'rendering', renderProgress: 0 })]);
+
+    // Throttled progress callback — writes to Firestore at most every 3s
+    let lastProgressUpdate = 0;
+    const updateRenderProgress = async (percent: number) => {
+      const now = Date.now();
+      if (now - lastProgressUpdate < 3000 && percent < 100) return;
+      lastProgressUpdate = now;
+      try {
+        await adminDb.transact([
+          adminDb.tx.videoPlans[planId].update({ renderProgress: percent })
+        ]);
+      } catch (_) {
+        // Don't let progress updates break the render
+      }
+    };
 
     const videoPath = join(tmpdir(), `render-${planId}.mp4`);
 
@@ -182,6 +197,11 @@ export async function POST(request: NextRequest) {
           enableCache: true,
           forceRerender: forceRerender,
           cleanupOldCache: true,
+        }, (progress) => {
+          const percent = progress.totalScenes > 0
+            ? Math.round((progress.completedScenes / progress.totalScenes) * 100)
+            : 0;
+          updateRenderProgress(percent);
         });
 
         console.timeEnd('[VideoGen] FFmpeg render');
@@ -197,7 +217,7 @@ export async function POST(request: NextRequest) {
       console.time('[VideoGen] Remotion render');
 
       try {
-        await renderRemotionVideo(plan, videoPath);
+        await renderRemotionVideo(plan, videoPath, updateRenderProgress);
         console.timeEnd('[VideoGen] Remotion render');
       } catch (renderErr) {
         console.timeEnd('[VideoGen] Remotion render');

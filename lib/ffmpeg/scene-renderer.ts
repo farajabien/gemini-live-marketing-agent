@@ -10,7 +10,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { writeFile, unlink, readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { getFileUrl } from "@/lib/firebase-client";
+import { adminDb } from "@/lib/firebase-admin";
 
 export interface SceneRenderOptions {
   format: "9:16" | "1:1" | "16:9"; // Aspect ratio
@@ -49,10 +49,15 @@ function getVideoDimensions(format: "9:16" | "1:1" | "16:9", resolution: "1080p"
 async function downloadAsset(url: string, ext: string): Promise<string> {
   const tempPath = join(tmpdir(), `asset-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`);
 
-  // If it's a storage path (not a full URL), get the download URL
-  const downloadUrl = url.startsWith("http") ? url : getFileUrl(url);
+  // If it's a storage path (not a full URL), get a signed download URL via admin SDK
+  let downloadUrl: string;
+  if (url.startsWith("http") || url.startsWith("data:")) {
+    downloadUrl = url;
+  } else {
+    downloadUrl = await adminDb.storage.getDownloadUrl(url);
+  }
 
-  console.log(`[FFmpeg] Downloading asset: ${downloadUrl.substring(0, 60)}...`);
+  console.log(`[FFmpeg] Downloading asset: ${downloadUrl.substring(0, 80)}...`);
 
   const response = await fetch(downloadUrl);
   if (!response.ok) {

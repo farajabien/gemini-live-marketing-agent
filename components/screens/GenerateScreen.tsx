@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,11 +99,13 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
     () =>
       user && selectedNarrativeId && selectedNarrativeId !== "new"
         ? {
-            narratives: {
-              $: { where: { id: selectedNarrativeId } },
-              contentPieces: {
-                $: { where: { status: { in: ["approved", "published"] } }, order: { createdAt: "desc" } },
-                generatedPlans: {},
+            contentPieces: {
+              $: {
+                where: {
+                  narrativeId: selectedNarrativeId,
+                  userId: user.id,
+                },
+                order: { createdAt: "desc" },
               },
             },
           }
@@ -110,7 +113,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
     [user?.id, selectedNarrativeId]
   );
   const { data: draftsData } = (db as any).useQuery(draftsDataQuery);
-  const approvedDrafts = (draftsData?.narratives?.[0]?.contentPieces || []) as ContentPiece[];
+  const approvedDrafts = ((draftsData as any)?.contentPieces || []).filter(
+    (c: ContentPiece) => c.status === "approved" || c.status === "published"
+  ) as ContentPiece[];
 
   // If propNarrativeId changes, update selection
   useEffect(() => {
@@ -118,6 +123,21 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         setSelectedNarrativeId(propNarrativeId);
     }
   }, [propNarrativeId]);
+
+  // Auto-load draft content when draftId is set from URL and approvedDrafts data arrives
+  useEffect(() => {
+    if (selectedDraftId && approvedDrafts.length > 0 && !idea) {
+      const draft = approvedDrafts.find(d => d.id === selectedDraftId);
+      if (draft) {
+        setIdea(draft.editedBody || draft.body);
+        setVerbatimMode(true);
+        const formatStr = (draft.format as string) || '';
+        if (formatStr.toLowerCase().includes('carousel')) {
+          setFormat('carousel');
+        }
+      }
+    }
+  }, [selectedDraftId, approvedDrafts]);
   
   const startOfMonth = () => {
     const d = new Date();
@@ -702,57 +722,73 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                 </Select>
 
                 {selectedNarrativeId && (
-                  <Select 
-                    onValueChange={(draftId) => {
-                      const draft = approvedDrafts.find(d => d.id === draftId);
-                      if (draft) {
-                        setIdea(draft.editedBody || draft.body);
-                        setVerbatimMode(true);
-                        setSelectedDraftId(draft.id);
-                        // Auto-detect format from content piece
-                        const formatStr = (draft.format as string) || '';
-                        // If it's a carousel format (e.g., 'carousel', 'tiktok-carousel') switch generator to carousel
-                        if (formatStr.toLowerCase().includes('carousel')) {
-                          setFormat('carousel');
-                        } else {
-                          setFormat('video');
-                        }
-                        toast.success("Draft loaded into script editor");
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-10 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold min-w-[180px]">
-                      <div className="flex items-center gap-2 overflow-hidden">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="h-10 px-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold min-w-[180px] flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors">
                         <Sparkles className="size-3.5 text-blue-500 shrink-0" />
-                        <SelectValue placeholder="Approved Drafts" />
+                        <span className="truncate">
+                          {selectedDraftId
+                            ? (approvedDrafts.find(d => d.id === selectedDraftId)?.title || 'Selected Draft')
+                            : 'Approved Drafts'}
+                        </span>
+                        {approvedDrafts.length > 0 && (
+                          <span className="ml-auto shrink-0 size-5 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
+                            {approvedDrafts.length}
+                          </span>
+                        )}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-[320px] p-0 bg-[#0f1225] border-white/10 text-white">
+                      <div className="p-3 border-b border-white/5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
+                          Approved Drafts ({approvedDrafts.length})
+                        </p>
                       </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0f1225] border-white/10 text-white max-w-[300px]">
                       {approvedDrafts.length === 0 ? (
-                        <div className="p-4 text-center text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                        <div className="p-6 text-center text-[10px] text-white/40 font-bold uppercase tracking-widest">
                           No approved drafts yet
                         </div>
                       ) : (
-                        approvedDrafts.map((draft) => (
-                          <SelectItem key={draft.id} value={draft.id} className="text-xs">
-                            <div className="flex flex-col gap-0.5 w-full pr-2">
-                              <span className="font-bold flex items-center justify-between w-full">
-                                <span className="truncate">{draft.title || 'Untitled Draft'}</span>
-                                {draft.generatedPlans && draft.generatedPlans.length > 0 && (
-                                  <span className="text-[10px] text-green-500 font-bold ml-2 flex items-center gap-1 shrink-0 bg-green-500/10 px-1.5 py-0.5 rounded">
-                                    <CheckCircle2 className="size-3" /> Used
-                                  </span>
-                                )}
-                              </span>
-                              <span className={`text-[10px] truncate italic ${draft.generatedPlans && draft.generatedPlans.length > 0 ? "text-white/20" : "text-white/40"}`}>
-                                {draft.body.substring(0, 40)}...
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))
+                        <div className="max-h-[300px] overflow-y-auto">
+                          {approvedDrafts.map((draft) => (
+                            <button
+                              key={draft.id}
+                              onClick={() => {
+                                setIdea(draft.editedBody || draft.body);
+                                setVerbatimMode(true);
+                                setSelectedDraftId(draft.id);
+                                const formatStr = (draft.format as string) || '';
+                                if (formatStr.toLowerCase().includes('carousel')) {
+                                  setFormat('carousel');
+                                } else {
+                                  setFormat('video');
+                                }
+                                toast.success("Draft loaded into script editor");
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors border-b border-white/5 last:border-0",
+                                selectedDraftId === draft.id && "bg-blue-500/10 border-l-2 border-l-blue-500"
+                              )}
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-bold flex items-center justify-between">
+                                  <span className="truncate">{draft.title || 'Untitled Draft'}</span>
+                                  {draft.generatedPlans && draft.generatedPlans.length > 0 && (
+                                    <span className="text-[10px] text-green-500 font-bold ml-2 flex items-center gap-1 shrink-0 bg-green-500/10 px-1.5 py-0.5 rounded">
+                                      <CheckCircle2 className="size-3" /> Used
+                                    </span>
+                                  )}
+                                </span>
+                                <span className={`text-[10px] truncate italic ${draft.generatedPlans && draft.generatedPlans.length > 0 ? "text-white/20" : "text-white/40"}`}>
+                                  {draft.body.substring(0, 60)}...
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </SelectContent>
-                  </Select>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
             </div>

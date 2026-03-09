@@ -26,6 +26,12 @@ export function PlanReviewScreen({ plan, planId }: PlanReviewProps) {
   const [selectedVoiceId, setSelectedVoiceId] = useState(plan.voiceId || "JBFqnCBsd6RMkjVDRZzb");
   const [isRendering, setIsRendering] = useState(false);
 
+  const sceneCount = plan.scenes?.length || 0;
+  const totalSubScenes = (plan.scenes || []).reduce((sum: number, s: any) =>
+    sum + (s.subScenes?.length || 1), 0
+  );
+  const hasSubScenes = totalSubScenes > sceneCount;
+
   const handleFinalize = async () => {
     if (!plan.scenes || plan.scenes.length === 0) {
       toast.error("No scenes to render");
@@ -74,7 +80,7 @@ export function PlanReviewScreen({ plan, planId }: PlanReviewProps) {
             {plan.tone || "Neutral"}
           </span>
           <span className="px-4 py-2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-wider">
-            {plan.scenes?.length || 0} Scenes
+            {sceneCount} Scenes{hasSubScenes ? ` · ${totalSubScenes} Visuals` : ''}
           </span>
           <span className="px-4 py-2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-wider">
             ~{(plan as any).duration || "30"}s
@@ -149,7 +155,7 @@ export function PlanReviewScreen({ plan, planId }: PlanReviewProps) {
               selectedVoiceId={selectedVoiceId}
               onVoiceSelect={(voiceId) => {
                 // Update plan voice in DB
-                (db as any).transact([tx.videoPlans[planId].update({ voiceId })]);
+                tx.videoPlans[planId].update({ voiceId });
                 setSelectedVoiceId(voiceId);
                 toast.success("Voice updated!");
               }}

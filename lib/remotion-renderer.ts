@@ -30,7 +30,11 @@ async function getRemotionFilesModifiedTime(remotionDir: string): Promise<number
   }
 }
 
-export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
+export async function renderRemotionVideo(
+  plan: VideoPlan,
+  outputPath: string,
+  onProgressCallback?: (percent: number) => void
+) {
   // Use dynamic imports to prevent Next.js from bundling Remotion packages
   // This is required because @remotion/bundler includes Webpack, and Next.js
   // cannot bundle Webpack with Webpack (creates React.createContext errors)
@@ -98,7 +102,7 @@ export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
     concurrency: optimalConcurrency,
     chromiumOptions: {
       disableWebSecurity: true,
-      gl: "angle",
+      gl: "swangle",
       headless: true,
     },
     videoBitrate: "3M", // Balanced quality/speed
@@ -117,9 +121,12 @@ export async function renderRemotionVideo(plan: VideoPlan, outputPath: string) {
     onProgress: ({ renderedFrames, encodedFrames, encodedDoneIn, renderedDoneIn }) => {
       const totalFrames = composition.durationInFrames;
       if (renderedFrames % 50 === 0 || renderedFrames === totalFrames) {
-        const renderProgress = ((renderedFrames / totalFrames) * 100).toFixed(0);
+        const renderPercent = Math.round((renderedFrames / totalFrames) * 100);
         const encodeProgress = ((encodedFrames / totalFrames) * 100).toFixed(0);
-        console.log(`[Remotion] ⏩ Render: ${renderProgress}% | Encode: ${encodeProgress}%`);
+        console.log(`[Remotion] ⏩ Render: ${renderPercent}% | Encode: ${encodeProgress}%`);
+        if (onProgressCallback) {
+          onProgressCallback(renderPercent);
+        }
       }
     },
   });
