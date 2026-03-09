@@ -44,14 +44,23 @@ function calculateSubSceneDurations(totalDuration: number): number[] {
 }
 
 /**
- * Generate multiple visual prompts for a single voiceover segment
- * Creates B-roll style sequence (wide → detail → context)
+ * Generate multiple visual prompts for a single voiceover segment.
+ * This is the FALLBACK path — used when batch generation didn't produce sub-scenes.
+ *
+ * @param parentScene - The parent scene to split
+ * @param subSceneCount - Number of sub-scenes to generate
+ * @param visualConsistency - Optional style guide to maintain consistency (avoids hardcoded styles)
  */
 async function generateSubSceneVisualPrompts(
   parentScene: Scene,
-  subSceneCount: number
+  subSceneCount: number,
+  visualConsistency?: string
 ): Promise<string[]> {
-  console.log(`[SubScenes] Starting AI generation for ${subSceneCount} visual prompts (scene: ${parentScene.id})`);
+  console.log(`[SubScenes:Fallback] Starting AI generation for ${subSceneCount} visual prompts (scene: ${parentScene.id})`);
+
+  const styleContext = visualConsistency
+    ? `\n**VISUAL STYLE GUIDE (match this style for all prompts):**\n${visualConsistency}\n`
+    : '';
 
   const prompt = `You are creating a B-roll visual sequence for a video scene.
 
@@ -60,7 +69,7 @@ async function generateSubSceneVisualPrompts(
 
 **ORIGINAL VISUAL CONCEPT:**
 ${parentScene.visualPrompt}
-
+${styleContext}
 **YOUR TASK:**
 Create ${subSceneCount} distinct visual prompts that work as a sequence to illustrate this voiceover. Think like a video editor cutting between B-roll shots every 1-3 seconds.
 
@@ -75,17 +84,18 @@ Create ${subSceneCount} distinct visual prompts that work as a sequence to illus
 - Vary shot types: wide, medium, close-up, detail
 - Vary angles: front, side, over-shoulder, birds-eye
 - Vary focus: person, object, environment, abstract
-- Maintain visual consistency (same style/character)
+- Maintain visual consistency (same style/character as the original visual concept)
 - Each shot should smoothly transition to the next
+${visualConsistency ? '- Use the SAME art style described in the Visual Style Guide above' : ''}
 
 **OUTPUT FORMAT:**
 Return a JSON array of exactly ${subSceneCount} visual prompts:
 
 \`\`\`json
 [
-  "Flat 2D illustration: [shot 1 description]",
-  "Flat 2D illustration: [shot 2 description]",
-  "Flat 2D illustration: [shot 3 description]"
+  "[shot 1 description matching the visual style]",
+  "[shot 2 description matching the visual style]",
+  "[shot 3 description matching the visual style]"
 ]
 \`\`\`
 
@@ -108,42 +118,43 @@ Generate the ${subSceneCount} visual prompts now:`;
     const response = typeof result === 'string' ? result : (result as any).text;
 
 
-    console.log(`[SubScenes] AI response received (${response.length} chars)`);
+    console.log(`[SubScenes:Fallback] AI response received (${response.length} chars)`);
 
     // Extract JSON array
     const jsonMatch = response.match(/\[[\s\S]*?\]/);
     if (!jsonMatch) {
-      console.error("[SubScenes] No JSON array found in AI response");
+      console.error("[SubScenes:Fallback] No JSON array found in AI response");
       return generateFallbackVisuals(parentScene, subSceneCount);
     }
 
     const prompts = JSON.parse(jsonMatch[0]);
 
     if (!Array.isArray(prompts) || prompts.length !== subSceneCount) {
-      console.error(`[SubScenes] Expected ${subSceneCount} prompts, got ${prompts.length}`);
+      console.error(`[SubScenes:Fallback] Expected ${subSceneCount} prompts, got ${prompts.length}`);
       return generateFallbackVisuals(parentScene, subSceneCount);
     }
 
-    console.log(`[SubScenes] ✅ Generated ${prompts.length} visual prompts successfully`);
+    console.log(`[SubScenes:Fallback] Generated ${prompts.length} visual prompts successfully`);
     return prompts;
   } catch (error) {
-    console.error("[SubScenes] ❌ Error generating visual prompts:", error);
-    console.log("[SubScenes] Using fallback visuals instead");
+    console.error("[SubScenes:Fallback] Error generating visual prompts:", error);
+    console.log("[SubScenes:Fallback] Using fallback visuals instead");
     return generateFallbackVisuals(parentScene, subSceneCount);
   }
 }
 
 /**
- * Fallback: Generate basic visual variations if AI fails
+ * Fallback: Generate basic visual variations if AI fails.
+ * Uses the parent scene's visualPrompt as the base (no hardcoded style prefix).
  */
 function generateFallbackVisuals(parentScene: Scene, count: number): string[] {
   const base = parentScene.visualPrompt;
   const variations = [
-    `${base} - wide shot`,
-    `${base} - close-up detail`,
-    `${base} - different angle`,
+    `${base} - wide establishing shot`,
+    `${base} - close-up detail view`,
+    `${base} - different angle perspective`,
     `${base} - emphasizing key element`,
-    `${base} - contextual view`,
+    `${base} - contextual environment view`,
   ];
 
   // Return first N variations, or repeat base if needed
@@ -156,10 +167,13 @@ function generateFallbackVisuals(parentScene: Scene, count: number): string[] {
 }
 
 /**
- * Split a scene into multiple sub-scenes with varied visuals
- * ALWAYS applies to scenes > 3s for more dynamic videos
+ * Split a scene into multiple sub-scenes with varied visuals.
+ * ALWAYS applies to scenes > 3s for more dynamic videos.
+ *
+ * @param scene - The scene to split
+ * @param visualConsistency - Optional style guide for consistent visuals
  */
-export async function generateSubScenes(scene: Scene): Promise<SubScene[] | null> {
+export async function generateSubScenes(scene: Scene, visualConsistency?: string): Promise<SubScene[] | null> {
   // Check if scene should be split
   if (!shouldSplitScene(scene.duration)) {
     console.log(`[SubScenes] Scene ${scene.id} (${scene.duration}s) - too short, keeping single visual`);
@@ -169,10 +183,10 @@ export async function generateSubScenes(scene: Scene): Promise<SubScene[] | null
   // Calculate sub-scene durations (dynamic 1-3s each)
   const durations = calculateSubSceneDurations(scene.duration);
 
-  console.log(`[SubScenes] Scene ${scene.id} (${scene.duration}s) → ${durations.length} sub-scenes: [${durations.join("s, ")}s]`);
+  console.log(`[SubScenes] Scene ${scene.id} (${scene.duration}s) -> ${durations.length} sub-scenes: [${durations.join("s, ")}s]`);
 
   // Generate visual prompts for each sub-scene
-  const visualPrompts = await generateSubSceneVisualPrompts(scene, durations.length);
+  const visualPrompts = await generateSubSceneVisualPrompts(scene, durations.length, visualConsistency);
 
   // Build sub-scenes
   const subScenes: SubScene[] = durations.map((duration, index) => ({
@@ -186,45 +200,42 @@ export async function generateSubScenes(scene: Scene): Promise<SubScene[] | null
 }
 
 /**
- * Process all scenes in a video plan to add sub-scenes where appropriate
+ * Ensure all scenes > 3s have sub-scenes.
+ * Used as a fallback when the batch generation didn't produce them.
+ *
+ * @param scenes - The scenes to check
+ * @param visualConsistency - Style guide for consistent visuals
  */
-export async function enhanceScenesWithSubScenes(scenes: Scene[]): Promise<Scene[]> {
-  console.log(`[SubScenes] Enhancing ${scenes.length} scenes with multi-visual sequences...`);
-  console.time("[SubScenes] Total enhancement time");
+export async function ensureSubScenes(scenes: Scene[], visualConsistency?: string): Promise<Scene[]> {
+  console.log(`[SubScenes] Ensuring sub-scenes for ${scenes.length} scenes...`);
 
-  const enhancedScenes = await Promise.all(
+  const enhanced = await Promise.all(
     scenes.map(async (scene, index) => {
+      // Skip if scene already has sub-scenes or is too short
+      if (scene.subScenes && scene.subScenes.length > 0) return scene;
+      if (scene.duration <= 3) return scene;
+
       try {
-        console.log(`[SubScenes] Processing scene ${index + 1}/${scenes.length} (${scene.id})`);
-
-        const subScenes = await generateSubScenes(scene);
-
+        const subScenes = await generateSubScenes(scene, visualConsistency);
         if (subScenes && subScenes.length > 0) {
-          console.log(`[SubScenes] ✅ Scene ${index + 1} enhanced with ${subScenes.length} sub-scenes`);
-          return {
-            ...scene,
-            subScenes,
-          };
+          console.log(`[SubScenes] Scene ${index + 1} backfilled with ${subScenes.length} sub-scenes`);
+          return { ...scene, subScenes };
         }
-
-        console.log(`[SubScenes] Scene ${index + 1} kept as single visual (${scene.duration}s ≤ 3s)`);
         return scene;
       } catch (error) {
-        console.error(`[SubScenes] ❌ Failed to enhance scene ${index + 1} (${scene.id}):`, error);
-        console.log(`[SubScenes] Continuing with original scene for ${scene.id}`);
-        // Return original scene on error - graceful degradation
+        console.error(`[SubScenes] Failed to backfill scene ${index + 1}:`, error);
         return scene;
       }
     })
   );
 
-  const totalSubScenes = (enhancedScenes as any[]).reduce(
-    (sum, scene) => sum + (scene.subScenes?.length || 0),
-    0
-  );
+  return enhanced;
+}
 
-  console.timeEnd("[SubScenes] Total enhancement time");
-  console.log(`[SubScenes] ✅ Enhancement complete: ${enhancedScenes.length} scenes, ${totalSubScenes} total sub-scenes`);
-
-  return enhancedScenes;
+/**
+ * @deprecated Use batch sub-scene generation in visual-prompts.ts instead.
+ * Kept for backward compatibility. Use ensureSubScenes() as a fallback.
+ */
+export async function enhanceScenesWithSubScenes(scenes: Scene[]): Promise<Scene[]> {
+  return ensureSubScenes(scenes);
 }

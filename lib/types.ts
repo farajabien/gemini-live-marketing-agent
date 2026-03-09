@@ -34,6 +34,7 @@ export interface Scene {
   videoClipUrl?: string; // Veo-generated b-roll clip (Pro only)
   operationId?: string; // Veo async operation ID for polling
   isVerbatimLocked?: boolean; // When true, voiceover text is locked (verbatim mode)
+  sceneTitle?: string; // AI-generated scene title/context for verbatim mode
 
   // NEW: Multi-visual sequence support
   subScenes?: SubScene[]; // Multiple visual cuts for this voiceover segment

@@ -320,14 +320,33 @@ function cleanVisualPrompt(prompt: string): string {
     .trim();
 }
 
+/**
+ * Result shape for a single scene's visual data from the batch LLM call.
+ */
+interface SceneVisualResult {
+  visualPrompt: string;
+  subSceneVisuals: Array<{ visualPrompt: string; duration: number }>;
+}
+
+/**
+ * Full result from the batch visual generation call.
+ */
+interface VisualGenerationResult {
+  title: string;
+  visualConsistency: string;
+  scenes: SceneVisualResult[];
+  cost: number;
+}
+
 export async function generateVisualPromptsForVerbatimScenes(
   scenes: string[],
   fullScript: string,
   strategy?: StrategyContext,
-  visualHints?: Array<string | undefined>
-): Promise<{ visualPrompts: string[]; visualConsistency: string; title: string; cost: number }> {
+  visualHints?: Array<string | undefined>,
+  sceneDurations?: number[]
+): Promise<VisualGenerationResult> {
 
-  let promptTemplate = VISUAL_PROMPTS.VERBATIM_VISUAL_GENERATION(fullScript, scenes, scenes.length);
+  let promptTemplate = VISUAL_PROMPTS.VERBATIM_VISUAL_GENERATION(fullScript, scenes, scenes.length, sceneDurations);
 
   // If user provided visual hints, include them in the prompt
   if (visualHints && visualHints.some(h => h)) {
@@ -349,12 +368,10 @@ export async function generateVisualPromptsForVerbatimScenes(
   try {
     const { text: rawText, cost } = await generateText(prompt, "You are an expert visual director.", "gemini-1.5-pro", 0.7);
 
-
-    
     // Extract JSON from response
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
-    
+
     const parsed = JSON.parse(sanitizeJson(jsonMatch[0]));
 
     // Sanitize visualConsistency
@@ -363,34 +380,90 @@ export async function generateVisualPromptsForVerbatimScenes(
     } else if (typeof parsed.visualConsistency !== 'string') {
         parsed.visualConsistency = String(parsed.visualConsistency || "");
     }
-    
-    // Clean up visual prompts to remove any prefixes
-    parsed.visualPrompts = parsed.visualPrompts.map((p: string) => cleanVisualPrompt(p));
-    
-    // Validate we have prompts for all scenes
-    if (parsed.visualPrompts.length !== scenes.length) {
-      console.warn(`Expected ${scenes.length} prompts, got ${parsed.visualPrompts.length}`);
-      // Pad or truncate to match
-      while (parsed.visualPrompts.length < scenes.length) {
-        parsed.visualPrompts.push(
-          `Stylized illustration representing: "${scenes[parsed.visualPrompts.length].substring(0, 50)}..."`
-        );
+
+    // ---- Handle NEW format (scenes array with sub-scene visuals) ----
+    if (parsed.scenes && Array.isArray(parsed.scenes)) {
+      console.log(`[Verbatim] Parsing new scenes format with inline sub-scenes`);
+
+      // Validate scene count
+      if (parsed.scenes.length !== scenes.length) {
+        console.warn(`[Verbatim] Expected ${scenes.length} scenes, got ${parsed.scenes.length}`);
+        // Pad or truncate
+        while (parsed.scenes.length < scenes.length) {
+          parsed.scenes.push({
+            visualPrompt: `Stylized illustration representing: "${scenes[parsed.scenes.length].substring(0, 50)}..."`,
+            subSceneVisuals: [],
+          });
+        }
+        parsed.scenes = parsed.scenes.slice(0, scenes.length);
       }
-      parsed.visualPrompts = parsed.visualPrompts.slice(0, scenes.length);
+
+      // Clean up visual prompts
+      for (const scene of parsed.scenes) {
+        scene.visualPrompt = cleanVisualPrompt(scene.visualPrompt || '');
+        if (scene.subSceneVisuals && Array.isArray(scene.subSceneVisuals)) {
+          scene.subSceneVisuals = scene.subSceneVisuals
+            .filter((sv: any) => sv && sv.visualPrompt)
+            .map((sv: any) => ({
+              visualPrompt: cleanVisualPrompt(sv.visualPrompt),
+              duration: typeof sv.duration === 'number' && sv.duration > 0 ? sv.duration : 2,
+            }));
+        } else {
+          scene.subSceneVisuals = [];
+        }
+      }
+
+      return {
+        title: parsed.title || 'Untitled Video',
+        visualConsistency: parsed.visualConsistency,
+        scenes: parsed.scenes,
+        cost,
+      };
     }
-    
-    return { ...parsed, cost };
+
+    // ---- Fallback: handle OLD format (flat visualPrompts array) ----
+    if (parsed.visualPrompts && Array.isArray(parsed.visualPrompts)) {
+      console.log(`[Verbatim] Parsing legacy visualPrompts format (no sub-scenes)`);
+
+      // Clean up visual prompts
+      parsed.visualPrompts = parsed.visualPrompts.map((p: string) => cleanVisualPrompt(p));
+
+      // Validate count
+      if (parsed.visualPrompts.length !== scenes.length) {
+        console.warn(`Expected ${scenes.length} prompts, got ${parsed.visualPrompts.length}`);
+        while (parsed.visualPrompts.length < scenes.length) {
+          parsed.visualPrompts.push(
+            `Stylized illustration representing: "${scenes[parsed.visualPrompts.length].substring(0, 50)}..."`
+          );
+        }
+        parsed.visualPrompts = parsed.visualPrompts.slice(0, scenes.length);
+      }
+
+      // Convert flat array to scenes format (no sub-scenes)
+      return {
+        title: parsed.title || 'Untitled Video',
+        visualConsistency: parsed.visualConsistency,
+        scenes: parsed.visualPrompts.map((vp: string) => ({
+          visualPrompt: vp,
+          subSceneVisuals: [],
+        })),
+        cost,
+      };
+    }
+
+    throw new Error("Response has neither 'scenes' nor 'visualPrompts' array");
 
   } catch (parseError) {
     console.error("Failed to parse visual prompts:", parseError);
-    
-    // Fallback: generate basic prompts
+
+    // Fallback: generate basic prompts (no sub-scenes)
     return {
       title: "Untitled Video",
-      visualConsistency: "Flat 2D illustration style with bold colors and minimalist characters.",
-      visualPrompts: scenes.map((scene) => 
-        `Flat 2D illustration, magazine style: Visual representation of "${scene.substring(0, 80)}..." Bold colors, clean lines, stylized characters.`
-      ),
+      visualConsistency: "Stylized illustration style with bold colors and minimalist characters.",
+      scenes: scenes.map((scene) => ({
+        visualPrompt: `Stylized illustration, magazine style: Visual representation of "${scene.substring(0, 80)}..." Bold colors, clean lines, stylized characters.`,
+        subSceneVisuals: [],
+      })),
       cost: 0,
     };
   }
@@ -439,21 +512,20 @@ export async function generateVerbatimPlan(
   // 2. Generate visual prompts (AI paraphrases for visuals only)
   console.log(`[Verbatim] Generating visual prompts for ${sceneTexts.length} scenes...`);
 
-  let visualPrompts: string[];
-  let visualConsistency: string;
-  let title: string;
+  // Pre-calculate durations so the LLM knows scene lengths for sub-scene timing
+  const sceneDurations = sceneTexts.map(text => calculateDuration(text));
+
+  let visualResult: Awaited<ReturnType<typeof generateVisualPromptsForVerbatimScenes>>;
 
   try {
-    const result = await generateVisualPromptsForVerbatimScenes(
+    visualResult = await generateVisualPromptsForVerbatimScenes(
       sceneTexts,
       script,
       strategy,
-      visualHints
+      visualHints,
+      sceneDurations
     );
-    visualPrompts = result.visualPrompts;
-    visualConsistency = result.visualConsistency;
-    title = result.title;
-    totalCost += result.cost;
+    totalCost += visualResult.cost;
 
     console.log(`[Verbatim] ✅ Visual prompts generated successfully.`);
   } catch (error) {
@@ -461,19 +533,19 @@ export async function generateVerbatimPlan(
     console.log(`[Verbatim] Using fallback visual prompts from script hints`);
 
     // Fallback: Use visual hints or generate simple prompts from voiceover text
-    visualPrompts = sceneTexts.map((text, i) => {
-      if (visualHints[i]) {
-        return `Flat 2D illustration: ${visualHints[i]}`;
-      }
-      // Extract first 100 chars of voiceover as visual description
-      const snippet = text.substring(0, 100).trim();
-      return `Flat 2D illustration depicting: ${snippet}${text.length > 100 ? '...' : ''}`;
-    });
-
-    visualConsistency = "Flat 2D illustration style with bold colors and clean design, magazine-quality aesthetic";
-    title = script.split('\n')[0]?.substring(0, 50) || "Video";
+    visualResult = {
+      title: script.split('\n')[0]?.substring(0, 50) || "Video",
+      visualConsistency: "Stylized illustration style with bold colors and clean design, magazine-quality aesthetic",
+      scenes: sceneTexts.map((text, i) => ({
+        visualPrompt: visualHints[i]
+          ? `Stylized illustration: ${visualHints[i]}`
+          : `Stylized illustration depicting: ${text.substring(0, 100).trim()}${text.length > 100 ? '...' : ''}`,
+        subSceneVisuals: [],
+      })),
+      cost: 0,
+    };
   }
-  
+
   // 3. Generate AI-driven scene titles/context for overlays
   console.log(`[Verbatim] Generating scene titles...`);
   const sceneTitlesPrompt = SCRIPT_PROMPTS.SCENE_TITLES(sceneTexts);
@@ -494,23 +566,45 @@ export async function generateVerbatimPlan(
     sceneTitles = sceneTexts.map((s, i) => `Scene ${i + 1}`);
   }
 
-  // 4. Build scenes with verbatim voiceover and generated visual prompts
-  const scenes: Scene[] = sceneTexts.map((text, i) => ({
-    id: nanoid(),
-    voiceover: text, // Exact verbatim text
-    visualPrompt: visualPrompts[i],
-    duration: calculateDuration(text),
-    textOverlay: '', // Remove text overlays for cleaner visuals
-    sceneTitle: sceneTitles[i], // Add AI-generated scene title/context
-    isVerbatimLocked: true, // Mark as locked
-  }));
-  
+  // 4. Build scenes with verbatim voiceover and generated visual prompts + sub-scenes
+  const scenes: Scene[] = sceneTexts.map((text, i) => {
+    const sceneVisuals = visualResult.scenes[i];
+    const baseDuration = sceneDurations[i];
+
+    const scene: Scene = {
+      id: nanoid(),
+      voiceover: text, // Exact verbatim text
+      visualPrompt: sceneVisuals.visualPrompt,
+      duration: baseDuration,
+      textOverlay: '', // Remove text overlays for cleaner visuals
+      sceneTitle: sceneTitles[i], // Add AI-generated scene title/context
+      isVerbatimLocked: true, // Mark as locked
+    };
+
+    // Add sub-scenes if the LLM produced them (scenes > 3s)
+    if (sceneVisuals.subSceneVisuals && sceneVisuals.subSceneVisuals.length > 0) {
+      // Normalize durations to sum exactly to baseDuration
+      const rawSum = sceneVisuals.subSceneVisuals.reduce((s, v) => s + v.duration, 0);
+      const scale = rawSum > 0 ? baseDuration / rawSum : 1;
+
+      scene.subScenes = sceneVisuals.subSceneVisuals.map((sv, idx) => ({
+        id: `${scene.id}-sub-${idx}`,
+        visualPrompt: sv.visualPrompt,
+        duration: Math.round(sv.duration * scale * 10) / 10,
+      }));
+
+      console.log(`[Verbatim] Scene ${i + 1}: ${scene.subScenes.length} sub-scenes (${baseDuration}s)`);
+    }
+
+    return scene;
+  });
+
   const estimatedDuration = scenes.reduce((sum, s) => sum + s.duration, 0);
-  
+
   return {
-    title,
+    title: visualResult.title,
     scenes,
-    visualConsistency,
+    visualConsistency: visualResult.visualConsistency,
     estimatedDuration,
     originalScript: tidyPunctuation(script),
     cost: totalCost,

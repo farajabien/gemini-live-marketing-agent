@@ -5,16 +5,17 @@ import type {
   ContentSettings,
   ReferenceImage,
   SceneChunkOptions,
+  SubScene,
   VideoPlan,
   VoiceTone,
   StrategyContext,
 } from "../types";
 import { DEFAULT_SETTINGS, buildPromptContext, buildStrategyContext } from "../content-settings";
 import { SEAMLESS_CAROUSEL_HINT, VISUAL_STYLE_CONSTRAINT } from "../constants";
-import { injectStyleConstraint, VISUAL_PROMPTS } from "@/lib/prompts";
+import { injectStyleConstraint, VISUAL_PROMPTS, SUB_SCENE_INSTRUCTIONS } from "@/lib/prompts";
 import { generateVerbatimPlan } from "./verbatim";
-import { enhanceScenesWithSubScenes } from "./subscene-generator";
 import { sanitizeJson } from "./json-utils";
+import { nanoid } from "nanoid";
 
 // Re-export refineIdea so it can be imported
 export { refineIdea };
@@ -83,10 +84,9 @@ export async function generateVideoPlanWithOptions(
     );
     totalCost += verbatimResult.cost;
 
-    let enhancedScenes = verbatimResult.scenes;
-    if (format === "video") {
-        enhancedScenes = await enhanceScenesWithSubScenes(verbatimResult.scenes);
-    }
+    // Sub-scenes are now generated inline during the batch visual prompt call
+    // (no separate enhanceScenesWithSubScenes step needed)
+    const enhancedScenes = verbatimResult.scenes;
 
     const { text: thumbnailPrompt, cost: thumbnailCost } = await generateThumbnailPromptForVerbatim(idea, verbatimResult.title);
     totalCost += thumbnailCost;
@@ -213,6 +213,12 @@ async function generatePlanFromRefinedPrompt(
       'IMPORTANT: Do NOT burn the voiceover or caption text into the generated image. Text is only allowed if it is a natural part of the scene (e.g. a street sign).',
     ];
 
+    // Add sub-scene support for video format (not carousel)
+    const isVideo = format === 'video';
+    if (isVideo && visualMode === 'image') {
+      rules.push('For scenes over 3 seconds, include a "subSceneVisuals" array with 2-6 visual cut prompts and durations (1-3s each, summing to the scene duration). For scenes 3s or under, omit subSceneVisuals or set it to []. Each sub-scene visual must maintain the same art style defined in visualConsistency.');
+    }
+
     if (format === 'carousel') {
       rules.push('CRITICAL: Since this is a CAROUSEL, ensure visuals are static or slow-moving. Favor punchy, central subjects compatible with square cropping.');
       if (seamlessMode) {
@@ -223,34 +229,47 @@ async function generatePlanFromRefinedPrompt(
     // Generate the plan JSON using GitHub Models
     const prompt = `
     Create a ${format} plan based on the content. Respond with ONLY valid JSON, no other text.
-    
+
     Content: ${refinedPrompt}
     Format: ${format}
     Duration: ${duration}
-    
+
     JSON structure (copy this exactly):
     {
       "title": "string",
       "tone": "string",
-      "visualConsistency": "string",
+      "visualConsistency": "string (2-3 sentence style guide for consistent visuals)",
       "scenes": [
         {
           "id": "1",
           "voiceover": "string",
           "visualPrompt": "string",
           "textOverlay": "string (2-5 words)",
-          "duration": 5
+          "duration": 5${isVideo && visualMode === 'image' ? `,
+          "subSceneVisuals": [
+            { "visualPrompt": "Wide establishing shot...", "duration": 2.0 },
+            { "visualPrompt": "Close-up detail...", "duration": 1.5 },
+            { "visualPrompt": "Different angle...", "duration": 1.5 }
+          ]` : ''}
         }
       ]
     }
-
+    ${isVideo && visualMode === 'image' ? `
+    **SUB-SCENE VISUAL CUTS:**
+    For video scenes over 3 seconds, create "subSceneVisuals" — distinct image prompts shown as rapid B-roll cuts while the voiceover plays.
+    - Analyze the voiceover for natural concept boundaries (new idea = new visual cut)
+    - Vary shots: wide, medium, close-up, detail. Vary angles.
+    - Each sub-scene: 1-3 seconds. Durations must sum to the scene's total duration.
+    - All sub-scene prompts must match the art style from visualConsistency.
+    - B-roll sequence: Establish → Detail → Emphasis → Context → Transition
+    ` : ''}
     Rules:
     ${rules.map(r => `- ${r}`).join('\n')}
-    
+
     ${strategy ? buildStrategyContext(strategy) : ""}
-    
+
     ${previousContent ? `\n**IMPORTANT: PREVIOUSLY GENERATED CONTENT FOR THIS ANGLE:**\n${previousContent}\nEnsure this new plan provides a fresh perspective and does not repeat the exact same hooks or narrative beats as the previous content shown above.\n` : ""}
-    
+
     RESPOND WITH ONLY THE JSON OBJECT. NO MARKDOWN. NO EXPLANATIONS.
     `;
 
@@ -305,6 +324,30 @@ async function generatePlanFromRefinedPrompt(
             positioning: strategy?.positioning,
             pillars: strategy?.pillars,
         };
+
+        // Convert subSceneVisuals from LLM response into proper SubScene[] objects
+        if (isVideo && visualMode === 'image' && videoPlan.scenes) {
+          for (const scene of videoPlan.scenes) {
+            const anyScene = scene as any;
+            if (anyScene.subSceneVisuals && Array.isArray(anyScene.subSceneVisuals) && anyScene.subSceneVisuals.length > 0) {
+              // Normalize durations to sum to scene.duration
+              const rawSum = anyScene.subSceneVisuals.reduce((s: number, v: any) => s + (v.duration || 2), 0);
+              const scale = rawSum > 0 ? scene.duration / rawSum : 1;
+
+              scene.subScenes = anyScene.subSceneVisuals
+                .filter((sv: any) => sv && sv.visualPrompt)
+                .map((sv: any, idx: number) => ({
+                  id: `${scene.id || nanoid()}-sub-${idx}`,
+                  visualPrompt: sv.visualPrompt,
+                  duration: Math.round((sv.duration || 2) * scale * 10) / 10,
+                }));
+
+              console.log(`[Standard] Scene ${scene.id}: ${scene.subScenes!.length} sub-scenes (${scene.duration}s)`);
+            }
+            // Clean up the raw LLM field so it doesn't get saved to Firestore
+            delete anyScene.subSceneVisuals;
+          }
+        }
 
         return { plan: videoPlan, cost };
     } catch (e) {

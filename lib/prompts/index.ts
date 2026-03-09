@@ -8,7 +8,7 @@
  * - Clear separation of concerns
  */
 
-export { VISUAL_PROMPTS } from './visual-prompts';
+export { VISUAL_PROMPTS, SUB_SCENE_INSTRUCTIONS } from './visual-prompts';
 export { SCRIPT_PROMPTS } from './script-prompts';
 
 /**
