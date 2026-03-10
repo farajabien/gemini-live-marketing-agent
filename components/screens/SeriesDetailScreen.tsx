@@ -19,7 +19,8 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const { user, refreshToken, isInitialLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
   const [episodeProgress, setEpisodeProgress] = useState<Record<string, EpisodeProgress>>({});
-  // Track which episodes have had audio/render triggered to avoid duplicate calls
+  // Track which episodes have had visuals/audio/render triggered to avoid duplicate calls
+  const triggeredVisuals = useRef<Set<string>>(new Set());
   const triggeredAudio = useRef<Set<string>>(new Set());
   const triggeredRender = useRef<Set<string>>(new Set());
 
@@ -71,7 +72,15 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           if (!plan) continue;
 
           const totalScenes = plan.scenes.length;
-          const visualsDone = plan.scenes.filter((s: any) => !!s.imageUrl || !!s.videoClipUrl).length;
+          // A scene is visually done if it has imageUrl/videoClipUrl directly,
+          // OR if it has sub-scenes and every sub-scene has imageUrl set.
+          const visualsDone = plan.scenes.filter((s: any) => {
+            if (!!s.imageUrl || !!s.videoClipUrl) return true;
+            if (s.subScenes && s.subScenes.length > 0) {
+              return s.subScenes.every((sub: any) => !!sub.imageUrl);
+            }
+            return false;
+          }).length;
           const audioDone = plan.scenes.filter((s: any) => !!s.audioUrl).length;
           const allVisualsDone = visualsDone === totalScenes;
           const allAudioDone = audioDone === totalScenes;
@@ -97,7 +106,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           }));
 
           if (!allVisualsDone) {
-            // Poll Veo operations for scenes with pending operationIds
+            // Poll Veo operations for scenes with pending operationIds (broll mode)
             const hasPendingOps = plan.scenes.some((s: any) => s.operationId && !s.videoClipUrl && !s.imageUrl);
             if (hasPendingOps) {
               await fetch("/api/poll-video-clips", {
@@ -105,6 +114,17 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
                 body: JSON.stringify({ planId: plan.id })
               });
+            } else if (!triggeredVisuals.current.has(episode.id)) {
+              // Image mode: no operationIds — re-trigger generate-visuals (idempotent)
+              triggeredVisuals.current.add(episode.id);
+              console.log(`[Orchestration] Triggering visual generation for episode ${episode.episodeNumber}...`);
+              fetch("/api/generate-visuals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                body: JSON.stringify({ planId: plan.id })
+              }).then(res => {
+                if (!res.ok) triggeredVisuals.current.delete(episode.id);
+              }).catch(() => triggeredVisuals.current.delete(episode.id));
             }
             continue;
           }
@@ -162,6 +182,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
 
           if (allAssetsDone && !!plan.videoUrl && episode.status !== 'complete') {
              console.log(`[Orchestration] Episode ${episode.episodeNumber} fully rendered, marking complete!`);
+             triggeredVisuals.current.delete(episode.id);
              triggeredAudio.current.delete(episode.id);
              triggeredRender.current.delete(episode.id);
              db.transact([
