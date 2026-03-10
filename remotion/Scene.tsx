@@ -59,12 +59,18 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
   };
 
   const getDirectStorageUrl = (url: string) => {
-    // Return absolute URLs and data URIs as-is (Remotion handles these natively)
+    // Strict: If local file, return as-is (never wrap in proxy)
+    if (url.startsWith("/tmp/") || url.startsWith("file:")) {
+      return url;
+    }
+    // Return absolute URLs and data URIs as-is
     if (url.startsWith("http") || url.startsWith("data:")) return url;
-
-    // Use the localized proxy to avoid access issues (S3 buckets often block direct browser access or require signed URLs)
-    // We construct an absolute URL to the Next.js API route
-    // Note: This assumes the rendering is happening where localhost:3000 (or configured port) is accessible
+    // Defensive: warn if a local file path would be wrapped
+    if (url.includes("/tmp/") || url.includes("file:")) {
+      console.warn("[Remotion] getDirectStorageUrl: Unexpected local file path wrapped in proxy:", url);
+      return url;
+    }
+    // Use the localized proxy for all other cases
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
   };

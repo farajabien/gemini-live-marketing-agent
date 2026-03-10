@@ -127,13 +127,17 @@ export async function renderScene(
       throw new Error("Scene must have an imageUrl");
     }
 
+
     // 2. Build FFmpeg command
     console.time("[FFmpeg] Video encoding");
 
     const gpuEncoder = options.useGPU ? detectGPUEncoder() : null;
     const codec = gpuEncoder || "libx264";
 
-    console.log(`[FFmpeg] Using codec: ${codec} (GPU: ${gpuEncoder ? "YES" : "NO"})`);
+    // Watermark overlay config
+    const watermarkPath = join(process.cwd(), "public/logos/ideatovideo-icon.png");
+    const watermarkSize = 120;
+    const watermarkPad = 24;
 
     await new Promise<void>((resolve, reject) => {
       let command = ffmpeg();
@@ -147,30 +151,28 @@ export async function renderScene(
           "-framerate", options.fps.toString()
         ]);
 
+      // Input: Watermark image
+      command = command.input(watermarkPath);
+
       // Input: Audio (if available)
       if (audioPath) {
         command = command.input(audioPath);
       }
 
-      // Video filter: scale + fade transitions
+      // Video filter: scale + fade transitions + watermark overlay
       const videoFilter = [
-        `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
-        `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`, // Center with black bars if needed
-        `format=yuv420p`, // Ensure compatibility
+        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[bg];`,
+        `[1:v]scale=${watermarkSize}:${watermarkSize}[wm];`,
+        `[bg][wm]overlay=W-w-${watermarkPad}:H-h-${watermarkPad}:format=auto[watermarked];`,
+        `[watermarked]fade=t=in:st=0:d=0.3,fade=t=out:st=${scene.duration - 0.3}:d=0.3[final]`
       ];
 
-      // Add fade in/out for smoother transitions
-      const transition = (scene as any).transition;
-      if (transition === "fade" || !transition) {
-        videoFilter.push(`fade=t=in:st=0:d=0.3`); // Fade in first 0.3s
-        videoFilter.push(`fade=t=out:st=${scene.duration - 0.3}:d=0.3`); // Fade out last 0.3s
-      }
-
-      command = command.videoFilters(videoFilter);
+      command = command.complexFilter(videoFilter, "final");
 
       // Output options
       command = command
         .outputOptions([
+          "-map", "[final]",
           "-pix_fmt", "yuv420p",
           "-r", options.fps.toString(),
           "-t", scene.duration.toString(),

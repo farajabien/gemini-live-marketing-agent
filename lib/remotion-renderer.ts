@@ -90,8 +90,9 @@ export async function renderRemotionVideo(
   const startTime = Date.now();
   
   const cpuCount = os.cpus().length;
-  const optimalConcurrency = Math.max(1, Math.floor(cpuCount / 2));
-  
+  // Lower concurrency for shared/limited resources
+  const optimalConcurrency = Math.max(1, Math.min(2, Math.floor(cpuCount / 4)));
+
   await renderMedia({
     composition,
     serveUrl: bundleLocation,
@@ -104,6 +105,7 @@ export async function renderRemotionVideo(
       disableWebSecurity: true,
       gl: "swangle",
       headless: true,
+      args: ["--disable-gpu", "--no-sandbox"],
     },
     videoBitrate: "3M", // Balanced quality/speed
     enforceAudioTrack: true,

@@ -54,11 +54,13 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   }, [data]);
 
   // Orchestration Effect: Drives the production state machine for episodes
+  // Limit concurrent Remotion renders to 1
+  const activeRenders = useRef(0);
+
   useEffect(() => {
     if (!seriesData || !refreshToken) return;
 
     const generatingEpisodes = (seriesData.episodes || []).filter(e => e.status === 'generating' && e.videoPlanId);
-    
     if (generatingEpisodes.length === 0) return;
 
     const orchestrate = async () => {
@@ -156,28 +158,34 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           }
 
           if (allAssetsDone && !plan.videoUrl) {
-             // Only trigger render once per episode
-             if (!triggeredRender.current.has(episode.id)) {
-               triggeredRender.current.add(episode.id);
-               console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
-               const renderRes = await fetch("/api/generate-video", {
-                 method: "POST",
-                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-                 body: JSON.stringify({ planId: plan.id, background: true })
-               });
-
-               if (renderRes.status === 429) {
-                  triggeredRender.current.delete(episode.id);
-                  db.transact([
-                    tx.episodes[episode.id].update({ 
-                      status: 'failed',
-                      updatedAt: Date.now()
-                    })
-                  ]);
-                  continue;
-               }
-             }
-             continue;
+            // Only allow one render at a time
+            if (activeRenders.current > 0) {
+              // Wait for next orchestration tick
+              continue;
+            }
+            // Only trigger render once per episode
+            if (!triggeredRender.current.has(episode.id)) {
+              triggeredRender.current.add(episode.id);
+              activeRenders.current++;
+              console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
+              const renderRes = await fetch("/api/generate-video", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                body: JSON.stringify({ planId: plan.id, background: true })
+              });
+              activeRenders.current--;
+              if (renderRes.status === 429) {
+                triggeredRender.current.delete(episode.id);
+                db.transact([
+                  tx.episodes[episode.id].update({ 
+                    status: 'failed',
+                    updatedAt: Date.now()
+                  })
+                ]);
+                continue;
+              }
+            }
+            continue;
           }
 
           if (allAssetsDone && !!plan.videoUrl && episode.status !== 'complete') {

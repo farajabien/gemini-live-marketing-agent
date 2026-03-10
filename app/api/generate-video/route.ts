@@ -177,16 +177,14 @@ export async function POST(request: NextRequest) {
       console.log('[VideoGen] Plan has sub-scenes — forcing Remotion renderer (FFmpeg does not support sub-scenes)');
     }
 
+
     if (shouldUseFFmpeg) {
-      // NEW: FFmpeg renderer with scene caching
+      // ...existing code for FFmpeg renderer...
       console.log('[VideoGen] Using FFmpeg renderer (with scene caching)');
       console.time('[VideoGen] FFmpeg render');
-
       try {
-        // Show render estimate
         const estimate = await estimateRenderTime(plan, plan.type === "carousel" ? "1:1" : "9:16");
         console.log(`[VideoGen] Estimated render time: ${estimate.estimatedSeconds}s (${estimate.cachedScenes} cached, ${estimate.newScenes} new)`);
-
         await renderVideoWithFFmpeg(plan, videoPath, {
           format: plan.type === "carousel" ? "1:1" : "9:16",
           resolution: "1080p",
@@ -203,21 +201,66 @@ export async function POST(request: NextRequest) {
             : 0;
           updateRenderProgress(percent);
         });
-
         console.timeEnd('[VideoGen] FFmpeg render');
       } catch (renderErr) {
         console.timeEnd('[VideoGen] FFmpeg render');
         console.error("FFmpeg rendering failed:", renderErr);
         throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
       }
-
     } else {
-      // LEGACY: Remotion renderer
-      console.log('[VideoGen] Using Remotion renderer (legacy)');
-      console.time('[VideoGen] Remotion render');
+      // --- Pre-download all Remotion assets to local temp files ---
+      const fetchAndSave = async (url: string, ext: string): Promise<string> => {
+        const { writeFile } = await import("fs/promises");
+        const { randomBytes } = await import("crypto");
+        const tempPath = join(tmpdir(), `remotion-asset-${randomBytes(6).toString("hex")}.${ext}`);
+        let downloadUrl = url;
+        if (!url.startsWith("http") && !url.startsWith("data:")) {
+          // Use Firebase Storage admin to get signed URL if needed
+          if (adminDb.storage?.getDownloadUrl) {
+            downloadUrl = await adminDb.storage.getDownloadUrl(url);
+          } else {
+            throw new Error("No storage.getDownloadUrl available for: " + url);
+          }
+        }
+        const res = await fetch(downloadUrl);
+        if (!res.ok) throw new Error(`Failed to fetch asset: ${url}`);
+        const buf = Buffer.from(await res.arrayBuffer());
+        await writeFile(tempPath, buf);
+        return tempPath;
+      };
 
+      // Deep clone plan to avoid mutating DB object
+      const localPlan = JSON.parse(JSON.stringify(plan));
+      const scenes = localPlan.scenes as Scene[];
+      for (const scene of scenes) {
+        if (scene.imageUrl) {
+          scene.imageUrl = await fetchAndSave(scene.imageUrl, "png");
+        }
+        if (scene.audioUrl) {
+          scene.audioUrl = await fetchAndSave(scene.audioUrl, "mp3");
+        }
+        if (scene.videoClipUrl) {
+          scene.videoClipUrl = await fetchAndSave(scene.videoClipUrl, "mp4");
+        }
+        if (scene.subScenes && Array.isArray(scene.subScenes)) {
+          for (const sub of scene.subScenes) {
+            if (sub.imageUrl) {
+              sub.imageUrl = await fetchAndSave(sub.imageUrl, "png");
+            }
+            if (sub.videoClipUrl) {
+              sub.videoClipUrl = await fetchAndSave(sub.videoClipUrl, "mp4");
+            }
+          }
+        }
+      }
+
+      console.log('[VideoGen] All Remotion assets pre-downloaded to local temp files.');
+
+      // LEGACY: Remotion renderer (now with local assets)
+      console.log('[VideoGen] Using Remotion renderer (legacy, optimized)');
+      console.time('[VideoGen] Remotion render');
       try {
-        await renderRemotionVideo(plan, videoPath, updateRenderProgress);
+        await renderRemotionVideo(localPlan, videoPath, updateRenderProgress);
         console.timeEnd('[VideoGen] Remotion render');
       } catch (renderErr) {
         console.timeEnd('[VideoGen] Remotion render');
