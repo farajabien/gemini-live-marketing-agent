@@ -34,8 +34,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Type definitions
 export interface FirestoreQuery {
-  [collection: string]: {
+  [alias: string]: {
     $?: {
+      collection?: string; // Optional: specify different collection than the alias
       where?: Record<string, any>;
       order?: Record<string, 'asc' | 'desc'>;
       limit?: number;
@@ -145,10 +146,11 @@ export function useFirestoreQuery<T = any>(
         setError(null);
 
         // Process each collection in the query
-        for (const [collectionName, config] of Object.entries(queryObj)) {
+        for (const [alias, config] of Object.entries(queryObj)) {
           if (!config) continue;
 
           const queryConfig = config.$;
+          const collectionName = queryConfig?.collection || alias;
           
           // Check if this is a simple query by ID
           let isDocQuery = false;
@@ -164,9 +166,9 @@ export function useFirestoreQuery<T = any>(
               docRef,
               (snapshot) => {
                 if (snapshot.exists()) {
-                  results[collectionName] = [{ id: snapshot.id, ...snapshot.data() }];
+                  results[alias] = [{ id: snapshot.id, ...snapshot.data() }];
                 } else {
-                  results[collectionName] = [];
+                  results[alias] = [];
                 }
                 setData({ ...results } as T);
                 setIsLoading(false);
@@ -190,13 +192,13 @@ export function useFirestoreQuery<T = any>(
                   ...doc.data(),
                 }));
 
-                results[collectionName] = docs;
+                results[alias] = docs;
                 setData({ ...results } as T);
                 setIsLoading(false);
               },
               (err) => {
                 const userId = (db as any)._currentUser?.id || (db as any)._currentUser?.uid;
-                console.error(`Firebase Permission/Query Error [${collectionName}] for user [${userId}]:`, err.message, err.code, {
+                console.error(`Firebase Permission/Query Error [${collectionName}] (alias: ${alias}) for user [${userId}]:`, err.message, err.code, {
                   where: queryConfig?.where,
                   config: queryConfig
                 });

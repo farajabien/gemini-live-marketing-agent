@@ -17,6 +17,7 @@ const WATERMARK_CONFIG = {
 type Scene = z.infer<typeof SceneSchema>;
 
 import { TextMotionScene } from "./TextMotionScene";
+import { MagazineScene } from "./MagazineScene";
 
 // ... (other imports)
 
@@ -69,6 +70,25 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
   };
 
   // --- NEW: Text Motion & GIF+Voice Mode ---
+  if (visualMode === 'magazine') {
+      return (
+          <AbsoluteFill>
+            <MagazineScene
+                text={scene.voiceover || scene.textOverlay || ""}
+                imageUrl={scene.imageUrl ? getDirectStorageUrl(scene.imageUrl) : null}
+                videoUrl={scene.videoClipUrl ? getDirectStorageUrl(scene.videoClipUrl) : null}
+            />
+            {/* Render audio if available */}
+            {scene.audioUrl && (
+                <Audio
+                src={getDirectStorageUrl(scene.audioUrl)}
+                volume={1.0}
+                />
+            )}
+          </AbsoluteFill>
+      );
+  }
+
   if (visualMode === 'text_motion' || visualMode === 'gif_voice') {
       return (
           <AbsoluteFill>

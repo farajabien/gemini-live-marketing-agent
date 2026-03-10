@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
               angle: piece.angle,
               format: (piece.format || format) as any,
               status: "suggested",
-              pillarId: pillarId || undefined,
+              ...(pillarId ? { pillarId } : {}),
               createdAt: now,
               updatedAt: now,
             }),

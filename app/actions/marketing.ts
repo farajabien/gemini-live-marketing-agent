@@ -3,7 +3,7 @@
 import { adminDb, generateId as id } from "@/lib/firebase-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
-import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, refineContentPillar, refineFullStrategy, evolveNarrative, generateSmartTitle, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
+import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, refineContentPillar, refineFullStrategy, evolveNarrative, generateSmartTitle, extractSeriesWizardDataFromBrainDump, generateSeriesSeasonPlot, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
 
 // Legacy type for backward compatibility
 export async function createBrandNarrative(
@@ -575,6 +575,16 @@ export async function createContentFromAngleAction(
   }
 }
 
+export async function autoFillSeriesAction(brainDump: string): Promise<any> {
+  try {
+    const { data } = await extractSeriesWizardDataFromBrainDump(brainDump);
+    return data;
+  } catch (error: any) {
+    console.error("Failed to auto-fill series:", error);
+    throw new Error("Failed to auto-fill series data");
+  }
+}
+
 export async function createSeriesNarrative(
   input: SeriesNarrativeInput,
   ownerId: string
@@ -992,5 +1002,31 @@ export async function rollbackNarrativeAction(
   } catch (error: any) {
     console.error("Rollback failed:", error);
     throw new Error(error.message || "Rollback failed");
+  }
+}
+
+export async function generateSeasonPlotAction(seriesNarrativeId: string, episodeCount: number = 3): Promise<string> {
+  try {
+    const data = await adminDb.query({
+      seriesNarratives: { $: { where: { id: seriesNarrativeId } } }
+    });
+    const narrative = (data as any).seriesNarratives?.[0];
+    if (!narrative) throw new Error("Narrative not found");
+
+    const input: SeriesNarrativeInput = {
+      genre: narrative.genre,
+      worldSetting: narrative.worldSetting,
+      conflictType: narrative.conflictType,
+      protagonistArchetype: narrative.protagonistArchetype,
+      centralTheme: narrative.centralTheme,
+      narrativeTone: narrative.narrativeTone,
+      visualStyle: narrative.visualStyle,
+      episodeHooks: narrative.episodeHooks,
+    };
+
+    return await generateSeriesSeasonPlot(input, episodeCount);
+  } catch (error: any) {
+    console.error("Failed to generate season plot:", error);
+    throw new Error(error.message || "Failed to generate season plot");
   }
 }

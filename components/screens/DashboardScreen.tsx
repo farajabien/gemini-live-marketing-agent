@@ -30,7 +30,7 @@ import {
 
 export function DashboardScreen() {
   const router = useRouter();
-  const { user, isLoading: isAuthLoading, refreshToken } = useAuth();
+  const { user, isInitialLoading, refreshToken } = useAuth();
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
 
@@ -90,7 +90,7 @@ export function DashboardScreen() {
     )
   );
 
-  if (isAuthLoading) {
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
@@ -131,10 +131,12 @@ export function DashboardScreen() {
   }, {} as Record<string, number>);
 
   const filteredQueueContent = queuedContent.filter(
-    (c) => contentFormatFilter === "all" || c.format === contentFormatFilter
+    (c) => (contentFormatFilter === "all" || c.format === contentFormatFilter) &&
+            (narrativeOriginFilter === "all" || c.narrativeId === narrativeOriginFilter)
   );
   const filteredApprovedContent = approvedContent.filter(
-    (c) => contentFormatFilter === "all" || c.format === contentFormatFilter
+    (c) => (contentFormatFilter === "all" || c.format === contentFormatFilter) &&
+            (narrativeOriginFilter === "all" || c.narrativeId === narrativeOriginFilter)
   );
 
   // Compute dynamic format counts for Media
@@ -268,6 +270,23 @@ export function DashboardScreen() {
     <div className="w-full font-sans text-white flex flex-col">
       <div className="flex-1 w-full">
      
+ {/* Project / Narrative selector — shown once the user has more than one project */}
+        {allNarratives.length > 1 && (
+          <div className="mb-6 px-1">
+            <Select value={narrativeOriginFilter} onValueChange={setNarrativeOriginFilter}>
+              <SelectTrigger className="w-full max-w-xs h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {allNarratives.map((n) => (
+                  <SelectItem key={n.id} value={n.id}>{n.title || n.id}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
  {/* Main Tabs */}
         <Tabs defaultValue="brand" className="w-full">
           <TabsList className="bg-white/5 border border-white/10 mb-10 h-14 p-1.5 rounded-2xl gap-2">

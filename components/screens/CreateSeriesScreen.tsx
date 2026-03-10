@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { Header } from "@/components/Header";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
 import { GenerationDialog } from "@/components/GenerationDialog";
+import { AuthScreen } from "@/components/screens/AuthScreen";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { toast } from "sonner";
+import { generateSeasonPlotAction } from "@/app/actions/marketing";
 
 export function CreateSeriesScreen() {
   const router = useRouter();
-  const { user, isLoading: isAuthLoading, refreshToken } = useAuth();
+  const { user, isInitialLoading, refreshToken } = useAuth();
   const [megaPrompt, setMegaPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +23,26 @@ export function CreateSeriesScreen() {
   const [totalCost, setTotalCost] = useState<number>(0);
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [selectedNarrativeId, setSelectedNarrativeId] = useState<string | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const searchParams = useSearchParams();
+  const narrativeIdParam = searchParams.get("narrativeId");
+  const episodesParam = searchParams.get("episodes");
+
+  const handleSuggestSeasonPlot = async (customCount?: number) => {
+    if (!selectedNarrativeId) return;
+    
+    setIsSuggesting(true);
+    try {
+      const count = customCount || Number(episodesParam) || 3;
+      const plot = await generateSeasonPlotAction(selectedNarrativeId, count);
+      setMegaPrompt(plot);
+      if (!customCount) toast.success("Season plot suggested!");
+    } catch (e: any) {
+      toast.error("Failed to suggest plot: " + e.message);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   // Fetch narratives
   const seriesNarrativesQuery = useMemo(
@@ -28,6 +51,21 @@ export function CreateSeriesScreen() {
   );
   const { data: narrativesData } = (db as any).useQuery(seriesNarrativesQuery);
   const narratives = (narrativesData?.seriesNarratives || []) as any[];
+
+  // Auto-select narrative from URL parameter and auto-trigger plot suggestion
+  useEffect(() => {
+    if (narrativeIdParam && narratives.length > 0) {
+      const found = narratives.find(n => n.id === narrativeIdParam);
+      if (found) {
+        setSelectedNarrativeId(found.id);
+        
+        // If we have an episode count, auto-suggest the plot
+        if (episodesParam && megaPrompt.length === 0) {
+          handleSuggestSeasonPlot(Number(episodesParam));
+        }
+      }
+    }
+  }, [narrativeIdParam, narratives, episodesParam]);
 
 
   const handleCreateSeries = async () => {
@@ -54,7 +92,11 @@ export function CreateSeriesScreen() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${refreshToken}`
         },
-        body: JSON.stringify({ megaPrompt, seriesNarrativeId: selectedNarrativeId }),
+        body: JSON.stringify({ 
+          megaPrompt, 
+          seriesNarrativeId: selectedNarrativeId,
+          episodeCount: Number(episodesParam) || 3
+        }),
       });
 
       if (!response.ok || !response.body) {
@@ -113,6 +155,17 @@ export function CreateSeriesScreen() {
     },
   ];
 
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex flex-col items-center justify-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+          <p className="text-sm text-slate-500 animate-pulse">Checking your account...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <AuthScreen />;
+
   return (
     <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
       <Header />
@@ -155,6 +208,41 @@ export function CreateSeriesScreen() {
                 {megaPrompt.length} / 5000 CHARS
               </div>
             </div>
+
+            {/* Bridge: Suggest Plot Button */}
+            {selectedNarrativeId && (
+              <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-purple-500/5 to-blue-500/5 border border-purple-500/10 border-dashed">
+                <div className="flex flex-col items-center text-center gap-4">
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-2">
+                      <span className="material-symbols-outlined text-purple-500 text-[18px]">auto_awesome</span>
+                      Bridge Architecture to Plot
+                    </h3>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">
+                      AI will draft a 3-5 episode arc based on your rules
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => handleSuggestSeasonPlot()}
+                    disabled={isSuggesting}
+                    className="group relative px-8 py-3 rounded-full bg-white dark:bg-white/10 text-slate-900 dark:text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-sm hover:shadow-purple-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all border border-slate-200 dark:border-white/10"
+                  >
+                    {isSuggesting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900 dark:border-white border-t-transparent" />
+                        <span>Working...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Suggest Season Plot</span>
+                        <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Narrative Selection */}
             {narratives.length > 0 && (

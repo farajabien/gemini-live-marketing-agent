@@ -161,6 +161,40 @@ export async function POST(request: NextRequest) {
         if (cachedInStorage) {
             console.log(`[Audio ${index}] ✅ Cache HIT. File verified in Storage.`);
             scene.audioUrl = cacheFileName;
+            // Parse cached audio duration so scene.duration always >= voiceover length
+            try {
+              const storageDb2 = adminDb as unknown as { storage?: { getDownloadUrl: (path: string) => Promise<string | { url?: string; data?: string; signedUrl?: string }> } };
+              if (storageDb2.storage?.getDownloadUrl) {
+                const urlResult = await storageDb2.storage.getDownloadUrl(cacheFileName);
+                const audioUrl = typeof urlResult === 'string' ? urlResult : (urlResult?.url || urlResult?.data || urlResult?.signedUrl || null);
+                if (audioUrl) {
+                  const audioRes = await fetch(audioUrl);
+                  const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+                  const { parseBuffer } = await import('music-metadata');
+                  const metadata = await parseBuffer(audioBuffer, { mimeType: 'audio/wav' });
+                  const cachedActualDuration = metadata.format.duration;
+                  if (cachedActualDuration && cachedActualDuration > 0) {
+                    const newDuration = Math.round(cachedActualDuration * 100) / 100;
+                    if (newDuration !== scene.duration) {
+                      console.log(`[Audio ${index}] Cache HIT duration update: ${scene.duration}s → ${newDuration}s`);
+                      scene.duration = newDuration;
+                      // Rescale subScenes to match updated duration
+                      const anySc = scene as any;
+                      if (anySc.subScenes && Array.isArray(anySc.subScenes) && anySc.subScenes.length > 0) {
+                        const subSum = anySc.subScenes.reduce((s: number, sub: any) => s + (sub.duration || 0), 0);
+                        if (subSum > 0 && Math.abs(subSum - newDuration) > 0.01) {
+                          const scale = newDuration / subSum;
+                          anySc.subScenes = anySc.subScenes.map((sub: any) => ({ ...sub, duration: Math.round(sub.duration * scale * 100) / 100 }));
+                          console.log(`[Audio ${index}] Cache HIT: rescaled ${anySc.subScenes.length} sub-scenes to ${newDuration}s`);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (cacheDurationErr) {
+              console.warn(`[Audio ${index}] Cache HIT duration parse failed (non-critical):`, cacheDurationErr);
+            }
             return scene;
         }
         
@@ -201,6 +235,21 @@ export async function POST(request: NextRequest) {
             scene.duration = newDuration;
             
             console.log(`[Audio ${index}] Duration: ${originalDuration}s → ${newDuration}s (actual: ${actualDuration.toFixed(4)}s)`);
+
+            // Proportionally rescale subScene durations to match actual audio length.
+            // Without this the visual feed ends before the voiceover finishes.
+            const anySc = scene as any;
+            if (anySc.subScenes && Array.isArray(anySc.subScenes) && anySc.subScenes.length > 0) {
+              const subSum = anySc.subScenes.reduce((s: number, sub: any) => s + (sub.duration || 0), 0);
+              if (subSum > 0 && Math.abs(subSum - newDuration) > 0.01) {
+                const scale = newDuration / subSum;
+                anySc.subScenes = anySc.subScenes.map((sub: any) => ({
+                  ...sub,
+                  duration: Math.round(sub.duration * scale * 100) / 100,
+                }));
+                console.log(`[Audio ${index}] Rescaled ${anySc.subScenes.length} sub-scenes from ${subSum.toFixed(2)}s to ${newDuration}s`);
+              }
+            }
           } else {
             console.warn(`[Audio ${index}] Invalid duration from metadata: ${actualDuration}`);
             scene.duration = scene.duration || 5;

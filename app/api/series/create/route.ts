@@ -6,7 +6,7 @@ import { withRetry } from "@/lib/ai/retry";
 import { sanitizeJson } from "@/lib/ai/json-utils";
 
 
-const FORMALIZE_SERIES_PROMPT = (megaPrompt: string, narrativeContext?: string) => `
+const FORMALIZE_SERIES_PROMPT = (megaPrompt: string, narrativeContext?: string, episodeCount: number = 3) => `
 You are creating a structured JSON plan for a video series based on this mega-prompt:
 
 "${megaPrompt}"
@@ -17,7 +17,7 @@ Generate a JSON object with:
 - title: Catchy series title (3-6 words)
 - tagline: One-sentence hook describing the series
 - visualConsistency: 2-3 sentence style guide for character/setting/style consistency across ALL episodes (animated/illustrated style ONLY, never realistic)
-- episodes: Array of episode objects, each with:
+- episodes: Array of EXACTLY ${episodeCount} episode objects, each with:
   - title: Episode title (3-5 words)
   - beats: Array of 3-5 key narrative beats/plot points for this episode
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       
       try {
-        const { megaPrompt, seriesNarrativeId } = await request.json();
+        const { megaPrompt, seriesNarrativeId, episodeCount } = await request.json();
 
         if (!megaPrompt || megaPrompt.length < 100) {
           sendError(controller, "Mega-prompt must be at least 100 characters");
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         sendProgress(controller, "Analyzing your idea and creating series structure...");
         
         const { text: formalizeText, cost: formalizeCost } = await withRetry(() => generateText(
-          FORMALIZE_SERIES_PROMPT(megaPrompt, narrativeContext),
+          FORMALIZE_SERIES_PROMPT(megaPrompt, narrativeContext, episodeCount || 3),
           "You are a JSON generator. Respond with ONLY valid JSON.",
           "gpt-4o",
           0.3,
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
 
         // Create series
         await adminDb.transact(
-          adminDb.tx.series[seriesId].update({
+          adminDb.tx.series[seriesId].set({
             userId: userId, // Required by security rules
             title: formalizedJson.title,
             tagline: formalizedJson.tagline,
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
           episodeIds.push(episodeId);
           
           await adminDb.transact([
-            adminDb.tx.episodes[episodeId].update({
+            adminDb.tx.episodes[episodeId].set({
               userId: userId, // Required by security rules
               episodeNumber: episodeScripts[i].episodeNumber,
               title: episodeScripts[i].title,
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
               updatedAt: now,
             }),
             // Link episode to series
-            adminDb.tx.episodes[episodeId].link({ series: seriesId }),
+            adminDb.tx.episodes[episodeId].link({ seriesId: seriesId }),
           ]);
         }
 

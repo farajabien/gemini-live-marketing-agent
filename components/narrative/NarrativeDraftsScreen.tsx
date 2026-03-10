@@ -299,9 +299,8 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   const allSeries = ((data as any)?.series || []) as Series[];
   const combinedMedia = [
     ...allPlans.map(p => ({ ...p, _kind: "plan" as const })),
-    ...allSeries
-      .filter(s => !(s as any).narrativeId || (s as any).narrativeId === narrativeId)
-      .map(s => ({ ...s, _kind: "series" as const }))
+    // Series are already scoped by the DB query (narrative link); skip the broken client-side narrativeId check
+    ...allSeries.map(s => ({ ...s, _kind: "series" as const }))
   ].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const handleGenerateContent = async () => {

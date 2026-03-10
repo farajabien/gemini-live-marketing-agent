@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, id } from "@/lib/firebase-admin";
 import type { Scene, VideoPlanStatus, EpisodeStatus } from "@/lib/types";
+import { generateSubScenesForEpisode } from "@/lib/ai/generation";
 
 /**
  * API Route: /api/episodes/compile
@@ -28,11 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized: Invalid session" }, { status: 401 });
     }
 
-    // Fetch episode and parent series with ownership info
+    // Fetch episode
     const queryResult = await adminDb.query({
       episodes: {
-        $: { where: { id: episodeId } },
-        series: {}
+        $: { where: { id: episodeId } }
       }
     });
 
@@ -41,13 +41,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Episode not found" }, { status: 404 });
     }
 
-    const series = episode.series;
+    // Fetch parent series context manually (nested queries in adminDb.query treat keys as subcollections)
+    const seriesId = episode.seriesId || episode.series;
+    if (!seriesId) {
+      return NextResponse.json({ error: "Episode missing series reference" }, { status: 400 });
+    }
+
+    const seriesResult = await adminDb.query({
+      series: {
+        $: { where: { id: seriesId } }
+      }
+    });
+
+    const series = seriesResult.series?.[0];
     if (!series) {
-      return NextResponse.json({ error: "Series context not found" }, { status: 404 });
+      return NextResponse.json({ error: "Series context not found or unauthorized" }, { status: 404 });
     }
     
     // Security check: ensure the authenticated user owns this series
-    const seriesUserId = (series as any).userId;
+    const seriesUserId = series.userId;
     if (!seriesUserId || seriesUserId !== authUser.id) {
       return NextResponse.json({ error: "Forbidden: You do not own this series" }, { status: 403 });
     }
@@ -66,13 +78,22 @@ export async function POST(request: NextRequest) {
       duration: 6, // Default to 6 seconds per scene for consistent flow
     }));
 
+    // Enrich flat scenes with AI-generated sub-visual sequences for richer storytelling
+    let compiledScenes = scenes;
+    try {
+      compiledScenes = await generateSubScenesForEpisode(scenes, series.visualConsistency || "");
+    } catch (subSceneErr) {
+      console.warn("[EpisodeCompile] Sub-scene generation failed, using flat scenes:", subSceneErr);
+    }
+
     // Reuse existing videoPlanId if this is a regeneration, otherwise create new
     const planId = episode.videoPlanId || id();
     
     const now = Date.now();
     const videoPlanData = {
       title: `${series.title} - Episode ${episode.episodeNumber}: ${episode.title}`,
-      scenes,
+      scenes: compiledScenes,
+      visualMode: "image" as const,
       type: "video" as const,
       status: "pending" as VideoPlanStatus,
       visualConsistency: series.visualConsistency,
@@ -90,8 +111,10 @@ export async function POST(request: NextRequest) {
 
     // Atomic transaction to create plan and link it to the episode
     await adminDb.transact([
-      adminDb.tx.videoPlans[planId].update(videoPlanData),
-      adminDb.tx.videoPlans[planId].link({ owner: authUser.id }),
+      adminDb.tx.videoPlans[planId].set({
+        ...videoPlanData,
+        userId: authUser.id, // Ensure owner is linked during creation
+      }),
       adminDb.tx.episodes[episodeId].update({
         videoPlanId: planId,
         status: "generating" as EpisodeStatus,

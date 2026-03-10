@@ -16,16 +16,37 @@ interface SeriesDetailScreenProps {
 }
 
 export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
-  const { user, refreshToken, isLoading: isAuthLoading } = useAuth();
+  const { user, refreshToken, isInitialLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
 
   const seriesQuery = useMemo(
-    () => ({ series: { $: { where: { id: seriesId } }, episodes: {} } }),
+    () => ({ 
+      series: { $: { where: { id: seriesId } } },
+      episodesNew: { $: { collection: 'episodes', where: { seriesId: seriesId } } },
+      episodesOld: { $: { collection: 'episodes', where: { series: seriesId } } }
+    }),
     [seriesId]
   );
   const { data, isLoading: isSeriesLoading, error } = db.useQuery(seriesQuery);
 
-  const seriesData = (data && 'series' in data ? data.series?.[0] : null) as SeriesWithEpisodes;
+  const seriesData = useMemo(() => {
+    if (!data || !('series' in data)) return null;
+    const series = data.series?.[0];
+    if (!series) return null;
+
+    const episodesNew = (data as any).episodesNew || [];
+    const episodesOld = (data as any).episodesOld || [];
+    
+    // Merge episodes and deduplicate by ID
+    const episodesMap = new Map();
+    [...episodesOld, ...episodesNew].forEach(ep => {
+      episodesMap.set(ep.id, ep);
+    });
+    
+    const episodes = Array.from(episodesMap.values());
+    
+    return { ...series, episodes } as SeriesWithEpisodes;
+  }, [data]);
 
   // Orchestration Effect: Drives the production state machine for episodes
   useEffect(() => {
@@ -162,7 +183,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   };
 
 
-  if (isAuthLoading) {
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#101322] flex flex-col items-center justify-center gap-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1337ec] border-t-transparent"></div>

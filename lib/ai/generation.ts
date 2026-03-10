@@ -35,7 +35,7 @@ export interface VerbatimGenerationOptions {
 export interface StandardGenerationOptions {
   verbatimMode?: false;
   // Visual strategy
-  visualMode?: "image" | "broll" | "gif_voice" | "text_motion";
+  visualMode?: "image" | "broll" | "gif_voice" | "text_motion" | "magazine";
   seamlessMode?: boolean;
   strategy?: StrategyContext;
   previousContent?: string;
@@ -191,7 +191,7 @@ async function generatePlanFromRefinedPrompt(
     format: "video" | "carousel",
     images: ReferenceImage[],
     settings: ContentSettings,
-    visualMode: "image" | "broll" | "gif_voice" | "text_motion" = "image",
+    visualMode: "image" | "broll" | "gif_voice" | "text_motion" | "magazine" = "image",
     seamlessMode: boolean = false,
     strategy?: StrategyContext,
     previousContent?: string
@@ -215,7 +215,7 @@ async function generatePlanFromRefinedPrompt(
 
     // Add sub-scene support for video format (not carousel)
     const isVideo = format === 'video';
-    if (isVideo && visualMode === 'image') {
+    if (isVideo && (visualMode === 'image' || visualMode === 'magazine')) {
       rules.push('For scenes over 3 seconds, include a "subSceneVisuals" array with 2-6 visual cut prompts and durations (1-3s each, summing to the scene duration). For scenes 3s or under, omit subSceneVisuals or set it to []. Each sub-scene visual must maintain the same art style defined in visualConsistency.');
     }
 
@@ -326,7 +326,7 @@ async function generatePlanFromRefinedPrompt(
         };
 
         // Convert subSceneVisuals from LLM response into proper SubScene[] objects
-        if (isVideo && visualMode === 'image' && videoPlan.scenes) {
+        if (isVideo && (visualMode === 'image' || visualMode === 'magazine') && videoPlan.scenes) {
           for (const scene of videoPlan.scenes) {
             const anyScene = scene as any;
             if (anyScene.subSceneVisuals && Array.isArray(anyScene.subSceneVisuals) && anyScene.subSceneVisuals.length > 0) {
@@ -355,4 +355,89 @@ async function generatePlanFromRefinedPrompt(
         console.error("Raw AI response:", response.substring(0, 1000));
         throw new Error("Failed to generate video plan. Please try again.");
     }
+}
+
+// ============================================================================
+// Episode Sub-Scene Generation
+// Generates rich multi-visual sequences for each scene in a compiled episode.
+// Called at compile time so that generated video plans have visual variety.
+// ============================================================================
+
+import type { Scene } from "../types";
+
+export async function generateSubScenesForEpisode(
+  scenes: Scene[],
+  visualConsistency: string
+): Promise<Scene[]> {
+  const sceneList = scenes
+    .map(
+      (s, i) =>
+        `Scene ${i}: voiceover="${s.voiceover}", duration=${s.duration}s, visualPrompt="${s.visualPrompt}"`
+    )
+    .join("\n");
+
+  const prompt = `You are a visual storytelling director. Given these video scenes, create 2-4 sub-visual shots per scene that together tell a richer story. Each sub-visual fills part of the scene duration filling continuous coverage for the full scene.
+
+Visual style/consistency: ${visualConsistency || "cinematic, professional"}
+
+Scenes:
+${sceneList}
+
+Return ONLY valid JSON (no markdown):
+{
+  "scenes": [
+    {
+      "sceneIndex": 0,
+      "subScenes": [
+        { "visualPrompt": "detailed image prompt", "duration": 2.5 },
+        { "visualPrompt": "another shot", "duration": 2.5 }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Sub-scene durations must sum to the parent scene's duration
+- Each visualPrompt must be a detailed, self-contained image prompt (${visualConsistency ? `consistent with: ${visualConsistency}` : "cinematic style"})
+- 2-4 sub-scenes per scene; prefer 3 for scenes >6s
+- No markdown, no extra text, only JSON`;
+
+  let response: string;
+  try {
+    const result = await generateText(prompt, "You are a visual storytelling director. Output only valid JSON.", "gemini-2.0-flash", 0.7);
+    response = result.text;
+  } catch (err) {
+    console.warn("[generateSubScenesForEpisode] AI call failed, returning flat scenes:", err);
+    return scenes;
+  }
+
+  try {
+    const cleaned = sanitizeJson(response);
+    const parsed = JSON.parse(cleaned) as { scenes: Array<{ sceneIndex: number; subScenes: Array<{ visualPrompt: string; duration: number }> }> };
+    if (!parsed.scenes || !Array.isArray(parsed.scenes)) return scenes;
+
+    const result = scenes.map((scene, i) => {
+      const match = parsed.scenes.find((s) => s.sceneIndex === i);
+      if (!match?.subScenes?.length) return scene;
+
+      const rawSum = match.subScenes.reduce((acc, sv) => acc + (sv.duration || 2), 0);
+      const scale = rawSum > 0 ? scene.duration / rawSum : 1;
+
+      const subScenes: SubScene[] = match.subScenes
+        .filter((sv) => sv && sv.visualPrompt)
+        .map((sv, idx) => ({
+          id: `${scene.id || nanoid()}-sub-${idx}`,
+          visualPrompt: sv.visualPrompt,
+          duration: Math.round((sv.duration || 2) * scale * 100) / 100,
+        }));
+
+      console.log(`[EpisodeSubScenes] Scene ${i}: ${subScenes.length} sub-scenes (${scene.duration}s)`);
+      return { ...scene, subScenes };
+    });
+
+    return result;
+  } catch (parseErr) {
+    console.warn("[generateSubScenesForEpisode] JSON parse failed, returning flat scenes:", parseErr);
+    return scenes;
+  }
 }

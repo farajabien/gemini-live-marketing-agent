@@ -66,7 +66,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const [error, setError] = useState<string | null>(null);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("JBFqnCBsd6RMkjVDRZzb"); // Default: Sarah
   const [settings, setSettings] = useState<ContentSettings>(DEFAULT_SETTINGS);
-  const [visualMode, setVisualMode] = useState<"image" | "broll" | "gif_voice">("image"); // Pro only for broll
+  const [visualMode, setVisualMode] = useState<"image" | "broll" | "gif_voice" | "magazine">("image"); // Pro only for broll
   const [verbatimMode, setVerbatimMode] = useState(false); // Use exact script for voiceover
   const [verbatimTone, setVerbatimTone] = useState<VoiceTone>("neutral"); // Tone affects prosody only
   const [seamlessMode, setSeamlessMode] = useState(false); // Carousel only: seamless transitions
@@ -887,6 +887,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                       <TabsTrigger value="carousel" className="text-[10px] font-black uppercase px-4 rounded-lg data-[state=active]:bg-red-600 data-[state=active]:text-white">
                         <Layout className="size-3.5 mr-1.5" /> Carousel
                       </TabsTrigger>
+                      <TabsTrigger value="book" className="text-[10px] font-black uppercase px-4 rounded-lg data-[state=active]:bg-red-600 data-[state=active]:text-white">
+                        <span className="material-symbols-outlined text-[14px] mr-1.5">menu_book</span> Book (PDF)
+                      </TabsTrigger>
                     </TabsList>
                   </div>
                 </Tabs>
@@ -897,22 +900,31 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                       router.push('/upgrade');
                       return;
                     }
+                    if (v === 'magazine' && user && ('planId' in user && user.planId !== 'pro' && user.planId !== 'pro_max')) {
+                      router.push('/upgrade');
+                      return;
+                    }
                     setVisualMode(v);
                   }} className="w-full">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <Label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        Video Style
-                        {visualMode === 'broll' && <Sparkles className="size-3 text-purple-400" />}
+                        {'Video Style'}
+                        {(visualMode === 'broll' || visualMode === 'magazine') && <Sparkles className="size-3 text-purple-400" />}
                       </Label>
                       <TabsList className="bg-white/5 p-1 h-9 rounded-xl overflow-x-auto sm:overflow-visible">
-                        <TabsTrigger value="image" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600">Images</TabsTrigger>
+                        <TabsTrigger value="image" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600">Standard</TabsTrigger>
+                        <TabsTrigger value="magazine" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-blue-600 flex items-center gap-1.5">
+                          Magazine
+                          {user && ('planId' in user && user.planId !== 'pro' && user.planId !== 'pro_max') && (
+                            <Badge className="h-3.5 px-1 py-0 bg-gradient-to-r from-blue-500 to-purple-500 text-[7px] text-white border-none leading-none">PRO</Badge>
+                          )}
+                        </TabsTrigger>
                         <TabsTrigger value="broll" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600 flex items-center gap-1.5">
                           B-Roll
                           {user && ('planId' in user && user.planId !== 'pro_max') && (
                             <Badge className="h-3.5 px-1 py-0 bg-gradient-to-r from-red-500 to-orange-500 text-[7px] text-white border-none leading-none">PRO</Badge>
                           )}
                         </TabsTrigger>
-                        {/* <TabsTrigger value="gif_voice" className="text-[10px] font-black uppercase px-3 rounded-lg data-[state=active]:bg-red-600">GIF + Voice</TabsTrigger> */}
                       </TabsList>
                     </div>
                   </Tabs>
@@ -937,7 +949,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
                   ) : (
                     <div className="flex items-center gap-2">
                         <Sparkles className="size-5" />
-                        <span className="text-sm uppercase tracking-widest">Compile {format === 'video' ? 'Video' : 'Carousel'}</span>
+                        <span className="text-sm uppercase tracking-widest">
+                          Compile {format === 'video' ? 'Video' : 'Carousel'}
+                        </span>
                     </div>
                   )}
                 </Button>

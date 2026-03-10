@@ -27,7 +27,7 @@ export const MainSchema = z.object({
   plan: z.object({
     title: z.string(),
     scenes: z.array(SceneSchema),
-    type: z.enum(["video", "carousel"]),
+    type: z.enum(["video", "carousel", "book"]),
     visualConsistency: z.string().optional(),
     style: z.string().optional(),
     visualMode: z.string().optional(),

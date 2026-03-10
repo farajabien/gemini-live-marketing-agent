@@ -7,8 +7,6 @@ import { withRetry } from "@/lib/ai/retry";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 
-
-
 export async function POST(request: NextRequest) {
   try {
     const { planId } = await request.json();
@@ -68,8 +66,8 @@ export async function POST(request: NextRequest) {
     const visualMode = plan.visualMode || "image";
     const isCarousel = plan.type === "carousel";
 
-    // Force image mode for carousels
-    if (isCarousel || visualMode === "image") {
+    // Force image mode for carousels (magazine also uses image generation)
+    if (isCarousel || visualMode === "image" || visualMode === "magazine") {
       return await generateImages(plan, planId);
     } else if (visualMode === "broll") {
       // B-Roll is Pro Max only

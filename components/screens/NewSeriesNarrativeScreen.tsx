@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { toast } from "sonner";
 import { Header } from "@/components/Header";
-import { createSeriesNarrative, refineSeriesNarrativeAction } from "@/app/actions/marketing";
+import { createSeriesNarrative, refineSeriesNarrativeAction, autoFillSeriesAction, generateSeasonPlotAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
@@ -15,6 +15,7 @@ import { RefineWithAIButton } from "@/components/RefineWithAIButton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 type Step = SeriesNarrativeStepId | "generating" | "review";
 
@@ -54,6 +55,11 @@ export function NewSeriesNarrativeScreen() {
   const [refineFeedback, setRefineFeedback] = useState("");
   const [isRefining, setIsRefining] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const [showAutoFill, setShowAutoFill] = useState(false);
+  const [brainDump, setBrainDump] = useState("");
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [episodeCount, setEpisodeCount] = useState<number>(3);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -182,7 +188,29 @@ export function NewSeriesNarrativeScreen() {
   const handleFinish = () => {
     localStorage.removeItem("series_narrative_wizard_data");
     localStorage.removeItem("series_narrative_wizard_step");
-    router.push(`/series/new?narrativeId=${seriesNarrativeId}`);
+    router.push(`/series/new?narrativeId=${seriesNarrativeId}&episodes=${episodeCount}`);
+  };
+
+  const handleAutoFill = async () => {
+    if (!brainDump.trim()) return;
+    setIsAutoFilling(true);
+    try {
+      const parsedData = await autoFillSeriesAction(brainDump);
+      const mergedData = { ...data };
+      Object.entries(parsedData).forEach(([k, v]) => {
+        if (v && k in mergedData) {
+          (mergedData as any)[k] = v;
+        }
+      });
+      setData(mergedData);
+      toast.success("Architecture auto-filled successfully!");
+      setShowAutoFill(false);
+      setBrainDump("");
+    } catch (e: any) {
+      toast.error("Failed to extract data. Please try again.");
+    } finally {
+      setIsAutoFilling(false);
+    }
   };
 
   const updateData = (key: keyof WizardData, value: string) => {
@@ -221,9 +249,20 @@ export function NewSeriesNarrativeScreen() {
 
           {step !== "generating" && currentStep && (
             <div className="animate-in fade-in slide-in-from-right-8 duration-300" key={step}>
-              <span className="text-purple-500 font-bold tracking-widest text-xs uppercase mb-4 block">
-                Story Architecture — Step {currentStepIndex + 1} of {SERIES_NARRATIVE_STEPS.length}
-              </span>
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-purple-500 font-bold tracking-widest text-xs uppercase block">
+                  Story Architecture — Step {currentStepIndex + 1} of {SERIES_NARRATIVE_STEPS.length}
+                </span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                  onClick={() => setShowAutoFill(true)}
+                >
+                  <span className="material-symbols-outlined mr-2 text-sm">auto_awesome</span>
+                  Auto-Fill with AI
+                </Button>
+              </div>
               <h1 className="text-4xl font-black mb-4">{currentStep.title}</h1>
               <p className="text-slate-400 mb-8 text-lg">
                 {currentStep.description}
@@ -321,7 +360,11 @@ export function NewSeriesNarrativeScreen() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <section>
                     <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2">Character Dynamics</h3>
-                    <p className="text-slate-400 leading-relaxed">{generatedAnalysis.characterDynamics}</p>
+                    <p className="text-slate-400 leading-relaxed">{
+                      typeof generatedAnalysis.characterDynamics === 'object' && generatedAnalysis.characterDynamics !== null
+                        ? Object.values(generatedAnalysis.characterDynamics).join(" • ")
+                        : generatedAnalysis.characterDynamics
+                    }</p>
                   </section>
                   <section>
                     <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2">Visual Moat</h3>
@@ -386,13 +429,29 @@ export function NewSeriesNarrativeScreen() {
                 >
                   Re-edit Inputs
                 </Button>
-                <Button 
-                  onClick={handleFinish}
-                  className="bg-white text-black hover:bg-slate-200 font-black px-12 py-6 h-auto text-lg rounded-full shadow-2xl shadow-white/10"
-                >
-                  Confirm Architecture
-                  <span className="material-symbols-outlined ml-2">check_circle</span>
-                </Button>
+                <div className="flex items-center gap-3">
+                  {/* Episode Count Selector */}
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2">
+                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Episodes</span>
+                    <select
+                      value={episodeCount}
+                      onChange={(e) => setEpisodeCount(Number(e.target.value))}
+                      className="bg-transparent text-white font-black text-sm outline-none cursor-pointer"
+                    >
+                      {[2, 3, 4, 5, 6, 8].map(n => (
+                        <option key={n} value={n} className="bg-[#0f0f1a] text-white">{n}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Button 
+                    onClick={handleFinish}
+                    className="bg-white text-black hover:bg-slate-200 font-black px-10 py-6 h-auto text-lg rounded-full shadow-2xl shadow-white/10"
+                  >
+                    Create Series
+                    <span className="material-symbols-outlined ml-2">rocket_launch</span>
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -426,6 +485,42 @@ export function NewSeriesNarrativeScreen() {
           )}
         </div>
       </main>
+
+      <Dialog open={showAutoFill} onOpenChange={setShowAutoFill}>
+        <DialogContent className="bg-[#0f0f1a] text-white border-white/10 sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black">Brainstorm to Architecture</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Paste your raw notes, brainstorming, or ideas from another AI. We'll automatically map them into the 8 steps of the architecture wizard.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={brainDump}
+              onChange={(e) => setBrainDump(e.target.value)}
+              placeholder="e.g. A sci-fi show about a rogue AI librarian. The theme is the preservation of human curiosity. Needs to look like Blade Runner but with warm library lighting..."
+              className="min-h-[200px] bg-black/40 border-white/10 text-white placeholder:text-slate-600 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setShowAutoFill(false)}
+              className="text-slate-400 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!brainDump.trim() || isAutoFilling}
+              onClick={handleAutoFill}
+              className="bg-purple-600 hover:bg-purple-500 text-white font-bold"
+            >
+              {isAutoFilling ? "Extracting..." : "Extract & Fill"}
+              {!isAutoFilling && <span className="material-symbols-outlined ml-2 text-sm">auto_awesome</span>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AuthChoiceDialog 
         isOpen={showAuthChoice} 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Confetti from "react-confetti";
 import { useWindowSize } from "react-use";
 import { useAuth } from "@/hooks/use-auth";
@@ -64,6 +64,7 @@ function RetryingImage({ src, alt, className, slideNumber }: { src: string; alt:
 
 export function SuccessScreen() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, refreshToken, isLoading: isAuthLoading } = useAuth();
   const type = searchParams.get("type") || "video";
   const planId = searchParams.get("planId");
@@ -580,13 +581,53 @@ export function SuccessScreen() {
              {isReady && (
                  <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-100">
                     <button
-                        onClick={handleDownload}
+                        onClick={async () => {
+                            if (type === 'book') {
+                                toast.info("Preparing your PDF Magazine...");
+                                // Trigger PDF generation API
+                                window.open(`/api/video-plans/${planId}/pdf`, '_blank');
+                            } else {
+                                handleDownload();
+                            }
+                        }}
                         disabled={isDownloading}
                         className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isDownloading ? <span className="animate-spin material-symbols-outlined">refresh</span> : <span className="material-symbols-outlined">download</span>}
-                        {isDownloading ? "Generating..." : (isCarousel ? "Download Carousel Images (ZIP)" : (plan?.scenes[0].audioUrl ? "Download Video (MP4)" : "Download Assets (ZIP)"))}
+                        {isDownloading ? <span className="animate-spin material-symbols-outlined">refresh</span> : <span className="material-symbols-outlined">{type === 'book' ? 'picture_as_pdf' : 'download'}</span>}
+                        {isDownloading ? "Generating..." : (type === 'book' ? "Download Magazine (PDF)" : isCarousel ? "Download Carousel Images (ZIP)" : (plan?.scenes[0].audioUrl ? "Download Video (MP4)" : "Download Assets (ZIP)"))}
                     </button>
+
+                    {type === 'book' && (
+                        <button
+                            onClick={async () => {
+                                if (!plan) return;
+                                toast.info("Converting Magazine to Video Video...");
+                                try {
+                                    setIsDownloading(true);
+                                    // Trigger video compilation from book
+                                    const res = await fetch(`/api/video-plans/${planId}/convert-to-video`, {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${refreshToken}` }
+                                    });
+                                    if (res.ok) {
+                                        const { newPlanId } = await res.json();
+                                        router.push(`/success?type=video&planId=${newPlanId}`);
+                                        toast.success("Magazine compiled to Video!");
+                                    } else {
+                                        throw new Error("Conversion failed");
+                                    }
+                                } catch (e) {
+                                    toast.error("Conversion failed");
+                                } finally {
+                                    setIsDownloading(false);
+                                }
+                            }}
+                            className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                            <span className="material-symbols-outlined">movie</span>
+                            Compile to Video
+                        </button>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                         <Link 

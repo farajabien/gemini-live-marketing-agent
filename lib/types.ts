@@ -65,14 +65,14 @@ export interface VideoPlan {
   scenes: Scene[];
   estimatedDuration?: number; // Legacy field - optional
   duration?: number; // Total video duration in seconds (calculated from scenes)
-  type: "video" | "carousel";
+  type: "video" | "carousel" | "book";
   thumbnailPrompt?: string;
   thumbnailUrl?: string;
   videoUrl?: string;
   visualConsistency?: string;
   status?: VideoPlanStatus;
   voiceId?: string;
-  visualMode?: "image" | "broll" | "text_motion" | "gif_voice"; // Pro users only for broll
+  visualMode?: "image" | "broll" | "text_motion" | "gif_voice" | "magazine"; // Pro users only for broll
   createdAt?: number;
   postedAt?: number;
   // New settings fields

@@ -13,6 +13,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
   const scenes = plan.scenes || [];
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isMutedByAutoplay, setIsMutedByAutoplay] = useState(false);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -45,7 +46,12 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
 
       if (slide?.audioUrl && isPlaying && !plan.videoUrl) {
         try {
-          const audio = new Audio(slide.audioUrl);
+          // Resolve storage path via proxy (handles Firebase Storage access)
+          const audioUrl = (slide.audioUrl.startsWith("http") || slide.audioUrl.startsWith("data:"))
+            ? slide.audioUrl
+            : `/api/proxy-image?path=${encodeURIComponent(slide.audioUrl)}`;
+
+          const audio = new Audio(audioUrl);
           audio.volume = 1.0;
           activeAudio = audio;
 
@@ -58,10 +64,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
 
           audioElementRef.current = audio;
 
-          // Wrapped in a promise to handle play() rejection (AbortError)
+          // Wrapped in a promise to handle play() rejection (AbortError or NotAllowedError)
           await audio.play();
-        } catch (err: unknown) {
-          if (err instanceof Error && err.name === "AbortError") return;
+          setIsMutedByAutoplay(false); // Success! Browsers allows audio now
+        } catch (err: any) {
+          if (err.name === "AbortError") return;
+          if (err.name === "NotAllowedError") {
+            console.warn("Autoplay blocked: user must interact first");
+            setIsMutedByAutoplay(true);
+            return;
+          }
           console.error("Error playing audio:", err);
         }
       }
@@ -130,6 +142,31 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({ plan }) => {
                     {isPlaying ? "pause_circle" : "play_circle"}
                 </span>
             </button>
+
+            {/* Autoplay / Unmute Overlay */}
+            {isMutedByAutoplay && isPlaying && (
+              <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMutedByAutoplay(false);
+                    // This interaction will allow the next audio.play() to succeed
+                    if (audioElementRef.current) {
+                      audioElementRef.current.play().catch(err => console.error("Manual play failed:", err));
+                    }
+                  }}
+                  className="flex flex-col items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md px-8 py-6 rounded-3xl transition-all hover:scale-105 active:scale-95 group"
+                >
+                  <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center shadow-xl group-hover:shadow-white/20">
+                    <span className="material-symbols-outlined text-black text-4xl">volume_up</span>
+                  </div>
+                  <div className="text-white">
+                    <p className="font-black uppercase tracking-widest text-xs">Tap to Unmute</p>
+                    <p className="text-[10px] opacity-70 mt-0.5">Start listening</p>
+                  </div>
+                </button>
+              </div>
+            )}
 
             {/* Rendering Overlay */}
             {plan.status === 'rendering' && (

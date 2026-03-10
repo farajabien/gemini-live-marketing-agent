@@ -559,6 +559,58 @@ OUTPUT JSON ONLY (same structure as original):
   }
 }
 
+export async function extractSeriesWizardDataFromBrainDump(
+  brainDump: string
+): Promise<any> {
+  const prompt = `
+You are a strategic series architect. A creator has provided a rough brainstorm or notes for a series.
+Extract and map their ideas into the 8 required fields for our Series Architecture Wizard.
+If a field is not explicitly mentioned, infer the MOST LIKELY logical choice based on their notes.
+
+The 8 fields and their allowed values (or types) are:
+1. "genre" (string - select the closest: "sci-fi", "mystery", "docu", "thriller", "fantasy", or make up a short genre name if none fit)
+2. "worldSetting" (string - describe the setting in 1-2 sentences)
+3. "conflictType" (string - select the closest: "internal", "person-vs-person", "person-vs-society", "person-vs-nature", "person-vs-tech")
+4. "protagonistArchetype" (string - select the closest: "hero", "anti-hero", "underdog", "sage", "everyman")
+5. "centralTheme" (string - describe the core theme in 1-2 sentences)
+6. "narrativeTone" (string - select the closest: "optimistic", "dark", "satirical", "stoic", "whimsical")
+7. "visualStyle" (string - describe the camera work, lighting, colors in 1-2 sentences)
+8. "episodeHooks" (string - a list or paragraph of 3-5 potential episode hooks)
+
+USER'S BRAIN DUMP:
+"${brainDump}"
+
+OUTPUT JSON ONLY exactly matching the keys above:
+{
+  "genre": "...",
+  "worldSetting": "...",
+  "conflictType": "...",
+  "protagonistArchetype": "...",
+  "centralTheme": "...",
+  "narrativeTone": "...",
+  "visualStyle": "...",
+  "episodeHooks": "..."
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a series architect. Extract wizard data. Output JSON only.",
+    "gemini-1.5-pro",
+    0.7
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const data = JSON.parse(jsonMatch[0]);
+    return { data, cost };
+  } catch (e) {
+    console.error("Failed to extract wizard data from brain dump:", response);
+    throw new Error("Failed to extract wizard data from brain dump");
+  }
+}
+
 export async function refineBrandNarrative(
   input: NarrativeInput,
   currentAnalysis: any,
@@ -826,3 +878,48 @@ OUTPUT JSON ONLY:
     throw new Error("Failed to refine full strategy");
   }
 }
+
+export async function generateSeriesSeasonPlot(input: SeriesNarrativeInput, episodeCount: number = 3): Promise<string> {
+  const prompt = `
+You are a Lead Showrunner and Screenwriter. Your task is to generate a compelling ${episodeCount}-episode "Series Mega-Prompt" based on a Story Architecture.
+
+STORY ARCHITECTURE:
+- Genre: ${input.genre}
+- World: ${input.worldSetting}
+- Conflict: ${input.conflictType}
+- Hero Archetype: ${input.protagonistArchetype}
+- Theme: ${input.centralTheme}
+- Tone: ${input.narrativeTone}
+- Visual Style: ${input.visualStyle}
+
+TASK:
+Generate a structured narrative arc for a mini-series of EXACTLY ${episodeCount} episodes.
+The output should be a "Mega-Prompt" that describes the series premise and gives a specific 2-3 sentence summary for EACH episode.
+
+STRUCTURE YOUR RESPONSE LIKE THIS:
+Create a ${episodeCount}-episode series about [Premise].
+
+${Array.from({ length: episodeCount }).map((_, i) => `Episode ${i + 1}: [Specific plot events happen here...]`).join('\n')}
+
+Style: [Keep it consistent with visual style]
+Tone: [Keep it consistent with tone]
+
+RULES:
+- Be creative. Don't be generic.
+- Ensure there is clear progression between episodes.
+- Episode descriptions must be action-oriented (what we see and hear).
+- The total response should be between 300 and 800 words.
+
+Return ONLY the text of the mega-prompt. No intro/outro.
+`;
+
+  const { text } = await generateText(
+    prompt,
+    "You are a creative showrunner. Write a compelling series plot.",
+    "gemini-1.5-pro",
+    0.8
+  );
+
+  return text.trim();
+}
+
