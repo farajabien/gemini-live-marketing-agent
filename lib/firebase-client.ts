@@ -240,7 +240,7 @@ export function useFirestoreDoc<T = any>(
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!documentId) {
+    if (!collectionName || !documentId) {
       setData(null);
       setIsLoading(false);
       return;
