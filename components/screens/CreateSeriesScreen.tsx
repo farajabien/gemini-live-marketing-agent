@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
 import { generateSeasonPlotAction } from "@/app/actions/marketing";
+import { Button } from "../ui/button";
 
 export function CreateSeriesScreen() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export function CreateSeriesScreen() {
   const searchParams = useSearchParams();
   const narrativeIdParam = searchParams.get("narrativeId");
   const episodesParam = searchParams.get("episodes");
+  const autoMode = !!(narrativeIdParam && episodesParam);
+  const pendingAutoPrompt = useRef<string | null>(null);
 
   const handleSuggestSeasonPlot = async (customCount?: number) => {
     if (!selectedNarrativeId) return;
@@ -36,12 +39,22 @@ export function CreateSeriesScreen() {
       const count = customCount || Number(episodesParam) || 3;
       const plot = await generateSeasonPlotAction(selectedNarrativeId, count);
       setMegaPrompt(plot);
-      if (!customCount) toast.success("Season plot suggested!");
+      if (autoMode) {
+        if (user && refreshToken) {
+          handleCreateSeries(plot);
+        } else {
+          pendingAutoPrompt.current = plot;
+          setIsAuthDialogOpen(true);
+        }
+      } else if (!customCount) {
+        toast.success("Season plot suggested!");
+      }
     } catch (e: any) {
       toast.error("Failed to suggest plot: " + e.message);
-    } finally {
       setIsSuggesting(false);
     }
+    // Don't set isSuggesting=false here in autoMode — handleCreateSeries takes over the loading state
+    if (!autoMode) setIsSuggesting(false);
   };
 
   // Fetch narratives
@@ -67,19 +80,31 @@ export function CreateSeriesScreen() {
     }
   }, [narrativeIdParam, narratives, episodesParam]);
 
+  // After auth completes in autoMode, fire the pending creation
+  useEffect(() => {
+    if (user && refreshToken && pendingAutoPrompt.current) {
+      const prompt = pendingAutoPrompt.current;
+      pendingAutoPrompt.current = null;
+      handleCreateSeries(prompt);
+    }
+  }, [user, refreshToken]);
 
-  const handleCreateSeries = async () => {
+
+  const handleCreateSeries = async (promptOverride?: string) => {
+    const effectivePrompt = promptOverride ?? megaPrompt;
+
     if (!user || !refreshToken) {
       setIsAuthDialogOpen(true);
       return;
     }
 
-    if (megaPrompt.length < 100) {
+    if (effectivePrompt.length < 100) {
       setError("Please provide more details (minimum 100 characters)");
       return;
     }
 
     setIsCreating(true);
+    setIsSuggesting(false);
     setError(null);
     setProgressMessage(null);
     setTotalCost(0);
@@ -93,7 +118,7 @@ export function CreateSeriesScreen() {
           "Authorization": `Bearer ${refreshToken}`
         },
         body: JSON.stringify({ 
-          megaPrompt, 
+          megaPrompt: effectivePrompt, 
           seriesNarrativeId: selectedNarrativeId,
           episodeCount: Number(episodesParam) || 3
         }),
@@ -165,6 +190,23 @@ export function CreateSeriesScreen() {
   }
 
   if (!user) return <AuthScreen />;
+
+  // Auto-mode: show a clean loading screen instead of the form
+  if (autoMode && (isSuggesting || isCreating)) {
+    return (
+      <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex flex-col items-center justify-center gap-6">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+        <div className="text-center">
+          <p className="text-lg font-black text-slate-900 dark:text-white">
+            {isCreating ? progressMessage || "Creating your series…" : "Generating season plot…"}
+          </p>
+          {isCreating && totalCost > 0 && (
+            <p className="text-sm text-slate-500 mt-1">${totalCost.toFixed(4)} spent</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
@@ -314,8 +356,8 @@ Duration: [Target length]`}
 
 
 
-            <button
-              onClick={handleCreateSeries}
+            <Button
+              onClick={() => handleCreateSeries()}
               disabled={isCreating || megaPrompt.length < 100}
               className="mt-6 w-full h-14 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
             >
@@ -330,7 +372,7 @@ Duration: [Target length]`}
                   Create Series
                 </>
               )}
-            </button>
+            </Button>
           </div>
 
           {/* Example Prompts */}
