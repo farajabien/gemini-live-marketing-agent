@@ -3,11 +3,11 @@
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { EpisodeCard } from "@/components/series/EpisodeCard";
-import { ProductionOverlay } from "@/components/series/ProductionOverlay";
+import { ProductionOverlay, type EpisodeProgress } from "@/components/series/ProductionOverlay";
 import type { Series, Episode, SeriesWithEpisodes } from "@/lib/types";
 import Link from "next/link";
 
@@ -18,6 +18,10 @@ interface SeriesDetailScreenProps {
 export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const { user, refreshToken, isInitialLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
+  const [episodeProgress, setEpisodeProgress] = useState<Record<string, EpisodeProgress>>({});
+  // Track which episodes have had audio/render triggered to avoid duplicate calls
+  const triggeredAudio = useRef<Set<string>>(new Set());
+  const triggeredRender = useRef<Set<string>>(new Set());
 
   const seriesQuery = useMemo(
     () => ({ 
@@ -73,53 +77,93 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           const allAudioDone = audioDone === totalScenes;
           const allAssetsDone = allVisualsDone && allAudioDone;
 
+          // Determine current phase for UI
+          let phase: EpisodeProgress['phase'] = 'visuals';
+          if (allVisualsDone && !allAudioDone) phase = 'audio';
+          else if (allAssetsDone && !plan.videoUrl) phase = 'rendering';
+          else if (allAssetsDone && plan.videoUrl) phase = 'complete';
+
+          setEpisodeProgress(prev => ({
+            ...prev,
+            [episode.id]: {
+              episodeId: episode.id,
+              title: episode.title,
+              episodeNumber: episode.episodeNumber,
+              phase,
+              visualsDone,
+              audioDone,
+              totalScenes,
+            }
+          }));
+
           if (!allVisualsDone) {
+            // Poll Veo operations for scenes with pending operationIds
+            const hasPendingOps = plan.scenes.some((s: any) => s.operationId && !s.videoClipUrl && !s.imageUrl);
+            if (hasPendingOps) {
+              await fetch("/api/poll-video-clips", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                body: JSON.stringify({ planId: plan.id })
+              });
+            }
             continue;
           }
 
           if (allVisualsDone && !allAudioDone) {
-             console.log(`[Orchestration] Visuals ready for episode ${episode.episodeNumber}, triggering audio...`);
-             const audioRes = await fetch("/api/generate-audio", {
-               method: "POST",
-               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-               body: JSON.stringify({ planId: plan.id })
-             });
-             
-             if (audioRes.status === 429) {
-               console.warn(`[Orchestration] Rate limit hit for episode ${episode.episodeNumber}, marking failed.`);
-               db.transact([
-                 tx.episodes[episode.id].update({ 
-                   status: 'failed',
-                   updatedAt: Date.now()
-                 })
-               ]);
-               continue;
+             // Only trigger audio once per episode
+             if (!triggeredAudio.current.has(episode.id)) {
+               triggeredAudio.current.add(episode.id);
+               console.log(`[Orchestration] Visuals ready for episode ${episode.episodeNumber}, triggering audio...`);
+               const audioRes = await fetch("/api/generate-audio", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                 body: JSON.stringify({ planId: plan.id })
+               });
+               
+               if (audioRes.status === 429) {
+                 console.warn(`[Orchestration] Rate limit hit for episode ${episode.episodeNumber}, marking failed.`);
+                 triggeredAudio.current.delete(episode.id);
+                 db.transact([
+                   tx.episodes[episode.id].update({ 
+                     status: 'failed',
+                     updatedAt: Date.now()
+                   })
+                 ]);
+                 continue;
+               }
              }
              continue;
           }
 
           if (allAssetsDone && !plan.videoUrl) {
-             console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
-             const renderRes = await fetch("/api/generate-video", {
-               method: "POST",
-               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-               body: JSON.stringify({ planId: plan.id, background: true })
-             });
+             // Only trigger render once per episode
+             if (!triggeredRender.current.has(episode.id)) {
+               triggeredRender.current.add(episode.id);
+               console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
+               const renderRes = await fetch("/api/generate-video", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                 body: JSON.stringify({ planId: plan.id, background: true })
+               });
 
-             if (renderRes.status === 429) {
-                db.transact([
-                  tx.episodes[episode.id].update({ 
-                    status: 'failed',
-                    updatedAt: Date.now()
-                  })
-                ]);
-                continue;
+               if (renderRes.status === 429) {
+                  triggeredRender.current.delete(episode.id);
+                  db.transact([
+                    tx.episodes[episode.id].update({ 
+                      status: 'failed',
+                      updatedAt: Date.now()
+                    })
+                  ]);
+                  continue;
+               }
              }
              continue;
           }
 
           if (allAssetsDone && !!plan.videoUrl && episode.status !== 'complete') {
              console.log(`[Orchestration] Episode ${episode.episodeNumber} fully rendered, marking complete!`);
+             triggeredAudio.current.delete(episode.id);
+             triggeredRender.current.delete(episode.id);
              db.transact([
                tx.episodes[episode.id].update({ 
                  status: 'complete',
@@ -221,12 +265,15 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
 
 
 
-  const activeEpisode = (seriesData.episodes || []).find(e => e.status === 'generating' || e.status === 'failed') || null;
+  const generatingEps = (seriesData.episodes || []).filter(e => e.status === 'generating' || e.status === 'failed');
+  const activeEpisode = generatingEps[0] || null;
 
   const handleRetryEpisode = (episode: Episode) => {
+    triggeredAudio.current.delete(episode.id);
+    triggeredRender.current.delete(episode.id);
     db.transact([
       tx.episodes[episode.id].update({ 
-        status: 'draft', // Move back to draft to clear the overlay
+        status: 'draft',
         updatedAt: Date.now()
       })
     ]);
@@ -243,8 +290,9 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       
       {/* Production Overlay for generating or failed state */}
       <ProductionOverlay 
-        episode={activeEpisode} 
-        onRetry={() => activeEpisode && handleRetryEpisode(activeEpisode)}
+        episodes={generatingEps}
+        progress={episodeProgress}
+        onRetry={(ep) => handleRetryEpisode(ep)}
       />
       
       {/* Cinematic Series Header */}
