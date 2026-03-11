@@ -2,7 +2,10 @@ import React from 'react';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring, Img, Video } from 'remotion';
 import { loadFont } from "@remotion/google-fonts/Inter";
 
-const { fontFamily } = loadFont();
+const { fontFamily } = loadFont("normal", {
+  weights: ["400", "700"],
+  subsets: ["latin"],
+});
 
 interface MagazineSceneProps {
     text: string;

@@ -19,10 +19,23 @@ import { getRenderPreset, type RenderPresetName } from "@/lib/render-presets";
 // Set to false to use Remotion (legacy)
 const USE_FFMPEG_RENDERER = process.env.USE_FFMPEG_RENDERER !== "false";
 
+const rendersInProgress = new Set<string>();
+
 export async function POST(request: NextRequest) {
+  let lockedPlanId: string | null = null;
   try {
     const { planId, background = false, forceRerender = false, useFFmpeg, renderPreset } = await request.json();
     if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
+
+    if (rendersInProgress.has(planId)) {
+      console.log(`[VideoGen] Render already in progress for plan: ${planId}, returning 409`);
+      return NextResponse.json(
+        { error: "Render already in progress", inProgress: true },
+        { status: 409 }
+      );
+    }
+    rendersInProgress.add(planId);
+    lockedPlanId = planId;
 
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -179,7 +192,9 @@ export async function POST(request: NextRequest) {
     }
 
 
-    const preset = getRenderPreset(renderPreset as RenderPresetName | undefined);
+    const effectivePreset = renderPreset
+      || (process.env.NODE_ENV === 'development' ? 'fast_preview' : undefined);
+    const preset = getRenderPreset(effectivePreset as RenderPresetName | undefined);
     console.log(`[VideoGen] Render preset: ${preset.name} (${preset.width}x${preset.height} @ ${preset.fps}fps)`);
 
     if (shouldUseFFmpeg) {
@@ -260,6 +275,13 @@ export async function POST(request: NextRequest) {
 
       console.log('[VideoGen] All Remotion assets pre-downloaded to local temp files.');
 
+      console.log('[VideoGen] Pre-warming proxy-image route...');
+      try {
+        const warmupUrl = `http://localhost:${process.env.PORT || 3000}/api/proxy-image?path=/tmp/warmup`;
+        await fetch(warmupUrl).catch(() => {});
+      } catch {}
+      console.log('[VideoGen] Proxy-image route warmed up.');
+
       // LEGACY: Remotion renderer (now with local assets)
       console.log('[VideoGen] Using Remotion renderer (legacy, optimized)');
       console.time('[VideoGen] Remotion render');
@@ -325,5 +347,7 @@ export async function POST(request: NextRequest) {
     const message = getErrorMessage(error);
     console.error("Video generation error:", error);
     return NextResponse.json({ error: message || "Video generation failed" }, { status: 500 });
+  } finally {
+    if (lockedPlanId) rendersInProgress.delete(lockedPlanId);
   }
 }

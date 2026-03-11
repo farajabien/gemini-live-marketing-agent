@@ -56,6 +56,9 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   // Orchestration Effect: Drives the production state machine for episodes
   // Limit concurrent Remotion renders to 1
   const activeRenders = useRef(0);
+  const episodeProgressRef = useRef(episodeProgress);
+  episodeProgressRef.current = episodeProgress;
+  const orchestratingRef = useRef(false);
 
   useEffect(() => {
     if (!seriesData || !refreshToken) return;
@@ -64,156 +67,173 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     if (generatingEpisodes.length === 0) return;
 
     const orchestrate = async () => {
-      for (const episode of generatingEpisodes) {
-        try {
-          const planRes = await fetch(`/api/video-plans/${episode.videoPlanId}`, {
-            headers: { "Authorization": `Bearer ${refreshToken}` }
-          });
-          if (!planRes.ok) continue;
-          const { plan } = await planRes.json();
-          if (!plan) continue;
+      if (orchestratingRef.current) return;
+      orchestratingRef.current = true;
+      try {
+        for (const episode of generatingEpisodes) {
+          try {
+            const planRes = await fetch(`/api/video-plans/${episode.videoPlanId}`, {
+              headers: { "Authorization": `Bearer ${refreshToken}` }
+            });
+            if (!planRes.ok) continue;
+            const { plan } = await planRes.json();
+            if (!plan) continue;
 
-          const totalScenes = plan.scenes.length;
-          // A scene is visually done if it has imageUrl/videoClipUrl directly,
-          // OR if it has sub-scenes and every sub-scene has imageUrl set.
-          const visualsDone = plan.scenes.filter((s: any) => {
-            if (!!s.imageUrl || !!s.videoClipUrl) return true;
-            if (s.subScenes && s.subScenes.length > 0) {
-              return s.subScenes.every((sub: any) => !!sub.imageUrl);
-            }
-            return false;
-          }).length;
-          const audioDone = plan.scenes.filter((s: any) => !!s.audioUrl).length;
-          const allVisualsDone = visualsDone === totalScenes;
-          const allAudioDone = audioDone === totalScenes;
-          const allAssetsDone = allVisualsDone && allAudioDone;
+            const totalScenes = plan.scenes.length;
+            const visualsDone = plan.scenes.filter((s: any) => {
+              if (!!s.imageUrl || !!s.videoClipUrl) return true;
+              if (s.subScenes && s.subScenes.length > 0) {
+                return s.subScenes.every((sub: any) => !!sub.imageUrl);
+              }
+              return false;
+            }).length;
+            const audioDone = plan.scenes.filter((s: any) => !!s.audioUrl).length;
+            const allVisualsDone = visualsDone === totalScenes;
+            const allAudioDone = audioDone === totalScenes;
+            const allAssetsDone = allVisualsDone && allAudioDone;
 
-          // Determine current phase for UI
-          let phase: EpisodeProgress['phase'] = 'visuals';
-          if (allVisualsDone && !allAudioDone) phase = 'audio';
-          else if (allAssetsDone && !plan.videoUrl) phase = 'rendering';
-          else if (allAssetsDone && plan.videoUrl) phase = 'complete';
+            let phase: EpisodeProgress['phase'] = 'visuals';
+            if (allVisualsDone && !allAudioDone) phase = 'audio';
+            else if (allAssetsDone && !plan.videoUrl) phase = 'rendering';
+            else if (allAssetsDone && plan.videoUrl) phase = 'complete';
 
-          setEpisodeProgress(prev => ({
-            ...prev,
-            [episode.id]: {
-              episodeId: episode.id,
-              title: episode.title,
-              episodeNumber: episode.episodeNumber,
-              phase,
-              visualsDone,
-              audioDone,
-              totalScenes,
-            }
-          }));
+            setEpisodeProgress(prev => ({
+              ...prev,
+              [episode.id]: {
+                episodeId: episode.id,
+                title: episode.title,
+                episodeNumber: episode.episodeNumber,
+                phase,
+                visualsDone,
+                audioDone,
+                totalScenes,
+              }
+            }));
 
-          if (!allVisualsDone) {
-            // Poll Veo operations for scenes with pending operationIds (broll mode)
-            const hasPendingOps = plan.scenes.some((s: any) => s.operationId && !s.videoClipUrl && !s.imageUrl);
-            if (hasPendingOps) {
-              await fetch("/api/poll-video-clips", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-                body: JSON.stringify({ planId: plan.id })
-              });
-            } else if (!triggeredVisuals.current.has(episode.id)) {
-              // Image mode: no operationIds — re-trigger generate-visuals (idempotent)
-              triggeredVisuals.current.add(episode.id);
-              console.log(`[Orchestration] Triggering visual generation for episode ${episode.episodeNumber}...`);
-              fetch("/api/generate-visuals", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-                body: JSON.stringify({ planId: plan.id })
-              }).then(res => {
-                if (!res.ok) triggeredVisuals.current.delete(episode.id);
-              }).catch(() => triggeredVisuals.current.delete(episode.id));
-            }
-            continue;
-          }
-
-          if (allVisualsDone && !allAudioDone) {
-             // Only trigger audio once per episode
-             if (!triggeredAudio.current.has(episode.id)) {
-               triggeredAudio.current.add(episode.id);
-               console.log(`[Orchestration] Visuals ready for episode ${episode.episodeNumber}, triggering audio...`);
-               const audioRes = await fetch("/api/generate-audio", {
-                 method: "POST",
-                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-                 body: JSON.stringify({ planId: plan.id })
-               });
-               
-               if (audioRes.status === 429) {
-                 console.warn(`[Orchestration] Rate limit hit for episode ${episode.episodeNumber}, marking failed.`);
-                 triggeredAudio.current.delete(episode.id);
-                 db.transact([
-                   tx.episodes[episode.id].update({ 
-                     status: 'failed',
-                     updatedAt: Date.now()
-                   })
-                 ]);
-                 continue;
-               }
-             }
-             continue;
-          }
-
-          if (allAssetsDone && !plan.videoUrl) {
-            // Only allow one render at a time
-            if (activeRenders.current > 0) {
-              // Wait for next orchestration tick
+            if (!allVisualsDone) {
+              const hasPendingOps = plan.scenes.some((s: any) => s.operationId && !s.videoClipUrl && !s.imageUrl);
+              if (hasPendingOps) {
+                await fetch("/api/poll-video-clips", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  body: JSON.stringify({ planId: plan.id })
+                });
+              } else if (!triggeredVisuals.current.has(episode.id)) {
+                triggeredVisuals.current.add(episode.id);
+                console.log(`[Orchestration] Triggering visual generation for episode ${episode.episodeNumber}...`);
+                fetch("/api/generate-visuals", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  body: JSON.stringify({ planId: plan.id })
+                }).then(res => {
+                  if (!res.ok) triggeredVisuals.current.delete(episode.id);
+                }).catch(() => triggeredVisuals.current.delete(episode.id));
+              }
               continue;
             }
-            // Only trigger render once per episode
-            if (!triggeredRender.current.has(episode.id)) {
-              triggeredRender.current.add(episode.id);
-              activeRenders.current++;
-              console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
-              const renderRes = await fetch("/api/generate-video", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
-                body: JSON.stringify({ planId: plan.id, background: true })
-              });
-              activeRenders.current--;
-              if (renderRes.status === 429) {
-                triggeredRender.current.delete(episode.id);
-                db.transact([
-                  tx.episodes[episode.id].update({ 
-                    status: 'failed',
-                    updatedAt: Date.now()
-                  })
-                ]);
+
+            if (allVisualsDone && !allAudioDone) {
+               if (!triggeredAudio.current.has(episode.id)) {
+                 triggeredAudio.current.add(episode.id);
+                 console.log(`[Orchestration] Visuals ready for episode ${episode.episodeNumber}, triggering audio...`);
+                 const audioRes = await fetch("/api/generate-audio", {
+                   method: "POST",
+                   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                   body: JSON.stringify({ planId: plan.id })
+                 });
+                 
+                 if (audioRes.status === 429) {
+                   console.warn(`[Orchestration] Rate limit hit for episode ${episode.episodeNumber}, marking failed.`);
+                   triggeredAudio.current.delete(episode.id);
+                   db.transact([
+                     tx.episodes[episode.id].update({ 
+                       status: 'failed',
+                       updatedAt: Date.now()
+                     })
+                   ]);
+                   continue;
+                 }
+               }
+               continue;
+            }
+
+            if (allAssetsDone && !plan.videoUrl) {
+              if (activeRenders.current > 0) {
                 continue;
               }
+              if (!triggeredRender.current.has(episode.id)) {
+                triggeredRender.current.add(episode.id);
+                activeRenders.current++;
+                console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
+                const renderRes = await fetch("/api/generate-video", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  body: JSON.stringify({ planId: plan.id, background: true })
+                });
+                activeRenders.current--;
+                if (renderRes.status === 409) {
+                  console.log(`[Orchestration] Render already in progress for episode ${episode.episodeNumber}, skipping.`);
+                  continue;
+                }
+                if (renderRes.status === 429) {
+                  triggeredRender.current.delete(episode.id);
+                  db.transact([
+                    tx.episodes[episode.id].update({ 
+                      status: 'failed',
+                      updatedAt: Date.now()
+                    })
+                  ]);
+                  continue;
+                }
+              }
+              continue;
             }
-            continue;
-          }
 
-          if (allAssetsDone && !!plan.videoUrl && episode.status !== 'complete') {
-             console.log(`[Orchestration] Episode ${episode.episodeNumber} fully rendered, marking complete!`);
-             triggeredVisuals.current.delete(episode.id);
-             triggeredAudio.current.delete(episode.id);
-             triggeredRender.current.delete(episode.id);
-             db.transact([
-               tx.episodes[episode.id].update({ 
-                 status: 'complete',
-                 videoUrl: plan.videoUrl,
-                 thumbnailUrl: plan.thumbnailUrl,
-                 duration: plan.duration,
-                 updatedAt: Date.now()
-               })
-             ]);
+            if (allAssetsDone && !!plan.videoUrl && episode.status !== 'complete') {
+               console.log(`[Orchestration] Episode ${episode.episodeNumber} fully rendered, marking complete!`);
+               triggeredVisuals.current.delete(episode.id);
+               triggeredAudio.current.delete(episode.id);
+               triggeredRender.current.delete(episode.id);
+               db.transact([
+                 tx.episodes[episode.id].update({ 
+                   status: 'complete',
+                   videoUrl: plan.videoUrl,
+                   thumbnailUrl: plan.thumbnailUrl,
+                   duration: plan.duration,
+                   updatedAt: Date.now()
+                 })
+               ]);
+            }
+          } catch (err) {
+            console.error("[Orchestration] Failed for episode:", episode.id, err);
           }
-        } catch (err) {
-          console.error("[Orchestration] Failed for episode:", episode.id, err);
         }
+      } finally {
+        orchestratingRef.current = false;
       }
     };
 
-    // Run orchestration every 5 seconds while we have generating episodes
-    const timer = setInterval(orchestrate, 5000);
-    orchestrate(); // Initial run
+    // Adaptive polling: use a ref to read episodeProgress without causing
+    // the effect to re-run (which would create a feedback loop)
+    const getInterval = () => {
+      const prog = episodeProgressRef.current;
+      const allInRenderOrComplete = generatingEpisodes.every(e => {
+        const p = prog[e.id];
+        return p?.phase === 'rendering' || p?.phase === 'complete';
+      });
+      return allInRenderOrComplete ? 15000 : 5000;
+    };
 
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setTimeout>;
+    const scheduleNext = () => {
+      timer = setTimeout(() => {
+        orchestrate().then(scheduleNext);
+      }, getInterval());
+    };
+
+    orchestrate().then(scheduleNext);
+
+    return () => clearTimeout(timer);
   }, [seriesData, refreshToken, db]);
 
   const handleEditScript = (episode: Episode) => {

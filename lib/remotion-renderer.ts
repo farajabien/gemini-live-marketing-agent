@@ -104,7 +104,9 @@ export async function renderRemotionVideo(
   const startTime = Date.now();
 
   const cpuCount = os.cpus().length;
-  const optimalConcurrency = Math.max(1, Math.min(4, Math.floor(cpuCount * preset.concurrencyMultiplier)));
+  const concurrencyCap = preset.name === "fast_preview" ? 8 : 4;
+  const optimalConcurrency = Math.max(1, Math.min(concurrencyCap, Math.floor(cpuCount * preset.concurrencyMultiplier)));
+  console.log(`[Remotion] Concurrency: ${optimalConcurrency} workers (${cpuCount} cores, cap ${concurrencyCap})`);
 
   await renderMedia({
     composition,

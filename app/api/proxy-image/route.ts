@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb as db } from "@/lib/firebase-admin";
 import { readFile } from "fs/promises";
 
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+
+async function getAdminDb() {
+  const { adminDb } = await import("@/lib/firebase-admin");
+  return adminDb;
+}
 
 // HEAD handler for asset verification (lightweight check without downloading full asset)
 export async function HEAD(request: NextRequest) {
@@ -19,6 +23,7 @@ export async function HEAD(request: NextRequest) {
 
     if (storagePath) {
       try {
+        const db = await getAdminDb();
         const storage = (db as any).storage;
           if (storage?.getDownloadUrl) {
             const result = await storage.getDownloadUrl(storagePath);
@@ -118,9 +123,10 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // If it's a storage path, resolve it via Firebase Admin SDK
+    // If it's a storage path, resolve it via Firebase Admin SDK (lazy-loaded)
     if (storagePath) {
         try {
+          const db = await getAdminDb();
           const storage = (db as any).storage;
           if (storage?.getDownloadUrl) {
             const result = await storage.getDownloadUrl(storagePath);

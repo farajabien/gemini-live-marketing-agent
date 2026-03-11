@@ -7,6 +7,15 @@ import { ACTIVE_GENERATION_STATUSES } from "@/lib/types";
 import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 
+interface ActivePlan {
+  id: string;
+  title: string;
+  status: string;
+  type: string;
+  narrativeId?: string;
+  narrative?: { id: string }[];
+}
+
 function statusLabel(status: string): string {
   switch (status) {
     case "generating":
@@ -21,6 +30,17 @@ function statusLabel(status: string): string {
     default:
       return "Processing...";
   }
+}
+
+function getDestination(
+  plan: ActivePlan,
+  episode?: { seriesId?: string }
+): string {
+  if (episode?.seriesId) return `/series/${episode.seriesId}`;
+  const narrativeId = plan.narrative?.[0]?.id ?? plan.narrativeId;
+  if (narrativeId)
+    return `/narrative/${narrativeId}/drafts?planId=${plan.id}`;
+  return `/success?planId=${plan.id}&type=${plan.type || "video"}`;
 }
 
 /**
@@ -43,6 +63,7 @@ export function GenerationStatusToast() {
                 order: { createdAt: "desc" as const },
                 limit: 10,
               },
+              narrative: {},
             },
           }
         : null,
@@ -50,12 +71,34 @@ export function GenerationStatusToast() {
   );
 
   const { data } = db.useQuery(plansQuery);
-  const plans = (data && "videoPlans" in data ? data.videoPlans : []) as Array<{
-    id: string;
-    title: string;
-    status: string;
-    type: string;
-  }>;
+  const plans = (data && "videoPlans" in data ? data.videoPlans : []) as ActivePlan[];
+
+  // Find actively generating plans
+  const activePlans = plans.filter((p) =>
+    ACTIVE_GENERATION_STATUSES.includes(p.status as any)
+  );
+  const activePlan = activePlans[0] ?? null;
+
+  // Fetch episodes for the primary active plan to detect series membership
+  const episodesQuery = useMemo(
+    () =>
+      activePlan
+        ? {
+            episodes: {
+              $: {
+                collection: "episodes" as const,
+                where: { videoPlanId: activePlan.id },
+                limit: 1,
+              },
+            },
+          }
+        : null,
+    [activePlan?.id]
+  );
+  const { data: episodesData } = db.useQuery(episodesQuery);
+  const episode = (episodesData as any)?.episodes?.[0] as
+    | { seriesId?: string }
+    | undefined;
 
   // Fire toast on completion transitions
   useEffect(() => {
@@ -82,18 +125,19 @@ export function GenerationStatusToast() {
     }
   }, [plans]);
 
-  // Find actively generating plans
-  const activePlans = plans.filter((p) => ACTIVE_GENERATION_STATUSES.includes(p.status as any));
-
   // Hide FAB on the success page (it has its own progress UI)
   const isOnSuccessPage = pathname?.startsWith("/success");
   if (activePlans.length === 0 || isOnSuccessPage) return null;
 
-  const activePlan = activePlans[0];
+  const destination = getDestination(activePlan!, episode);
+  const isSeries = !!episode?.seriesId;
+  const isNarrative =
+    !isSeries &&
+    !!(activePlan!.narrative?.[0]?.id ?? activePlan!.narrativeId);
 
   return (
     <a
-      href={`/success?planId=${activePlan.id}&type=${activePlan.type || "video"}`}
+      href={destination}
       className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xl shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
     >
       {/* Pulsing dot */}
@@ -104,10 +148,12 @@ export function GenerationStatusToast() {
 
       <div className="flex flex-col">
         <span className="text-xs font-bold leading-tight truncate max-w-[180px]">
-          {activePlan.title || "Video"}
+          {activePlan!.title || "Video"}
         </span>
         <span className="text-[10px] text-white/70 font-medium">
-          {statusLabel(activePlan.status)}
+          {statusLabel(activePlan!.status)}
+          {isSeries && " · Series"}
+          {isNarrative && " · Narrative"}
         </span>
       </div>
 
@@ -118,7 +164,7 @@ export function GenerationStatusToast() {
       )}
 
       <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity -mr-1">
-        arrow_forward
+        {isSeries ? "movie_filter" : isNarrative ? "edit_note" : "arrow_forward"}
       </span>
     </a>
   );

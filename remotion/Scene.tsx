@@ -3,7 +3,10 @@ import { loadFont } from "@remotion/google-fonts/Inter";
 import { SceneSchema } from "./Schema";
 import { z } from "zod";
 
-const { fontFamily } = loadFont();
+const { fontFamily } = loadFont("normal", {
+  weights: ["400", "700"],
+  subsets: ["latin"],
+});
 
 // Watermark configuration (can be passed as prop in future)
 const WATERMARK_CONFIG = {
