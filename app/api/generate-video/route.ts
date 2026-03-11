@@ -10,6 +10,7 @@ import type { Scene, User, VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 import { renderRemotionVideo } from "@/lib/remotion-renderer";
 import { renderVideoWithFFmpeg, estimateRenderTime } from "@/lib/ffmpeg/renderer";
+import { getRenderPreset, type RenderPresetName } from "@/lib/render-presets";
 
 
 
@@ -20,7 +21,7 @@ const USE_FFMPEG_RENDERER = process.env.USE_FFMPEG_RENDERER !== "false";
 
 export async function POST(request: NextRequest) {
   try {
-    const { planId, background = false, forceRerender = false, useFFmpeg } = await request.json();
+    const { planId, background = false, forceRerender = false, useFFmpeg, renderPreset } = await request.json();
     if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
 
     const authHeader = request.headers.get("Authorization");
@@ -178,19 +179,22 @@ export async function POST(request: NextRequest) {
     }
 
 
+    const preset = getRenderPreset(renderPreset as RenderPresetName | undefined);
+    console.log(`[VideoGen] Render preset: ${preset.name} (${preset.width}x${preset.height} @ ${preset.fps}fps)`);
+
     if (shouldUseFFmpeg) {
-      // ...existing code for FFmpeg renderer...
       console.log('[VideoGen] Using FFmpeg renderer (with scene caching)');
       console.time('[VideoGen] FFmpeg render');
       try {
+        const ffmpegResolution = preset.height >= 1920 ? "1080p" : preset.height >= 1280 ? "720p" : "540p";
         const estimate = await estimateRenderTime(plan, plan.type === "carousel" ? "1:1" : "9:16");
         console.log(`[VideoGen] Estimated render time: ${estimate.estimatedSeconds}s (${estimate.cachedScenes} cached, ${estimate.newScenes} new)`);
         await renderVideoWithFFmpeg(plan, videoPath, {
           format: plan.type === "carousel" ? "1:1" : "9:16",
-          resolution: "1080p",
-          fps: 30,
-          videoBitrate: "3M",
-          audioBitrate: "192k",
+          resolution: ffmpegResolution as any,
+          fps: preset.fps,
+          videoBitrate: preset.videoBitrate,
+          audioBitrate: preset.audioBitrate,
           useGPU: true,
           enableCache: true,
           forceRerender: forceRerender,
@@ -260,7 +264,10 @@ export async function POST(request: NextRequest) {
       console.log('[VideoGen] Using Remotion renderer (legacy, optimized)');
       console.time('[VideoGen] Remotion render');
       try {
-        await renderRemotionVideo(localPlan, videoPath, updateRenderProgress);
+        await renderRemotionVideo(localPlan, videoPath, {
+          preset: preset.name,
+          onProgressCallback: updateRenderProgress,
+        });
         console.timeEnd('[VideoGen] Remotion render');
       } catch (renderErr) {
         console.timeEnd('[VideoGen] Remotion render');

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb as db } from "@/lib/firebase-admin";
+import { readFile } from "fs/promises";
 
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
@@ -84,6 +85,38 @@ export async function GET(request: NextRequest) {
 
   try {
     let targetUrl = imageUrl;
+
+    // --- NEW: Support serving local temp files via HTTP ---
+    // This allows Remotion's headless browser to access local assets that would 
+    // otherwise be blocked by the file:// protocol security restrictions.
+    if (storagePath && (storagePath.startsWith('/') || storagePath.startsWith('file:'))) {
+        const cleanPath = storagePath.replace("file://", "");
+        if (cleanPath.startsWith("/tmp/") || cleanPath.startsWith("/var/")) {
+            console.log(`[Proxy GET] Serving local file: ${cleanPath}`);
+            try {
+                const buffer = await readFile(cleanPath);
+                
+                // Basic MIME type detection based on extension
+                let contentType = "image/png";
+                if (cleanPath.toLowerCase().endsWith(".mp3")) contentType = "audio/mpeg";
+                if (cleanPath.toLowerCase().endsWith(".mp4")) contentType = "video/mp4";
+                if (cleanPath.toLowerCase().endsWith(".jpg") || cleanPath.toLowerCase().endsWith(".jpeg")) contentType = "image/jpeg";
+                if (cleanPath.toLowerCase().endsWith(".gif")) contentType = "image/gif";
+                
+                return new NextResponse(buffer, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": contentType,
+                        "Cache-Control": "public, max-age=31536000, immutable",
+                        "Access-Control-Allow-Origin": "*"
+                    }
+                });
+            } catch (readErr) {
+                console.error(`[Proxy GET] Local file read error: ${cleanPath}`, readErr);
+                // Fall through to Firebase logic if it's not actually a local path or doesn't exist
+            }
+        }
+    }
 
     // If it's a storage path, resolve it via Firebase Admin SDK
     if (storagePath) {

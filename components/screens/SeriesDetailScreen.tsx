@@ -337,9 +337,9 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                   <span className="material-symbols-outlined text-sm">arrow_back</span>
                   Director's Hub
                </Link>
-               <span className="text-slate-200 dark:text-white/10 text-[10px]">/</span>
-               <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Production Console</span>
-             </div>
+                <span className="text-slate-200 dark:text-white/10 text-[10px]">/</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Series Generation</span>
+              </div>
 
              <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                 <div className="flex-1">

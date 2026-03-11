@@ -19,6 +19,7 @@ import { downloadPlanAssets } from "@/lib/download-utils";
 
 import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
+import { SecureAccountDialog } from "@/components/SecureAccountDialog";
 import Image from "next/image";
 
 function RetryingImage({ src, alt, className, slideNumber }: { src: string; alt: string; className: string, slideNumber: number }) {
@@ -78,23 +79,33 @@ export function SuccessScreen() {
   // Ref Flags to prevent double-firing
   const orchestrationStarted = useRef(false);
 
-
   // UI State
   const [isReady, setIsReady] = useState(false);
   const [statusText, setStatusText] = useState("Initializing...");
   const [visualProgress, setVisualProgress] = useState(0);
 
+  // Series redirect state
+  const [seriesRedirectCountdown, setSeriesRedirectCountdown] = useState<number | null>(null);
+  const seriesRedirectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Caption state for carousels
   const [socialCaptions, setSocialCaptions] = useState<Record<number, string>>({});
   const [generatingCaptionFor, setGeneratingCaptionFor] = useState<number | null>(null);
+
+  // Guest upgrade prompt
+  const [secureAccountOpen, setSecureAccountOpen] = useState(false);
   
   // Data Fetching
   const successPlanQuery = useMemo(
-    () => planId ? { videoPlans: { $: { where: { id: planId } }, narrative: {} } } : null,
+    () => planId ? { 
+      videoPlans: { $: { where: { id: planId } }, narrative: {} },
+      episodes: { $: { collection: 'episodes', where: { videoPlanId: planId } } }
+    } : null,
     [planId]
   );
   const { data } = db.useQuery(successPlanQuery);
   const plan = (data && 'videoPlans' in data ? data.videoPlans?.[0] : undefined) as VideoPlan & { narrative?: { id: string }[] } | undefined;
+  const episode = (data as any)?.episodes?.[0];
 
   // Manual Trigger Function (can be called from UI)
   const triggerVisualsManually = () => {
@@ -164,6 +175,13 @@ export function SuccessScreen() {
     }
   };
 
+  // Cleanup series redirect timer on unmount
+  useEffect(() => {
+    return () => {
+      if (seriesRedirectTimer.current) clearInterval(seriesRedirectTimer.current);
+    };
+  }, []);
+
   // 1. Trigger Server-Side Orchestration (fires once)
   useEffect(() => {
     if (!plan || !plan.scenes) return;
@@ -230,7 +248,6 @@ export function SuccessScreen() {
     const allAudioDone = audioDone === totalScenes;
     const allAssetsDone = isCarousel ? allVisualsDone : (allVisualsDone && allAudioDone);
 
-    // Status Text Logic — derived from plan.status + asset counts
     let text = "Initializing...";
     let target = 5;
 
@@ -238,37 +255,53 @@ export function SuccessScreen() {
       case 'generating':
         if (!allVisualsDone) {
           text = visualMode === "broll"
-            ? `Generating B-Roll Clip ${visualsDone + 1} of ${totalVisuals}...`
-            : `Designing Visual ${visualsDone + 1} of ${totalVisuals}...`;
+            ? `Step 1/3 — Generating B-Roll Clip ${visualsDone + 1} of ${totalVisuals}`
+            : `Step 1/3 — Designing Visual ${visualsDone + 1} of ${totalVisuals}`;
           target = 20 + ((visualsDone / totalVisuals) * 40);
         } else {
-          text = "Visuals Complete! Preparing next step...";
+          text = "Step 1/3 — Visuals Complete";
           target = 60;
         }
         break;
       case 'generating_audio':
-        text = `Synthesizing Voiceover (${audioDone}/${totalScenes})...`;
+        text = `Step 2/3 — Synthesizing Voiceover (${audioDone}/${totalScenes})`;
         target = 60 + ((audioDone / totalScenes) * 25);
         break;
       case 'rendering_video':
       case 'rendering': {
         const renderPct = (plan as any).renderProgress || 0;
-        text = renderPct > 0 ? `Rendering MP4... ${renderPct}%` : "Rendering Final MP4...";
+        text = renderPct > 0 ? `Step 3/3 — Compiling Video... ${renderPct}%` : "Step 3/3 — Compiling Final Video";
         target = 90 + (renderPct / 100) * 9;
         break;
       }
       case 'completed':
         text = "Ready!";
         target = 100;
-        if (!isReady) setIsReady(true);
+        if (!isReady) {
+          setIsReady(true);
+          if (episode?.seriesId && !seriesRedirectTimer.current) {
+            console.log(`[SuccessScreen] Part of series ${episode.seriesId}, starting countdown...`);
+            setSeriesRedirectCountdown(5);
+            let remaining = 5;
+            seriesRedirectTimer.current = setInterval(() => {
+              remaining -= 1;
+              setSeriesRedirectCountdown(remaining);
+              if (remaining <= 0) {
+                if (seriesRedirectTimer.current) clearInterval(seriesRedirectTimer.current);
+                seriesRedirectTimer.current = null;
+                router.push(`/series/${episode.seriesId}`);
+                toast.success("Returning to Series Generation...");
+              }
+            }, 1000);
+          }
+        }
         break;
       default:
-        // pending, draft, or unknown
         if (plan.thumbnailPrompt && !plan.thumbnailUrl) {
-          text = "Designing Thumbnail...";
+          text = "Preparing — Designing Thumbnail";
           target = 15;
         } else {
-          text = "Starting AI Engines...";
+          text = "Preparing — Starting AI Engines";
           target = 10;
         }
     }
@@ -361,7 +394,32 @@ export function SuccessScreen() {
       <Header />
       <div className="flex-1 flex flex-col items-center justify-center p-4 mt-16">
       {isReady && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} />}
-      
+
+      {/* Series redirect banner */}
+      {seriesRedirectCountdown !== null && seriesRedirectCountdown > 0 && episode?.seriesId && (
+        <div className="w-full max-w-4xl mb-4 z-20 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center justify-between gap-4 px-5 py-3 rounded-xl bg-blue-600/20 border border-blue-500/30 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-blue-400 animate-pulse">movie_filter</span>
+              <span className="text-sm font-bold text-blue-200">
+                This episode is part of a series — redirecting in {seriesRedirectCountdown}s
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                if (seriesRedirectTimer.current) clearInterval(seriesRedirectTimer.current);
+                seriesRedirectTimer.current = null;
+                setSeriesRedirectCountdown(null);
+                toast.info("Auto-redirect cancelled");
+              }}
+              className="text-xs font-black uppercase tracking-widest text-blue-300 hover:text-white transition-colors shrink-0"
+            >
+              Stay Here
+            </button>
+          </div>
+        </div>
+      )}
+
       {plan && <CarouselRenderer ref={carouselRef} plan={plan} />}
 
       <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl rounded-2xl border border-white/5 p-8 shadow-xl text-center z-10 grid md:grid-cols-2 gap-8 items-center">
@@ -565,7 +623,8 @@ export function SuccessScreen() {
                            <span>{Math.round(visualProgress)}%</span>
                        </div>
                         <div className="w-full h-3 bg-slate-200 dark:bg-[#232948] rounded-full overflow-hidden mb-2">
-                            <div                                  className="h-full bg-gradient-to-r from-red-600 to-orange-600 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(220,38,38,0.5)]" 
+                            <div
+                                 className="h-full bg-gradient-to-r from-red-600 to-orange-600 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(220,38,38,0.5)]" 
                                  style={{ width: `${visualProgress}%` }}
                             ></div>
                         </div>
@@ -574,6 +633,10 @@ export function SuccessScreen() {
                                 ? `"${plan.scenes[Math.floor((visualProgress / 100) * plan.scenes.length)].visualPrompt.substring(0, 60)}..."` 
                                 : "Designing scenes..."}
                         </p>
+                        <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-emerald-500/80 font-bold">
+                            <span className="material-symbols-outlined text-xs">cloud_done</span>
+                            Safe to leave — generation continues in the background
+                        </div>
                    </div>
                )}
              </div>
@@ -631,11 +694,11 @@ export function SuccessScreen() {
 
                     <div className="grid grid-cols-2 gap-3">
                         <Link 
-                            href={plan?.narrative?.[0]?.id ? `/narrative/${plan.narrative[0].id}/drafts?planId=${plan.id}` : "/dashboard"}
+                            href={episode?.seriesId ? `/series/${episode.seriesId}` : (plan?.narrative?.[0]?.id ? `/narrative/${plan.narrative[0].id}/drafts?planId=${plan.id}` : "/dashboard")}
                             className="h-12 border border-slate-200 dark:border-[#232948] hover:bg-slate-50 dark:hover:bg-[#232948] rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
                         >
-                            <span className="material-symbols-outlined">dashboard</span>
-                            Dashboard
+                            <span className="material-symbols-outlined">{episode?.seriesId ? 'movie_filter' : 'dashboard'}</span>
+                            {episode?.seriesId ? 'Series Generation' : 'Dashboard'}
                         </Link>
                          <Link 
                             href={plan?.narrative?.[0]?.id ? `/narrative/${plan.narrative[0].id}/drafts?tool=generate` : "/generate"}
@@ -652,12 +715,34 @@ export function SuccessScreen() {
                     >
                         <span className="material-symbols-outlined text-sm">share</span> Share Link
                     </button>
+
+                    {/* Guest upgrade prompt */}
+                    {user?.isGuest && (
+                      <button
+                        onClick={() => setSecureAccountOpen(true)}
+                        className="w-full p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 text-left hover:border-amber-500/40 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-amber-400 text-xl">shield_person</span>
+                          <div>
+                            <p className="text-sm font-bold text-white">Secure Your Account</p>
+                            <p className="text-[10px] text-amber-200/70">Add an email to keep your projects safe and accessible from any device.</p>
+                          </div>
+                          <span className="material-symbols-outlined text-amber-400/50 group-hover:text-amber-400 transition-colors ml-auto">chevron_right</span>
+                        </div>
+                      </button>
+                    )}
                  </div>
              )}
         </div>
 
       </div>
       </div>
+
+      <SecureAccountDialog
+        isOpen={secureAccountOpen}
+        onClose={() => setSecureAccountOpen(false)}
+      />
     </div>
   );
 }

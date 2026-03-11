@@ -59,18 +59,26 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
   };
 
   const getDirectStorageUrl = (url: string) => {
-    // Strict: If local file, return as-is (never wrap in proxy)
-    if (url.startsWith("/tmp/") || url.startsWith("file:")) {
-      return url;
-    }
-    // Return absolute URLs and data URIs as-is
+    // 1. Return absolute remote URLs and data URIs as-is
     if (url.startsWith("http") || url.startsWith("data:")) return url;
-    // Defensive: warn if a local file path would be wrapped
-    if (url.includes("/tmp/") || url.includes("file:")) {
-      console.warn("[Remotion] getDirectStorageUrl: Unexpected local file path wrapped in proxy:", url);
-      return url;
+
+    // 2. For local absolute paths (/tmp, /var, etc), we MUST wrap them in proxy-image
+    // so the browser can access them via HTTP (Puppeteer blocks file://)
+    if (
+      url.startsWith("/tmp/") || 
+      url.startsWith("/var/") || // macOS temp folders
+      url.startsWith("file:") ||
+      url.startsWith("/users/") // local user home
+    ) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
     }
-    // Use the localized proxy for all other cases
+
+    // 3. If it's a relative path (starts with / but NOT /tmp or /var), 
+    // it's likely a static asset in the public folder. Return as-is.
+    if (url.startsWith("/")) return url;
+
+    // 4. Default: It's a Firebase Storage path, wrap it in proxy-image
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
   };

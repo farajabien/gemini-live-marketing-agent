@@ -13,10 +13,17 @@ export interface EpisodeProgress {
 }
 
 const PHASE_LABELS: Record<EpisodeProgress['phase'], string> = {
-  visuals: "Generating Visuals",
-  audio: "Generating Audio",
-  rendering: "Rendering Video",
+  visuals: "Step 1/3 — Generating Visuals",
+  audio: "Step 2/3 — Synthesizing Audio",
+  rendering: "Step 3/3 — Compiling Video",
   complete: "Complete",
+};
+
+const PHASE_ESTIMATES: Record<EpisodeProgress['phase'], string> = {
+  visuals: "~1-2 min",
+  audio: "~30s",
+  rendering: "~3-5 min",
+  complete: "",
 };
 
 const PHASE_ORDER: EpisodeProgress['phase'][] = ['visuals', 'audio', 'rendering', 'complete'];
@@ -72,12 +79,12 @@ export function ProductionOverlay({ episodes, progress, onRetry }: ProductionOve
         </div>
 
         <span className="text-[9px] font-black uppercase tracking-[0.4em] text-blue-500 mb-2">
-          Production Console
+          Series Generation
         </span>
         <h2 className="text-xl font-black tracking-tight text-white mb-6">
           {generatingEps.length > 0
-            ? `Producing ${generatingEps.length} Episode${generatingEps.length > 1 ? 's' : ''}`
-            : 'Production Halted'}
+            ? `Generating ${generatingEps.length} Episode${generatingEps.length > 1 ? 's' : ''}`
+            : 'Generation Halted'}
         </h2>
 
         {/* Per-episode progress rows */}
@@ -113,6 +120,9 @@ export function ProductionOverlay({ episodes, progress, onRetry }: ProductionOve
                       <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 ml-2 shrink-0">
                         {p ? PHASE_LABELS[p.phase] : 'Queued'}
                         {sceneProg && <span className="text-slate-500 ml-1">({sceneProg})</span>}
+                        {p && PHASE_ESTIMATES[p.phase] && (
+                          <span className="text-slate-600 ml-1">{PHASE_ESTIMATES[p.phase]}</span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -133,7 +143,14 @@ export function ProductionOverlay({ episodes, progress, onRetry }: ProductionOve
           })}
         </div>
 
-        {/* Failed message */}
+        {/* Safe to leave message */}
+        {generatingEps.length > 0 && failedEps.length === 0 && (
+          <div className="flex items-center justify-center gap-2 text-[10px] text-emerald-400/80 font-bold mb-4">
+            <span className="material-symbols-outlined text-xs">cloud_done</span>
+            Safe to leave — generation continues in the background
+          </div>
+        )}
+
         {failedEps.length > 0 && (
           <p className="text-slate-500 text-[10px] font-medium mb-4">
             Rate limit hit. Retry failed episodes above or wait a few minutes.

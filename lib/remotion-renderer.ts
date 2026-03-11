@@ -3,6 +3,7 @@ import os from "os";
 import { existsSync } from "fs";
 import { readdir, stat } from "fs/promises";
 import { VideoPlan } from "../lib/types";
+import { getRenderPreset, type RenderPresetName, type RenderPreset } from "./render-presets";
 
 // Cache bundle location and timestamp for reuse across renders
 let cachedBundleLocation: string | null = null;
@@ -30,11 +31,24 @@ async function getRemotionFilesModifiedTime(remotionDir: string): Promise<number
   }
 }
 
+export interface RemotionRenderOptions {
+  preset?: RenderPresetName;
+  onProgressCallback?: (percent: number) => void;
+}
+
 export async function renderRemotionVideo(
   plan: VideoPlan,
   outputPath: string,
-  onProgressCallback?: (percent: number) => void
+  onProgressOrOpts?: ((percent: number) => void) | RemotionRenderOptions
 ) {
+  const opts: RemotionRenderOptions =
+    typeof onProgressOrOpts === "function"
+      ? { onProgressCallback: onProgressOrOpts }
+      : onProgressOrOpts ?? {};
+  const preset = getRenderPreset(opts.preset);
+  const onProgressCallback = opts.onProgressCallback;
+  console.log(`[Remotion] Using preset "${preset.name}" (${preset.width}x${preset.height} @ ${preset.fps}fps, CRF ${preset.crf})`);
+
   // Use dynamic imports to prevent Next.js from bundling Remotion packages
   // This is required because @remotion/bundler includes Webpack, and Next.js
   // cannot bundle Webpack with Webpack (creates React.createContext errors)
@@ -88,10 +102,9 @@ export async function renderRemotionVideo(
 
   console.log(`[Remotion] 🎬 Starting render of "${plan.title}" (${composition.durationInFrames} frames)...`);
   const startTime = Date.now();
-  
+
   const cpuCount = os.cpus().length;
-  // Lower concurrency for shared/limited resources
-  const optimalConcurrency = Math.max(1, Math.min(2, Math.floor(cpuCount / 4)));
+  const optimalConcurrency = Math.max(1, Math.min(4, Math.floor(cpuCount * preset.concurrencyMultiplier)));
 
   await renderMedia({
     composition,
@@ -105,27 +118,25 @@ export async function renderRemotionVideo(
       disableWebSecurity: true,
       gl: "swangle",
       headless: true,
-      args: ["--disable-gpu", "--no-sandbox"],
     },
-    videoBitrate: "3M", // Balanced quality/speed
+    videoBitrate: preset.videoBitrate,
     enforceAudioTrack: true,
     ffmpegOverride: ({ args }) => {
-      // Optimized for speed while maintaining good quality
       return [
         ...args,
-        '-preset', 'veryfast',      // Better quality than ultrafast, still very fast
-        '-tune', 'zerolatency',     // Low latency encoding
-        '-crf', '23',               // Better quality (default: 23, lower = better quality)
-        '-threads', '0',            // Use all available CPU cores
-        '-movflags', '+faststart',  // Enable progressive download/streaming
+        '-preset', preset.ffmpegPreset,
+        '-tune', 'zerolatency',
+        '-crf', String(preset.crf),
+        '-threads', '0',
+        '-movflags', '+faststart',
       ];
     },
-    onProgress: ({ renderedFrames, encodedFrames, encodedDoneIn, renderedDoneIn }) => {
+    onProgress: ({ renderedFrames, encodedFrames }) => {
       const totalFrames = composition.durationInFrames;
       if (renderedFrames % 50 === 0 || renderedFrames === totalFrames) {
         const renderPercent = Math.round((renderedFrames / totalFrames) * 100);
         const encodeProgress = ((encodedFrames / totalFrames) * 100).toFixed(0);
-        console.log(`[Remotion] ⏩ Render: ${renderPercent}% | Encode: ${encodeProgress}%`);
+        console.log(`[Remotion] Render: ${renderPercent}% | Encode: ${encodeProgress}%`);
         if (onProgressCallback) {
           onProgressCallback(renderPercent);
         }

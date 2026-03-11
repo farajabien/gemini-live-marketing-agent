@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
-import { firebaseDb as db } from "@/lib/firebase-client";
+import { EmailPasswordForm } from "@/components/auth/EmailPasswordForm";
 
 interface AuthChoiceDialogProps {
     isOpen: boolean;
@@ -11,33 +11,18 @@ interface AuthChoiceDialogProps {
 }
 
 export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthChoiceDialogProps) {
-    const { user, signInWithEmail, signUpWithEmail } = useAuth();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const { signInWithEmail, signUpWithEmail } = useAuth();
     const [step, setStep] = useState<"choice" | "login" | "register">("choice");
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
-    const handleAuthAction = async (e: React.FormEvent, isRegister: boolean) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError(null);
-        try {
-            if (isRegister) {
-                await signUpWithEmail(email, password);
-            } else {
-                await signInWithEmail(email, password);
-            }
-            onClose();
-            // Generation will resume via useEffect or user can click again
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : `Failed to ${isRegister ? 'register' : 'sign in'}.`;
-            setError(message);
-        } finally {
-            setIsLoading(false);
+    const handleAuth = async (email: string, password: string) => {
+        if (step === "register") {
+            await signUpWithEmail(email, password);
+        } else {
+            await signInWithEmail(email, password);
         }
+        onClose();
     };
 
     return (
@@ -86,62 +71,28 @@ export function AuthChoiceDialog({ isOpen, onClose, onContinueAsGuest }: AuthCho
                 )}
 
                 {(step === "login" || step === "register") && (
-                    <form onSubmit={(e) => handleAuthAction(e, step === "register")} className="space-y-6">
-                        <div className="text-center space-y-2 mb-6">
+                    <div className="space-y-6">
+                        <div className="text-center space-y-2 mb-2">
                             <h2 className="text-2xl font-black text-white">{step === "login" ? "Welcome Back" : "Create Account"}</h2>
                             <p className="text-sm text-slate-400">
                                 {step === "login" ? "Sign in to your account." : "Sign up to save your progress."}
                             </p>
                         </div>
-                        
-                        <div className="space-y-4">
-                            <input 
-                                type="email"
-                                required
-                                autoFocus
-                                placeholder="name@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
-                            />
-                            <input 
-                                type="password"
-                                required
-                                placeholder="Password"
-                                minLength={6}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-medium"
-                            />
-                        </div>
 
-                        {error && <p className="text-xs text-red-500 font-bold text-center">{error}</p>}
+                        <EmailPasswordForm
+                            mode={step}
+                            onSubmit={handleAuth}
+                            onToggleMode={() => setStep(step === "login" ? "register" : "login")}
+                        />
 
                         <button 
-                            type="submit"
-                            disabled={isLoading || !email || password.length < 6}
-                            className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 transition-all text-sm disabled:opacity-50"
+                            type="button"
+                            onClick={() => setStep("choice")}
+                            className="w-full text-xs text-slate-500 hover:text-white transition-colors font-bold mt-2 text-center"
                         >
-                            {isLoading ? (step === "login" ? "Signing In..." : "Registering...") : (step === "login" ? "Sign In" : "Register")}
+                            Back to options
                         </button>
-
-                        <div className="flex flex-col gap-2 pt-2">
-                            <button 
-                                type="button"
-                                onClick={() => setStep(step === "login" ? "register" : "login")}
-                                className="w-full text-sm text-white hover:text-red-400 transition-colors font-bold"
-                            >
-                                {step === "login" ? "Need an account? Register" : "Already have an account? Sign In"}
-                            </button>
-                            <button 
-                                type="button"
-                                onClick={() => setStep("choice")}
-                                className="w-full text-xs text-slate-500 hover:text-white transition-colors font-bold mt-2"
-                            >
-                                Back to options
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 )}
             </div>
         </div>

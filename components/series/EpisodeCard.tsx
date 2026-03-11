@@ -26,7 +26,7 @@ export function EpisodeCard({ episode, onEditScript, onGenerateVideo }: EpisodeC
         bgColor: "bg-blue-500/10", 
         borderColor: "border-blue-500/20", 
         icon: "video_settings", 
-        label: "Compiling..." 
+        label: "Generating..." 
       };
       case "script_ready": return { 
         color: "text-purple-500", 

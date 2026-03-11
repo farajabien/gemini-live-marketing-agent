@@ -1,8 +1,8 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { firebaseDb as db } from "@/lib/firebase-client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface SecureAccountDialogProps {
   isOpen: boolean;
@@ -11,13 +11,13 @@ interface SecureAccountDialogProps {
 
 export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProps) {
   const { user, signUpWithEmail, linkAnonymousToEmail } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Reset states when closed
   useEffect(() => {
     if (!isOpen) {
         setEmail("");
@@ -33,8 +33,6 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
     setIsLinking(true);
     setError(null);
     try {
-        // If user is a guest (anonymous), link the anonymous account to email
-        // This preserves their UID and all associated Firestore data
         if (user.isGuest) {
           await linkAnonymousToEmail(email, password);
         } else {
@@ -43,7 +41,7 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
         setSuccess(true);
         setTimeout(() => {
             onClose();
-            window.location.reload();
+            router.refresh();
         }, 1500);
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to secure account. Try again.";
@@ -79,8 +77,8 @@ export function SecureAccountDialog({ isOpen, onClose }: SecureAccountDialogProp
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-[#929bc9] font-medium leading-relaxed">
                     {success 
-                        ? "Great! Your projects are now tied to your email and accessible from anywhere."
-                        : "Save your free video and sync projects across devices by adding a password."}
+                        ? "Your projects are now tied to your email and accessible from any device."
+                        : "All your existing projects stay intact. Add an email to unlock cross-device access and prevent losing your work."}
                 </p>
             </div>
 
