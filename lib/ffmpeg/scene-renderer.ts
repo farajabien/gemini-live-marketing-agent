@@ -46,7 +46,7 @@ function getVideoDimensions(format: "9:16" | "1:1" | "16:9", resolution: "1080p"
 /**
  * Download an asset from URL or Firebase Storage to temp file
  */
-async function downloadAsset(url: string, ext: string): Promise<string> {
+export async function downloadAsset(url: string, ext: string): Promise<string> {
   const tempPath = join(tmpdir(), `asset-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`);
 
   // If it's a storage path (not a full URL), get a signed download URL via admin SDK
@@ -99,7 +99,8 @@ export async function renderScene(
   options: SceneRenderOptions = DEFAULT_SCENE_OPTIONS
 ): Promise<void> {
   console.log(`[FFmpeg Scene Renderer] Starting render for scene...`);
-  console.time("[FFmpeg Scene Renderer] Total render time");
+  const sceneTimingLabel = `[FFmpeg Scene Renderer] Total render time ${scene.id}`;
+  console.time(sceneTimingLabel);
 
   const { width, height } = getVideoDimensions(options.format, options.resolution);
   const tempFiles: string[] = [];
@@ -112,13 +113,24 @@ export async function renderScene(
     let audioPath: string | null = null;
 
     if (scene.imageUrl) {
-      imagePath = await downloadAsset(scene.imageUrl, "png");
-      tempFiles.push(imagePath);
+      // Use local path if it starts with / or is already a temp file path
+      if (scene.imageUrl.startsWith("/") || scene.imageUrl.startsWith("file://")) {
+        imagePath = scene.imageUrl.replace("file://", "");
+        console.log(`[FFmpeg] Using local image asset: ${imagePath}`);
+      } else {
+        imagePath = await downloadAsset(scene.imageUrl, "png");
+        tempFiles.push(imagePath);
+      }
     }
 
     if (scene.audioUrl) {
-      audioPath = await downloadAsset(scene.audioUrl, "mp3");
-      tempFiles.push(audioPath);
+      if (scene.audioUrl.startsWith("/") || scene.audioUrl.startsWith("file://")) {
+        audioPath = scene.audioUrl.replace("file://", "");
+        console.log(`[FFmpeg] Using local audio asset: ${audioPath}`);
+      } else {
+        audioPath = await downloadAsset(scene.audioUrl, "mp3");
+        tempFiles.push(audioPath);
+      }
     }
 
     console.timeEnd("[FFmpeg] Asset download");
@@ -129,7 +141,8 @@ export async function renderScene(
 
 
     // 2. Build FFmpeg command
-    console.time("[FFmpeg] Video encoding");
+    const timingLabel = `[FFmpeg] Video encoding ${scene.id}`;
+    console.time(timingLabel);
 
     const gpuEncoder = options.useGPU ? detectGPUEncoder() : null;
     const codec = gpuEncoder || "libx264";
@@ -161,13 +174,13 @@ export async function renderScene(
 
       // Video filter: scale + fade transitions + watermark overlay
       const videoFilter = [
-        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[bg];`,
-        `[1:v]scale=${watermarkSize}:${watermarkSize}[wm];`,
-        `[bg][wm]overlay=W-w-${watermarkPad}:H-h-${watermarkPad}:format=auto[watermarked];`,
+        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[bg]`,
+        `[1:v]scale=${watermarkSize}:${watermarkSize}[wm]`,
+        `[bg][wm]overlay=W-w-${watermarkPad}:H-h-${watermarkPad}:format=auto[watermarked]`,
         `[watermarked]fade=t=in:st=0:d=0.3,fade=t=out:st=${scene.duration - 0.3}:d=0.3[final]`
-      ];
+      ].join(";");
 
-      command = command.complexFilter(videoFilter, "final");
+      command = command.complexFilter(videoFilter);
 
       // Output options
       command = command
@@ -229,7 +242,7 @@ export async function renderScene(
       });
 
       command.on("end", () => {
-        console.timeEnd("[FFmpeg] Video encoding");
+        console.timeEnd(timingLabel);
         resolve();
       });
 
@@ -243,7 +256,8 @@ export async function renderScene(
       command.run();
     });
 
-    console.timeEnd("[FFmpeg Scene Renderer] Total render time");
+    const sceneTimingLabel = `[FFmpeg Scene Renderer] Total render time ${scene.id}`;
+    console.timeEnd(sceneTimingLabel);
     console.log(`[FFmpeg] ✅ Scene rendered successfully: ${outputPath}`);
 
   } finally {

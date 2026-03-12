@@ -28,6 +28,7 @@ import {
   renderSceneToBuffer,
   SceneRenderOptions,
   DEFAULT_SCENE_OPTIONS,
+  downloadAsset,
 } from "./scene-renderer";
 
 import { stitchSceneSegments } from "./concat-stitcher";
@@ -103,70 +104,115 @@ export async function renderVideoWithFFmpeg(
     console.log(`[FFmpeg Renderer] Cache stats: ${stats.count} scenes, ${stats.totalSizeMB.toFixed(2)} MB`);
   }
 
-  const sceneSegmentPaths: string[] = [];
+  const sceneSegmentPaths: string[] = new Array(plan.scenes.length).fill("");
   const tempFiles: string[] = [];
 
   try {
-    // PHASE 1: Render or retrieve each scene
+    // PHASE 0: Pre-download all unique assets
+    console.log(`[FFmpeg Renderer] PHASE 0: Pre-downloading unique assets...`);
+    const uniqueImages = new Set<string>();
+    const uniqueAudio = new Set<string>();
+
+    for (const scene of plan.scenes) {
+      if (scene.imageUrl) uniqueImages.add(scene.imageUrl);
+      if (scene.audioUrl) uniqueAudio.add(scene.audioUrl);
+    }
+
+    const assetMap = new Map<string, string>();
+    const assetDownloadPromises: Promise<void>[] = [];
+
+    // Download images
+    for (const url of uniqueImages) {
+      if (url.startsWith("/") || url.startsWith("file://")) continue;
+      assetDownloadPromises.push((async () => {
+        try {
+          const localPath = await downloadAsset(url, "png");
+          assetMap.set(url, localPath);
+          tempFiles.push(localPath);
+        } catch (err) {
+          console.warn(`[FFmpeg Renderer] Failed to pre-download image: ${url}`, err);
+        }
+      })());
+    }
+
+    // Download audio
+    for (const url of uniqueAudio) {
+      if (url.startsWith("/") || url.startsWith("file://")) continue;
+      assetDownloadPromises.push((async () => {
+        try {
+          const localPath = await downloadAsset(url, "mp3");
+          assetMap.set(url, localPath);
+          tempFiles.push(localPath);
+        } catch (err) {
+          console.warn(`[FFmpeg Renderer] Failed to pre-download audio: ${url}`, err);
+        }
+      })());
+    }
+
+    await Promise.all(assetDownloadPromises);
+    console.log(`[FFmpeg Renderer] Pre-downloaded ${assetMap.size} unique assets.`);
+
+    // PHASE 1: Render or retrieve each scene (PARALLEL)
     updateProgress({ phase: "rendering_scenes" });
 
-    console.log(`[FFmpeg Renderer] Processing ${plan.scenes.length} scenes...`);
+    console.log(`[FFmpeg Renderer] Processing ${plan.scenes.length} scenes (Parallel)...`);
 
-    for (let i = 0; i < plan.scenes.length; i++) {
-      const scene = plan.scenes[i] as Scene;
+    // Concurrency control: Render N scenes at once
+    const CONCURRENCY = 3;
+    const sceneIndices = Array.from({ length: plan.scenes.length }, (_, i) => i);
+    
+    // Process in chunks or use a worker pool
+    const processScene = async (i: number) => {
+      const scene = JSON.parse(JSON.stringify(plan.scenes[i])) as Scene;
       const sceneNumber = i + 1;
 
-      updateProgress({ currentSceneIndex: i });
+      console.log(`[FFmpeg Renderer] Starting Scene ${sceneNumber}/${plan.scenes.length}`);
 
-      console.log(`\n[FFmpeg Renderer] === Scene ${sceneNumber}/${plan.scenes.length} ===`);
-      console.log(`[FFmpeg Renderer] Voiceover: "${scene.voiceover.substring(0, 60)}..."`);
-      console.log(`[FFmpeg Renderer] Duration: ${scene.duration}s`);
-
-      // Generate scene hash
+      // Generate scene hash BEFORE swapping URLs for local paths (for deterministic caching)
       const sceneHash = generateSceneHash(scene, format);
-      console.log(`[FFmpeg Renderer] Scene hash: ${sceneHash}`);
 
+      // Swap URLs for local paths if available
+      if (scene.imageUrl && assetMap.has(scene.imageUrl)) {
+        scene.imageUrl = assetMap.get(scene.imageUrl)!;
+      }
+      if (scene.audioUrl && assetMap.has(scene.audioUrl)) {
+        scene.audioUrl = assetMap.get(scene.audioUrl)!;
+      }
       let segmentPath: string;
 
       // Check cache (unless forced rerender)
       if (enableCache && !forceRerender && await isSceneCached(sceneHash)) {
-        // Cache HIT - retrieve cached segment
-        console.log(`[FFmpeg Renderer] ♻️  Cache HIT - retrieving scene ${sceneNumber}`);
-
+        console.log(`[FFmpeg Renderer] ♻️  Cache HIT - Scene ${sceneNumber}`);
         segmentPath = getCachedScenePath(sceneHash);
         progress.cachedScenes++;
-
       } else {
-        // Cache MISS - render new segment
-        console.log(`[FFmpeg Renderer] 🎬 Cache MISS - rendering scene ${sceneNumber}...`);
-        console.time(`[FFmpeg Renderer] Scene ${sceneNumber} render`);
-
+        console.log(`[FFmpeg Renderer] 🎬 Cache MISS - Rendering Scene ${sceneNumber}...`);
         const sceneBuffer = await renderSceneToBuffer(scene, renderOptions);
 
-        console.timeEnd(`[FFmpeg Renderer] Scene ${sceneNumber} render`);
-
-        // Save to cache
         if (enableCache) {
           await saveSceneToCache(sceneHash, sceneBuffer);
           segmentPath = getCachedScenePath(sceneHash);
         } else {
-          // No caching - save to temp file
           const tempSegmentPath = join(tmpdir(), `scene-${i}-${Date.now()}.mp4`);
           await writeFile(tempSegmentPath, sceneBuffer);
           segmentPath = tempSegmentPath;
           tempFiles.push(tempSegmentPath);
         }
-
         progress.newScenes++;
       }
 
-      sceneSegmentPaths.push(segmentPath);
+      sceneSegmentPaths[i] = segmentPath;
       progress.completedScenes++;
+      
+      const percent = Math.round((progress.completedScenes / progress.totalScenes) * 100);
+      updateProgress({ currentSceneIndex: i });
+      console.log(`[FFmpeg Renderer] Progress: ${progress.completedScenes}/${progress.totalScenes} (${percent}%)`);
+    };
 
-      updateProgress({});
-
-      const cacheHitRate = ((progress.cachedScenes / progress.completedScenes) * 100).toFixed(1);
-      console.log(`[FFmpeg Renderer] Progress: ${progress.completedScenes}/${progress.totalScenes} scenes (${cacheHitRate}% cache hit rate)`);
+    // Run parallel with concurrency limit
+    for (let i = 0; i < sceneIndices.length; i += CONCURRENCY) {
+      const chunk = sceneIndices.slice(i, i + CONCURRENCY);
+      await Promise.all(chunk.map(idx => processScene(idx)));
     }
 
     // PHASE 2: Stitch all segments together
