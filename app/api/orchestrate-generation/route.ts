@@ -58,7 +58,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Orchestrate] Starting pipeline for plan ${planId} (${visualMode}, ${scenes.length} scenes)`);
 
     // Build the base URL for internal API calls
-    const baseUrl = request.nextUrl.origin;
+    // Prefer the public app URL when configured, otherwise fall back to the incoming request origin.
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.length > 0
+        ? process.env.NEXT_PUBLIC_APP_URL
+        : request.nextUrl.origin;
 
     const headers = {
       "Content-Type": "application/json",

@@ -13,6 +13,7 @@ import {
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { SceneSchema } from "./Schema";
 import { z } from "zod";
+import { getAppUrl } from "@/lib/app-url";
 
 const { fontFamily } = loadFont("normal", {
   weights: ["400", "700"],
@@ -96,8 +97,7 @@ export const SceneComponent: React.FC<{
         const baseUrl = assetServerBaseUrl.replace(/\/+$/, ""); // Remove trailing slashes
         return `${baseUrl}/${filename}`;
       }
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const baseUrl = getAppUrl();
       return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
     }
 
@@ -106,7 +106,7 @@ export const SceneComponent: React.FC<{
     if (url.startsWith("/")) return url;
 
     // 4. Default: It's a Firebase Storage path, wrap it in proxy-image
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = getAppUrl();
     return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
   };
 

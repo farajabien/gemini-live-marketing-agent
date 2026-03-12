@@ -1,4 +1,5 @@
 import type { Scene } from "./types";
+import { getAppUrl } from "./app-url";
 
 export interface AssetVerificationResult {
   allReady: boolean;
@@ -20,7 +21,7 @@ export interface AssetVerificationResult {
  */
 export async function verifySceneAssets(
   scenes: Scene[],
-  baseUrl: string = process.env.NEXT_PUBLIC_APP_URL!,
+  baseUrl: string = getAppUrl(),
 ): Promise<AssetVerificationResult> {
   const verificationPromises: Promise<{
     type: "image" | "audio" | "video";

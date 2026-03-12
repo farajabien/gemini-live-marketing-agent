@@ -32,9 +32,17 @@ interface ProductionOverlayProps {
   episodes: Episode[];
   progress: Record<string, EpisodeProgress>;
   onRetry?: (episode: Episode) => void;
+  canDismiss?: boolean;
+  onDismiss?: () => void;
 }
 
-export function ProductionOverlay({ episodes, progress, onRetry }: ProductionOverlayProps) {
+export function ProductionOverlay({
+  episodes,
+  progress,
+  onRetry,
+  canDismiss,
+  onDismiss,
+}: ProductionOverlayProps) {
   if (episodes.length === 0) return null;
 
   const hasAnyFailed = episodes.some(e => e.status === 'failed');
@@ -54,9 +62,19 @@ export function ProductionOverlay({ episodes, progress, onRetry }: ProductionOve
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12 pointer-events-none">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-700 pointer-events-auto" />
-      
+
       <div className="relative z-10 flex flex-col items-center text-center max-w-xl w-full p-10 rounded-[3.5rem] bg-[#080911]/90 border border-white/10 shadow-2xl backdrop-blur-3xl animate-in zoom-in-95 fade-in duration-500 pointer-events-auto">
-        
+        {canDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="absolute right-6 top-6 inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-slate-200 hover:bg-white/10 border border-white/10"
+          >
+            <span className="material-symbols-outlined text-xs">close</span>
+            Continue in background
+          </button>
+        )}
+
         {/* Animated background */}
         <div className="absolute inset-0 opacity-10 pointer-events-none rounded-[3.5rem] overflow-hidden">
           <div className="absolute inset-[-100%] bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,0.2),transparent_50%)] animate-pulse" />

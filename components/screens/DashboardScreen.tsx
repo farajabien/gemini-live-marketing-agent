@@ -270,27 +270,27 @@ export function DashboardScreen() {
   return (
     <div className="w-full font-sans text-white flex flex-col">
       <div className="flex-1 w-full">
-     
- {/* Project / Narrative selector — shown once the user has more than one project */}
-        {allNarratives.length > 1 && (
-          <div className="mb-6 px-1">
-            <Select value={narrativeOriginFilter} onValueChange={setNarrativeOriginFilter}>
-              <SelectTrigger className="w-full max-w-xs h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
-                <SelectValue placeholder="All Projects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {allNarratives.map((n) => (
-                  <SelectItem key={n.id} value={n.id}>{n.title || n.id}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+          {/* Project / Narrative selector — shown once the user has more than one project */}
+          {allNarratives.length > 1 && (
+            <div className="mb-4">
+              <Select value={narrativeOriginFilter} onValueChange={setNarrativeOriginFilter}>
+                <SelectTrigger className="w-full max-w-xs h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
+                  <SelectValue placeholder="All Projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {allNarratives.map((n) => (
+                    <SelectItem key={n.id} value={n.id}>{n.title || n.id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
- {/* Main Tabs */}
-        <Tabs defaultValue="brand" className="w-full">
-          <TabsList className="bg-white/5 border border-white/10 mb-10 h-14 p-1.5 rounded-2xl gap-2">
+          {/* Main Tabs */}
+          <Tabs defaultValue="brand" className="w-full">
+            <TabsList className="bg-white/5 border border-white/10 mb-6 h-12 p-1.5 rounded-2xl gap-2">
             <TabsTrigger
               value="brand"
               className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
@@ -326,10 +326,10 @@ export function DashboardScreen() {
               Media
               <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length + seriesCount}</Badge>
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
 
-          {/* 1. BRAND TAB */}
-          <TabsContent value="brand" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {/* 1. BRAND TAB */}
+            <TabsContent value="brand" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
             {allNarratives.length === 0 ? (
               <EmptyState
                 icon="token"
@@ -370,10 +370,10 @@ export function DashboardScreen() {
                 })}
               </div>
             )}
-          </TabsContent>
+            </TabsContent>
 
-          {/* 1b. SERIES TAB */}
-          <TabsContent value="storytelling" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {/* 1b. SERIES TAB */}
+            <TabsContent value="storytelling" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
             {allSeries.length === 0 ? (
               <EmptyState
                 icon="auto_stories"
@@ -395,12 +395,12 @@ export function DashboardScreen() {
                 ))}
               </div>
             )}
-          </TabsContent>
+            </TabsContent>
 
-          {/* 2. DRAFTS TAB */}
-          <TabsContent value="drafts" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {/* 2. DRAFTS TAB */}
+            <TabsContent value="drafts" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
             <Tabs defaultValue="queue" className="w-full">
-              <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+              <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
                 <TabsList className="bg-white/5 border border-white/10 p-1 h-10 rounded-full flex-shrink-0">
                   <TabsTrigger 
                     value="queue" 
@@ -504,11 +504,11 @@ export function DashboardScreen() {
                 </div>
               </TabsContent>
             </Tabs>
-          </TabsContent>
+            </TabsContent>
 
-          {/* 3. MEDIA TAB */}
-          <TabsContent value="media" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            <div className="flex items-center justify-end mb-8 gap-3 flex-wrap">
+            {/* 3. MEDIA TAB */}
+            <TabsContent value="media" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+              <div className="flex items-center justify-end mb-8 gap-3 flex-wrap">
               <Select value={mediaContextFilter} onValueChange={(v: "all" | "projects" | "series") => setMediaContextFilter(v)}>
                 <SelectTrigger className="w-[180px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
                   <div className="flex items-center gap-2">
@@ -519,7 +519,7 @@ export function DashboardScreen() {
                 <SelectContent>
                   <SelectItem value="all">
                     <div className="flex items-center justify-between w-full pr-2">
-                      <span>All Media</span>
+                      <span>All Content</span>
                       <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                         {allPlans.length + allSeries.length}
                       </span>
@@ -554,7 +554,7 @@ export function DashboardScreen() {
                   <SelectContent>
                     <SelectItem value="all">
                       <div className="flex items-center justify-between w-full pr-2">
-                        <span>All Media</span>
+                        <span>All Formats</span>
                         <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                           {allPlans.length + seriesCount}
                         </span>
@@ -573,9 +573,9 @@ export function DashboardScreen() {
                   </SelectContent>
                 </Select>
               )}
-            </div>
+              </div>
 
-            <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+              <div className="animate-in fade-in slide-in-from-left-4 duration-300">
               {getCombinedProjects().length === 0 ? (
                 <EmptyState
                   icon="inventory_2"
@@ -597,17 +597,16 @@ export function DashboardScreen() {
                   )}
                 </div>
               )}
-            </div>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </TabsContent>
+          </Tabs>
 
-      
-       
-        <PreviewDialog
-          isOpen={!!previewPlan}
-          plan={previewPlan}
-          onClose={() => setPreviewPlan(null)}
-        />
+          <PreviewDialog
+            isOpen={!!previewPlan}
+            plan={previewPlan}
+            onClose={() => setPreviewPlan(null)}
+          />
+        </div>
       </div>
     </div>
   );

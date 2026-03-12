@@ -134,11 +134,11 @@ const positioning = narrative.aiPositioning;
 
     
   return (
-    <div className="max-w-5xl mx-auto w-full space-y-8">
+    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
             {isEditingTitle ? (
               <div className="flex items-center gap-2 mb-2 w-full max-w-2xl">
                 <input
@@ -172,20 +172,22 @@ const positioning = narrative.aiPositioning;
               </h1>
             )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateSmartTitle}
-              disabled={isGeneratingTitle}
-              className="border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500/60 hover:text-red-400 hover:bg-red-500/10 h-7 rounded-full gap-1.5"
-            >
-              {isGeneratingTitle ? (
-                <Activity className="size-3 animate-spin" />
-              ) : (
-                <Sparkles className="size-3" />
-              )}
-              Smart Title
-            </Button>
+            <div className="mt-1 sm:mt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateSmartTitle}
+                disabled={isGeneratingTitle}
+                className="border-red-500/20 text-[10px] font-black uppercase tracking-widest text-red-500/60 hover:text-red-400 hover:bg-red-500/10 h-8 rounded-full gap-1.5"
+              >
+                {isGeneratingTitle ? (
+                  <Activity className="size-3 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3" />
+                )}
+                Smart Title
+              </Button>
+            </div>
           </div>
 
           {isEditingOneLiner ? (
@@ -207,38 +209,43 @@ const positioning = narrative.aiPositioning;
               />
             </div>
           ) : (
-            <p 
-              className="text-slate-400 group/one cursor-pointer flex items-center gap-2"
-              onClick={() => {
-                setEditedOneLiner(narrative.oneLiner || "");
-                setIsEditingOneLiner(true);
-              }}
-            >
-              {narrative.oneLiner || "Your strategic narrative foundation for all content"}
-              <span className="material-symbols-outlined text-slate-700 group-hover/one:text-red-400 text-xs opacity-0 group-hover/one:opacity-100 transition-all">
-                edit
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Story Hook
               </span>
-            </p>
+              <p 
+                className="text-slate-400 group/one cursor-pointer flex items-center gap-2"
+                onClick={() => {
+                  setEditedOneLiner(narrative.oneLiner || "");
+                  setIsEditingOneLiner(true);
+                }}
+              >
+                {narrative.oneLiner || "Your strategic narrative foundation for all content"}
+                <span className="material-symbols-outlined text-slate-700 group-hover/one:text-red-400 text-xs opacity-0 group-hover/one:opacity-100 transition-all">
+                  edit
+                </span>
+              </p>
+            </div>
           )}
         </div>
 
         {strength && (
-          <div className="shrink-0">
+          <div className="shrink-0 mt-4 md:mt-0">
             <StrengthGauge score={strength.overallScore} size="lg" />
           </div>
         )}
       </div>
 
       <Tabs defaultValue="strategy" className="w-full">
-        <TabsList className="bg-white/5 border border-white/10 p-1 mb-10 overflow-x-auto w-full justify-start h-auto rounded-2xl">
-          <TabsTrigger value="strategy" className="rounded-xl px-6 py-3 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-xs font-black uppercase tracking-widest gap-2">
+        <TabsList className="bg-white/5 border border-white/10 px-1 mb-6 overflow-x-auto w-full justify-start h-12 rounded-2xl flex items-center gap-2">
+          <TabsTrigger value="strategy" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
             <Target className="size-3.5" /> Strategy
           </TabsTrigger>
-          <TabsTrigger value="inputs" className="rounded-xl px-6 py-3 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-xs font-black uppercase tracking-widest gap-2">
+          <TabsTrigger value="inputs" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
             <Search className="size-3.5" /> Strategic Inputs
           </TabsTrigger>
 
-          <TabsTrigger value="pulse" className="rounded-xl px-6 py-3 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-xs font-black uppercase tracking-widest gap-2">
+          <TabsTrigger value="pulse" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
             <Activity className="size-3.5" /> Narrative Pulse
           </TabsTrigger>
         </TabsList>

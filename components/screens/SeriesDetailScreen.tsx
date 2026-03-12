@@ -19,6 +19,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const { user, refreshToken, getFreshToken, isInitialLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
   const [episodeProgress, setEpisodeProgress] = useState<Record<string, EpisodeProgress>>({});
+  const [showProductionOverlay, setShowProductionOverlay] = useState(true);
   // Track which episodes have had visuals/audio/render triggered to avoid duplicate calls
   const triggeredVisuals = useRef<Set<string>>(new Set());
   const triggeredAudio = useRef<Set<string>>(new Set());
@@ -84,6 +85,26 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
             if (!planRes.ok) continue;
             const { plan } = await planRes.json();
             if (!plan) continue;
+
+            // If the underlying VideoPlan has already failed (for example because
+            // /api/generate-video returned a 500), surface that failure at the
+            // episode level and stop trying to orchestrate further work.
+            if (plan.status === "failed") {
+              console.warn(
+                "[Orchestration] Plan is in failed status, marking episode failed:",
+                episode.id,
+              );
+              triggeredVisuals.current.delete(episode.id);
+              triggeredAudio.current.delete(episode.id);
+              triggeredRender.current.delete(episode.id);
+              if (episode.status !== "failed") {
+                await tx.episodes[episode.id].update({
+                  status: "failed",
+                  updatedAt: Date.now(),
+                });
+              }
+              continue;
+            }
 
             const totalScenes = plan.scenes.length;
             const visualsDone = plan.scenes.filter((s: any) => {
@@ -168,11 +189,16 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
               if (!triggeredRender.current.has(episode.id)) {
                 triggeredRender.current.add(episode.id);
                 activeRenders.current++;
-                console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
+                console.log(
+                  `[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`,
+                );
                 const renderRes = await fetch("/api/generate-video", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                  body: JSON.stringify({ planId: plan.id, background: true })
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({ planId: plan.id, background: true }),
                 });
                 activeRenders.current--;
                 if (renderRes.status === 409) {
@@ -184,6 +210,17 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                   await tx.episodes[episode.id].update({ 
                     status: 'failed',
                     updatedAt: Date.now()
+                  });
+                  continue;
+                }
+                if (!renderRes.ok) {
+                  console.warn(
+                    `[Orchestration] Render failed for episode ${episode.episodeNumber} with status ${renderRes.status}, marking failed.`,
+                  );
+                  triggeredRender.current.delete(episode.id);
+                  await tx.episodes[episode.id].update({
+                    status: "failed",
+                    updatedAt: Date.now(),
                   });
                   continue;
                 }
@@ -338,11 +375,15 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       <Header />
       
       {/* Production Overlay for generating or failed state */}
-      <ProductionOverlay 
-        episodes={generatingEps}
-        progress={episodeProgress}
-        onRetry={(ep) => handleRetryEpisode(ep)}
-      />
+      {showProductionOverlay && (
+        <ProductionOverlay 
+          episodes={generatingEps}
+          progress={episodeProgress}
+          onRetry={(ep) => handleRetryEpisode(ep)}
+          canDismiss={true}
+          onDismiss={() => setShowProductionOverlay(false)}
+        />
+      )}
       
       {/* Cinematic Series Header */}
       <div className="w-full bg-white dark:bg-[#101322] border-b border-slate-200 dark:border-white/10 pt-4 pb-8 relative overflow-hidden">
@@ -400,6 +441,25 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                     />
                 </div>
              </div>
+             
+             {/* Inline banner when overlay is hidden but generation is active */}
+             {generatingEps.length > 0 && !showProductionOverlay && (
+               <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl bg-blue-600/5 border border-blue-500/20 px-4 py-3">
+                 <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-300">
+                   <span className="material-symbols-outlined text-sm text-blue-500">cloud_done</span>
+                   <span className="font-medium">
+                     Episodes are generating in the background. You can keep working in this series.
+                   </span>
+                 </div>
+                 <button
+                   type="button"
+                   onClick={() => setShowProductionOverlay(true)}
+                   className="text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                 >
+                   Show Progress
+                 </button>
+               </div>
+             )}
           </div>
         </div>
       </div>
@@ -476,24 +536,26 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
         </div>
 
         {/* Floating Action Button */}
-        <div className="fixed bottom-8 right-8 z-50">
-           <button 
-             onClick={() => {
-               // Logic to generate all pending episodes
-               sortedEpisodes.filter(e => e.status !== 'complete').forEach(handleGenerateVideo);
-             }}
-             className="group h-16 px-8 rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 overflow-hidden"
-           >
-             <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-             <span className="material-symbols-outlined relative z-10 transition-transform group-hover:rotate-12">auto_awesome</span>
+        {seriesData.episodes?.some(e => e.status === 'generating') === false && (
+          <div className="fixed bottom-8 right-8 z-50">
+            <button 
+              onClick={() => {
+                // Logic to generate all pending episodes
+                sortedEpisodes.filter(e => e.status !== 'complete').forEach(handleGenerateVideo);
+              }}
+              className="group h-16 px-8 rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="material-symbols-outlined relative z-10 transition-transform group-hover:rotate-12">auto_awesome</span>
               <span className="text-xs font-black uppercase tracking-[0.2em] relative z-10 flex items-center gap-2">
-               {completedEpisodes === seriesData.episodeCount ? 'Regenerate Series' : 'Compile Remainder'}
-               <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] tabular-nums">
-                 {completedEpisodes} / {seriesData.episodeCount}
-               </span>
-             </span>
-           </button>
-        </div>
+                {completedEpisodes === seriesData.episodeCount ? 'Regenerate Series' : 'Compile Remainder'}
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] tabular-nums">
+                  {completedEpisodes} / {seriesData.episodeCount}
+                </span>
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
