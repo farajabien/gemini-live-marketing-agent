@@ -171,7 +171,7 @@ export function ProductionOverlay({
 
         {failedEps.length > 0 && (
           <p className="text-slate-500 text-[10px] font-medium mb-4">
-            Rate limit hit. Retry failed episodes above or wait a few minutes.
+            Generation halted. Retry failed episodes above or wait a few minutes.
           </p>
         )}
 

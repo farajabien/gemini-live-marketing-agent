@@ -300,14 +300,20 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       const { planId } = compileData;
       
       // Step 2: Trigger the background visual generation engine
-      fetch("/api/generate-visuals", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ planId })
-      }).catch(err => console.error("[SeriesDetail] Async visual trigger failed:", err));
+      if (!triggeredVisuals.current.has(episode.id)) {
+        triggeredVisuals.current.add(episode.id);
+        fetch("/api/generate-visuals", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ planId })
+        }).catch(err => {
+          console.error("[SeriesDetail] Async visual trigger failed:", err);
+          triggeredVisuals.current.delete(episode.id);
+        });
+      }
 
     } catch (err: any) {
       console.error("[SeriesDetail] Video generation orchestration failed:", err);
@@ -363,6 +369,8 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       status: 'draft',
       updatedAt: Date.now()
     });
+    // Automatically re-trigger generation
+    handleGenerateVideo(episode);
   };
   const sortedEpisodes = [...(seriesData.episodes || [])].sort((a, b) => a.episodeNumber - b.episodeNumber);
   

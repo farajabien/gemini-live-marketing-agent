@@ -155,18 +155,23 @@ export async function renderVideoWithFFmpeg(
     // PHASE 1: Render or retrieve each scene (PARALLEL)
     updateProgress({ phase: "rendering_scenes" });
 
-    console.log(`[FFmpeg Renderer] Processing ${plan.scenes.length} scenes (Parallel)...`);
+    const startTime = Date.now();
+    const log = (msg: string) => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[FFmpeg Renderer][${elapsed}s] ${msg}`);
+    };
 
-    // Concurrency control: Render N scenes at once
     const CONCURRENCY = 3;
-    const sceneIndices = Array.from({ length: plan.scenes.length }, (_, i) => i);
+    log(`Processing ${plan.scenes.length} scenes (Pool size: ${CONCURRENCY})...`);
+
+    // Worker pool: Render N scenes at once
+    const queue = Array.from({ length: plan.scenes.length }, (_, i) => i);
     
-    // Process in chunks or use a worker pool
     const processScene = async (i: number) => {
       const scene = JSON.parse(JSON.stringify(plan.scenes[i])) as Scene;
       const sceneNumber = i + 1;
 
-      console.log(`[FFmpeg Renderer] Starting Scene ${sceneNumber}/${plan.scenes.length}`);
+      log(`Starting Scene ${sceneNumber}/${plan.scenes.length} (ID: ${scene.id || 'N/A'})`);
 
       // Generate scene hash BEFORE swapping URLs for local paths (for deterministic caching)
       const sceneHash = generateSceneHash(scene, format);
@@ -182,11 +187,11 @@ export async function renderVideoWithFFmpeg(
 
       // Check cache (unless forced rerender)
       if (enableCache && !forceRerender && await isSceneCached(sceneHash)) {
-        console.log(`[FFmpeg Renderer] ♻️  Cache HIT - Scene ${sceneNumber}`);
+        log(`♻️  Cache HIT - Scene ${sceneNumber}`);
         segmentPath = getCachedScenePath(sceneHash);
         progress.cachedScenes++;
       } else {
-        console.log(`[FFmpeg Renderer] 🎬 Cache MISS - Rendering Scene ${sceneNumber}...`);
+        log(`🎬 Cache MISS - Rendering Scene ${sceneNumber}...`);
         const sceneBuffer = await renderSceneToBuffer(scene, renderOptions);
 
         if (enableCache) {
@@ -206,14 +211,20 @@ export async function renderVideoWithFFmpeg(
       
       const percent = Math.round((progress.completedScenes / progress.totalScenes) * 100);
       updateProgress({ currentSceneIndex: i });
-      console.log(`[FFmpeg Renderer] Progress: ${progress.completedScenes}/${progress.totalScenes} (${percent}%)`);
+      log(`Progress: ${progress.completedScenes}/${progress.totalScenes} (${percent}%)`);
     };
 
-    // Run parallel with concurrency limit
-    for (let i = 0; i < sceneIndices.length; i += CONCURRENCY) {
-      const chunk = sceneIndices.slice(i, i + CONCURRENCY);
-      await Promise.all(chunk.map(idx => processScene(idx)));
-    }
+    // Start workers
+    const workers = Array(CONCURRENCY).fill(null).map(async () => {
+      while (queue.length > 0) {
+        const idx = queue.shift();
+        if (idx !== undefined) {
+          await processScene(idx);
+        }
+      }
+    });
+
+    await Promise.all(workers);
 
     // PHASE 2: Stitch all segments together
     updateProgress({ phase: "stitching" });

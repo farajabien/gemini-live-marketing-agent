@@ -9,30 +9,16 @@ async function runBenchmark() {
     tone: "professional",
     type: "video",
     scenes: [
-      {
-        id: "1",
-        duration: 3,
-        voiceover: "The first scene of our optimized render pipeline.",
-        visualPrompt: "A beautiful sunrise",
-        imageUrl: "https://picsum.photos/1080/1920?random=1",
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      },
-      {
-        id: "2",
-        duration: 3,
-        voiceover: "Notice how the assets are downloaded in parallel now.",
-        visualPrompt: "Busy city street",
-        imageUrl: "https://picsum.photos/1080/1920?random=2",
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Duplicate to test caching
-      },
-      {
-        id: "3",
-        duration: 3,
-        voiceover: "And the scene rendering is parallelized too.",
-        visualPrompt: "Abstract blue background",
-        imageUrl: "https://picsum.photos/1080/1920?random=1", // Duplicate image
-        audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      }
+      { id: "1", duration: 3, voiceover: "Scene 1", visualPrompt: "Sunrise", imageUrl: "https://picsum.photos/1080/1920?random=1", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "2", duration: 3, voiceover: "Scene 2", visualPrompt: "City", imageUrl: "https://picsum.photos/1080/1920?random=2", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "3", duration: 3, voiceover: "Scene 3", visualPrompt: "Ocean", imageUrl: "https://picsum.photos/1080/1920?random=3", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "4", duration: 3, voiceover: "Scene 4", visualPrompt: "Mountains", imageUrl: "https://picsum.photos/1080/1920?random=4", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "5", duration: 3, voiceover: "Scene 5", visualPrompt: "Forest", imageUrl: "https://picsum.photos/1080/1920?random=5", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "6", duration: 3, voiceover: "Scene 6", visualPrompt: "Space", imageUrl: "https://picsum.photos/1080/1920?random=3", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "7", duration: 3, voiceover: "Scene 7", visualPrompt: "Cyberpunk", imageUrl: "https://picsum.photos/1080/1920?random=7", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "8", duration: 3, voiceover: "Scene 8", visualPrompt: "Nature", imageUrl: "https://picsum.photos/1080/1920?random=8", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "9", duration: 3, voiceover: "Scene 9", visualPrompt: "Abstract", imageUrl: "https://picsum.photos/1080/1920?random=9", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+      { id: "10", duration: 3, voiceover: "Scene 10", visualPrompt: "Final", imageUrl: "https://picsum.photos/1080/1920?random=1", audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
     ]
   };
 

@@ -59,16 +59,25 @@ export async function downloadAsset(url: string, ext: string): Promise<string> {
 
   console.log(`[FFmpeg] Downloading asset: ${downloadUrl.substring(0, 80)}...`);
 
-  const response = await fetch(downloadUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download asset: ${response.statusText}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+  try {
+    const response = await fetch(downloadUrl, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Failed to download asset: ${response.statusText}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await writeFile(tempPath, buffer);
+
+    console.log(
+      `[FFmpeg] ✅ Downloaded to ${tempPath} (${(buffer.length / 1024).toFixed(2)} KB)`,
+    );
+    return tempPath;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
-  await writeFile(tempPath, buffer);
-
-  console.log(`[FFmpeg] ✅ Downloaded to ${tempPath} (${(buffer.length / 1024).toFixed(2)} KB)`);
-  return tempPath;
 }
 
 /**
@@ -241,18 +250,30 @@ export async function renderScene(
         }
       });
 
+      // Run with manual timeout
+      const timeout = setTimeout(() => {
+        console.error(`[FFmpeg] Scene render timed out after 60s: ${outputPath}`);
+        command.kill('SIGKILL');
+        reject(new Error("FFmpeg scene render timed out after 60s"));
+      }, 60000);
+
       command.on("end", () => {
+        clearTimeout(timeout);
         console.timeEnd(timingLabel);
         resolve();
       });
 
       command.on("error", (err, stdout, stderr) => {
+        clearTimeout(timeout);
+        // If the error was caused by us killing the process, don't reject again
+        if (err.message && err.message.includes('SIGKILL')) {
+          return;
+        }
         console.error("[FFmpeg] Error:", err.message);
         console.error("[FFmpeg] stderr:", stderr);
         reject(err);
       });
 
-      // Run
       command.run();
     });
 

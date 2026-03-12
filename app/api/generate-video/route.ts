@@ -37,18 +37,26 @@ async function acquireRenderLockForPlan(planId: string): Promise<boolean> {
       throw new Error("Plan not found");
     }
 
-    // If already rendering, cannot acquire lock
+    const now = Date.now();
+    const RENDER_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+    // If already rendering, check if it's expired
     if (plan.status === "rendering") {
-      return false;
+      const startedAt = (plan as any).renderStartedAt || 0;
+      const isExpired = now - startedAt > RENDER_TIMEOUT_MS;
+
+      if (!isExpired) {
+        return false;
+      }
+      console.log(`[RenderLock] Previous render for ${planId} expired, re-acquiring lock.`);
     }
 
-    // Atomically set status to rendering
-    // Note: InstantDB doesn't have true CAS, but this is best-effort
-    // In production, consider using Redis SETNX or a proper distributed lock
+    // Atomically set status to rendering with timestamp
     await adminDb.transact([
       adminDb.tx.videoPlans[planId].update({
         status: "rendering",
         renderProgress: 0,
+        renderStartedAt: now,
       }),
     ]);
 
@@ -73,6 +81,7 @@ async function releaseRenderLockForPlan(
     await adminDb.transact([
       adminDb.tx.videoPlans[planId].update({
         status: finalStatus,
+        renderStartedAt: 0, // Reset timer
       }),
     ]);
   } catch (error) {
@@ -292,7 +301,8 @@ export async function POST(request: NextRequest) {
     let lastProgressUpdate = 0;
     const updateRenderProgress = async (percent: number) => {
       const now = Date.now();
-      if (now - lastProgressUpdate < 3000 && percent < 100) return;
+      // Increase frequency to every 1s (better for parallel FFmpeg)
+      if (now - lastProgressUpdate < 1000 && percent < 100) return;
       lastProgressUpdate = now;
       try {
         await adminDb.transact([

@@ -80,7 +80,14 @@ export async function renderRemotionVideo(
         webpackOverride: (config) => {
           return {
             ...config,
-            cache: { type: 'filesystem' },
+            cache: { type: "filesystem" },
+            resolve: {
+              ...config.resolve,
+              alias: {
+                ...config.resolve?.alias,
+                "@": path.resolve(process.cwd()),
+              },
+            },
           };
         },
       }

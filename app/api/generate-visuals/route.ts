@@ -7,7 +7,56 @@ import { withRetry } from "@/lib/ai/retry";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 
+/**
+ * Attempts to acquire a visual generation lock.
+ */
+async function acquireVisualLockForPlan(planId: string): Promise<boolean> {
+  try {
+    const queryResult = await adminDb.query({
+      videoPlans: { $: { where: { id: planId } } },
+    });
+    const plan = queryResult.videoPlans?.[0];
+    if (!plan) return false;
+
+    const now = Date.now();
+    const VISUAL_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes (Gemini can be slow)
+
+    const startedAt = (plan as any).visualStartedAt || 0;
+    const isLocked = (plan as any).status === "generating" && (now - startedAt < VISUAL_TIMEOUT_MS);
+
+    if (isLocked) {
+      console.log(`[VisualLock] Plan ${planId} is already generating visuals (started ${Math.round((now - startedAt)/1000)}s ago)`);
+      return false;
+    }
+
+    await adminDb.transact([
+      adminDb.tx.videoPlans[planId].update({
+        status: "generating",
+        visualStartedAt: now,
+      }),
+    ]);
+    return true;
+  } catch (err) {
+    console.error("[VisualLock] Error acquiring lock:", err);
+    return false;
+  }
+}
+
+async function releaseVisualLockForPlan(planId: string, status: "pending" | "generating_audio" | "failed") {
+  try {
+    await adminDb.transact([
+      adminDb.tx.videoPlans[planId].update({
+        status,
+        visualStartedAt: 0,
+      }),
+    ]);
+  } catch (err) {
+    console.error("[VisualLock] Error releasing lock:", err);
+  }
+}
+
 export async function POST(request: NextRequest) {
+  let lockedPlanId: string | null = null;
   try {
     const { planId } = await request.json();
     if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
@@ -26,6 +75,13 @@ export async function POST(request: NextRequest) {
 
     const userId = authUser.id;
 
+    // Acquire Lock
+    const acquired = await acquireVisualLockForPlan(planId);
+    if (!acquired) {
+      return NextResponse.json({ error: "Visual generation already in progress" }, { status: 409 });
+    }
+    lockedPlanId = planId;
+
     console.log(`Generating visuals for plan: ${planId} (requested by ${userId})`);
 
     // Fetch Plan using Admin SDK
@@ -39,52 +95,44 @@ export async function POST(request: NextRequest) {
 
     if (!plan) {
       console.error("Plan not found via Admin SDK");
+      lockedPlanId = null; 
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
-
-    // DEBUG: Log ownership information
-    console.log("[DEBUG] Plan owner check:", {
-      planId,
-      userId,
-      planUserId: (plan as any).userId,
-      matches: (plan as any).userId === userId
-    });
 
     // Security check: ensure the authenticated user owns this plan
     const planOwnerId = (plan as any).userId;
     if (planOwnerId !== userId) {
-      console.error("[ERROR] Ownership check failed:", {
-        expected: userId,
-        actual: planOwnerId,
-      });
+      console.error("[ERROR] Ownership check failed:", { expected: userId, actual: planOwnerId });
+      lockedPlanId = null;
       return NextResponse.json({ error: "Forbidden: You do not own this plan" }, { status: 403 });
     }
-
-    // NOTE: No usage/quota check here - that's enforced at video plan creation.
-    // Visual generation is just completing an already-approved plan.
 
     const visualMode = plan.visualMode || "image";
     const isCarousel = plan.type === "carousel";
 
-    // Force image mode for carousels (magazine also uses image generation)
+    let result;
     if (isCarousel || visualMode === "image" || visualMode === "magazine") {
-      return await generateImages(plan, planId);
+      result = await generateImages(plan, planId);
     } else if (visualMode === "broll") {
-      // B-Roll is Pro Max only
-      // HACKATHON: Bypassing check for demo purposes
-      // if (owner?.planId !== "pro_max") {
-      //   return NextResponse.json({ error: "B-Roll generation requires Pro Max plan" }, { status: 403 });
-      // }
-      return await generateBRollClips(plan, planId);
+      result = await generateBRollClips(plan, planId);
     } else if (visualMode === "text_motion" || visualMode === "gif_voice") {
-      // NEW: Giphy integration (used for both Text Motion and GIF + Voice modes)
-      return await generateGiphyVisuals(plan, planId);
+      result = await generateGiphyVisuals(plan, planId);
+    } else {
+      lockedPlanId = null;
+      return NextResponse.json({ error: "Invalid visual mode" }, { status: 400 });
     }
 
-    return NextResponse.json({ error: "Invalid visual mode" }, { status: 400 });
+    // Clear lock on success (generateImages etc handle their own DB updates, but we reset visualStartedAt)
+    await releaseVisualLockForPlan(planId, "pending");
+    lockedPlanId = null;
+
+    return result;
   } catch (error: unknown) {
     const message = getErrorMessage(error);
     console.error("Visual generation error:", error);
+    if (lockedPlanId) {
+      await releaseVisualLockForPlan(lockedPlanId, "pending");
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -187,7 +235,8 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
   }
 
   console.log(`Generating ${visualsToGenerate.length} images (${visualsToGenerate.filter(v => v.isSubScene).length} sub-scenes)`);
-  console.time(`[Gemini] Total image generation time`);
+  const timerLabel = `[Gemini] Total visual gen: ${planId.substring(0, 8)}`;
+  console.time(timerLabel);
 
   const { GoogleGenAI, HarmCategory, HarmBlockThreshold } = await import("@google/genai");
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -328,7 +377,7 @@ async function generateImages(plan: VideoPlanWithOwner, planId: string) {
     console.log(`✅ Saved ${successCount}/${visualsToGenerate.length} images to database (video cache invalidated)`);
   }
 
-  console.timeEnd(`[Gemini] Total image generation time`);
+  console.timeEnd(timerLabel);
 
   return NextResponse.json({
     success: true,
