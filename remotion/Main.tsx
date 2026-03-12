@@ -19,7 +19,7 @@ export const Main: React.FC<MainProps> = ({ plan }) => {
             durationInFrames={durationInFrames}
             premountFor={premountFrames}
           >
-            <SceneComponent scene={scene} visualMode={plan.visualMode} />
+            <SceneComponent scene={scene} visualMode={plan.visualMode} assetServerBaseUrl={plan.assetServerBaseUrl} />
           </Series.Sequence>
         );
       })}

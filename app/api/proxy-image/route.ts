@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
                 });
             } catch (readErr) {
                 console.error(`[Proxy GET] Local file read error: ${cleanPath}`, readErr);
-                // Fall through to Firebase logic if it's not actually a local path or doesn't exist
+                return NextResponse.json({ error: "Local file not found" }, { status: 404 });
             }
         }
     }

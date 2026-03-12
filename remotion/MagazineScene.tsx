@@ -37,11 +37,13 @@ export const MagazineScene: React.FC<MagazineSceneProps> = ({ text, imageUrl, vi
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         loop
                         muted
+                        delayRenderTimeoutInMilliseconds={300000}
                     />
                 ) : imageUrl ? (
                     <Img
                         src={imageUrl}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        delayRenderTimeoutInMilliseconds={300000}
                     />
                 ) : (
                     <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #1a1a2e, #16213e)' }} />

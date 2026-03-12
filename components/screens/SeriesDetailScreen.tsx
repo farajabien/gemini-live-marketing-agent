@@ -16,7 +16,7 @@ interface SeriesDetailScreenProps {
 }
 
 export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
-  const { user, refreshToken, isInitialLoading } = useAuth();
+  const { user, refreshToken, getFreshToken, isInitialLoading } = useAuth();
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
   const [episodeProgress, setEpisodeProgress] = useState<Record<string, EpisodeProgress>>({});
   // Track which episodes have had visuals/audio/render triggered to avoid duplicate calls
@@ -61,7 +61,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const orchestratingRef = useRef(false);
 
   useEffect(() => {
-    if (!seriesData || !refreshToken) return;
+    if (!seriesData || !user) return;
 
     const generatingEpisodes = (seriesData.episodes || []).filter(e => e.status === 'generating' && e.videoPlanId);
     if (generatingEpisodes.length === 0) return;
@@ -69,11 +69,17 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     const orchestrate = async () => {
       if (orchestratingRef.current) return;
       orchestratingRef.current = true;
+      const token = (await getFreshToken?.()) ?? refreshToken ?? null;
+      if (!token) {
+        orchestratingRef.current = false;
+        return;
+      }
       try {
         for (const episode of generatingEpisodes) {
+          if (!episode.id || !episode.videoPlanId) continue;
           try {
             const planRes = await fetch(`/api/video-plans/${episode.videoPlanId}`, {
-              headers: { "Authorization": `Bearer ${refreshToken}` }
+              headers: { "Authorization": `Bearer ${token}` }
             });
             if (!planRes.ok) continue;
             const { plan } = await planRes.json();
@@ -115,7 +121,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
               if (hasPendingOps) {
                 await fetch("/api/poll-video-clips", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                   body: JSON.stringify({ planId: plan.id })
                 });
               } else if (!triggeredVisuals.current.has(episode.id)) {
@@ -123,7 +129,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 console.log(`[Orchestration] Triggering visual generation for episode ${episode.episodeNumber}...`);
                 fetch("/api/generate-visuals", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                   body: JSON.stringify({ planId: plan.id })
                 }).then(res => {
                   if (!res.ok) triggeredVisuals.current.delete(episode.id);
@@ -145,12 +151,10 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                  if (audioRes.status === 429) {
                    console.warn(`[Orchestration] Rate limit hit for episode ${episode.episodeNumber}, marking failed.`);
                    triggeredAudio.current.delete(episode.id);
-                   db.transact([
-                     tx.episodes[episode.id].update({ 
-                       status: 'failed',
-                       updatedAt: Date.now()
-                     })
-                   ]);
+                   await tx.episodes[episode.id].update({ 
+                     status: 'failed',
+                     updatedAt: Date.now()
+                   });
                    continue;
                  }
                }
@@ -167,7 +171,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 console.log(`[Orchestration] Assets ready for episode ${episode.episodeNumber}, triggering render...`);
                 const renderRes = await fetch("/api/generate-video", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${refreshToken}` },
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                   body: JSON.stringify({ planId: plan.id, background: true })
                 });
                 activeRenders.current--;
@@ -177,12 +181,10 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 }
                 if (renderRes.status === 429) {
                   triggeredRender.current.delete(episode.id);
-                  db.transact([
-                    tx.episodes[episode.id].update({ 
-                      status: 'failed',
-                      updatedAt: Date.now()
-                    })
-                  ]);
+                  await tx.episodes[episode.id].update({ 
+                    status: 'failed',
+                    updatedAt: Date.now()
+                  });
                   continue;
                 }
               }
@@ -194,15 +196,14 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                triggeredVisuals.current.delete(episode.id);
                triggeredAudio.current.delete(episode.id);
                triggeredRender.current.delete(episode.id);
-               db.transact([
-                 tx.episodes[episode.id].update({ 
-                   status: 'complete',
-                   videoUrl: plan.videoUrl,
-                   thumbnailUrl: plan.thumbnailUrl,
-                   duration: plan.duration,
-                   updatedAt: Date.now()
-                 })
-               ]);
+               const completeData: Record<string, unknown> = {
+                 status: 'complete',
+                 videoUrl: plan.videoUrl,
+                 duration: plan.duration,
+                 updatedAt: Date.now()
+               };
+               if (plan.thumbnailUrl != null) completeData.thumbnailUrl = plan.thumbnailUrl;
+               await tx.episodes[episode.id].update(completeData);
             }
           } catch (err) {
             console.error("[Orchestration] Failed for episode:", episode.id, err);
@@ -234,7 +235,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     orchestrate().then(scheduleNext);
 
     return () => clearTimeout(timer);
-  }, [seriesData, refreshToken, db]);
+  }, [seriesData, user, refreshToken, getFreshToken, db]);
 
   const handleEditScript = (episode: Episode) => {
     // TODO: Implement script editing modal
@@ -242,7 +243,8 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   };
 
   const handleGenerateVideo = async (episode: Episode) => {
-    if (!refreshToken) return;
+    const token = (await getFreshToken?.()) ?? refreshToken ?? null;
+    if (!token) return;
     
     try {
       // Step 1: Compile episode structure into a renderable VideoPlan
@@ -250,7 +252,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${refreshToken}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ episodeId: episode.id })
       });
@@ -265,7 +267,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${refreshToken}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ planId })
       }).catch(err => console.error("[SeriesDetail] Async visual trigger failed:", err));
@@ -317,15 +319,13 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const generatingEps = (seriesData.episodes || []).filter(e => e.status === 'generating' || e.status === 'failed');
   const activeEpisode = generatingEps[0] || null;
 
-  const handleRetryEpisode = (episode: Episode) => {
+  const handleRetryEpisode = async (episode: Episode) => {
     triggeredAudio.current.delete(episode.id);
     triggeredRender.current.delete(episode.id);
-    db.transact([
-      tx.episodes[episode.id].update({ 
-        status: 'draft',
-        updatedAt: Date.now()
-      })
-    ]);
+    await tx.episodes[episode.id].update({ 
+      status: 'draft',
+      updatedAt: Date.now()
+    });
   };
   const sortedEpisodes = [...(seriesData.episodes || [])].sort((a, b) => a.episodeNumber - b.episodeNumber);
   

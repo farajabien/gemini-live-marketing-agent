@@ -39,9 +39,9 @@ export const TextMotionScene: React.FC<TextMotionSceneProps> = ({ text, videoUrl
                             objectFit: 'cover',
                             opacity: 0.6 // Dimmed for text readability
                         }}
-                        // Loop the video (Video component supports this)
                         loop
                         muted
+                        delayRenderTimeoutInMilliseconds={300000}
                     /> 
                     <div style={{
                         position: 'absolute',

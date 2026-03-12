@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   signInAnonymously,
   signOut as firebaseSignOut,
@@ -40,6 +40,7 @@ export interface AuthState {
   linkAnonymousToEmail: (email: string, password: string) => Promise<void>;
   isAuthenticated: boolean;
   refreshToken?: string;
+  getFreshToken?: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -280,6 +281,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
+   * Get a fresh ID token, forcing refresh if needed.
+   * Use this for API calls during long sessions to avoid auth/id-token-expired.
+   */
+  const getFreshToken = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    try {
+      return await getIdToken(user, true);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /**
    * Link anonymous account to email/password
    * Converts a guest user to a permanent email account, preserving their UID and data
    */
@@ -322,6 +337,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     linkAnonymousToEmail,
     isAuthenticated: !!firebaseUser,
     refreshToken,
+    getFreshToken,
   };
 
   if (!mounted) {

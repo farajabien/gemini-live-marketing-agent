@@ -1,3 +1,4 @@
+import path from "path";
 import { AbsoluteFill, Img, Video, Audio, interpolate, useCurrentFrame, useVideoConfig, staticFile, Series } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { SceneSchema } from "./Schema";
@@ -24,7 +25,7 @@ import { MagazineScene } from "./MagazineScene";
 
 // ... (other imports)
 
-export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = ({ scene, visualMode }) => {
+export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; assetServerBaseUrl?: string }> = ({ scene, visualMode, assetServerBaseUrl }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -56,6 +57,7 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
         <Img
           src={getDirectStorageUrl(imageUrl)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          delayRenderTimeoutInMilliseconds={300000}
         />
       </AbsoluteFill>
     );
@@ -65,14 +67,17 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
     // 1. Return absolute remote URLs and data URIs as-is
     if (url.startsWith("http") || url.startsWith("data:")) return url;
 
-    // 2. For local absolute paths (/tmp, /var, etc), we MUST wrap them in proxy-image
-    // so the browser can access them via HTTP (Puppeteer blocks file://)
+    // 2. For local absolute paths (/tmp, /var, etc), use asset server if available (bypasses Next.js proxy)
     if (
       url.startsWith("/tmp/") || 
       url.startsWith("/var/") || // macOS temp folders
       url.startsWith("file:") ||
       url.startsWith("/users/") // local user home
     ) {
+      if (assetServerBaseUrl) {
+        const filename = url.split("/").pop() || url.replace(/^.*[/\\]/, "");
+        return `${assetServerBaseUrl}/${filename}`;
+      }
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
     }
@@ -100,6 +105,7 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
                 <Audio
                 src={getDirectStorageUrl(scene.audioUrl)}
                 volume={1.0}
+                delayRenderTimeoutInMilliseconds={300000}
                 />
             )}
           </AbsoluteFill>
@@ -118,6 +124,7 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
                 <Audio
                 src={getDirectStorageUrl(scene.audioUrl)}
                 volume={1.0}
+                delayRenderTimeoutInMilliseconds={300000}
                 />
             )}
           </AbsoluteFill>
@@ -152,11 +159,13 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
             <Video
               src={getDirectStorageUrl(scene.videoClipUrl)}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              delayRenderTimeoutInMilliseconds={300000}
             />
           ) : scene.imageUrl ? (
             <Img
               src={getDirectStorageUrl(scene.imageUrl)}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              delayRenderTimeoutInMilliseconds={300000}
             />
           ) : null}
         </AbsoluteFill>
@@ -216,6 +225,7 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string }> = (
         <Audio
           src={getDirectStorageUrl(scene.audioUrl)}
           volume={1.0}
+          delayRenderTimeoutInMilliseconds={300000}
         />
       )}
     </AbsoluteFill>

@@ -235,13 +235,15 @@ export async function upsertDocument<T extends Record<string, any>>(
   documentId: string,
   data: T
 ): Promise<void> {
+  if (!collectionName || !documentId) {
+    throw new Error('upsertDocument: collection and documentId are required');
+  }
   const docRef = doc(db, collectionName, documentId);
-
-  await setDoc(docRef, {
-    ...data,
-    id: documentId,
-    updatedAt: Date.now(),
-  }, { merge: true });
+  const cleanData: Record<string, any> = { id: documentId, updatedAt: Date.now() };
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) cleanData[k] = v;
+  }
+  await setDoc(docRef, cleanData, { merge: true });
 }
 
 export async function deleteDocument(

@@ -353,18 +353,27 @@ export async function transact(operations: Array<{
   const batch = writeBatch(db);
 
   for (const op of operations) {
+    if (!op?.collection || !op?.id) {
+      throw new Error('transact: each operation must have collection and id');
+    }
     const docRef = doc(db, op.collection, op.id);
 
-    switch (op.action) {
+      switch (op.action) {
       case 'set':
-        const userId = op.data?.userId || op.data?.owner;
-        batch.set(docRef, { ...op.data, id: op.id, userId }, { merge: true });
+        const userId = op.data?.userId ?? op.data?.owner;
+        const setData: Record<string, any> = { id: op.id };
+        if (userId !== undefined) setData.userId = userId;
+        for (const [k, v] of Object.entries(op.data || {})) {
+          if (v !== undefined) setData[k] = v;
+        }
+        batch.set(docRef, setData, { merge: true });
         break;
       case 'update':
-        const updateData = { ...op.data };
-        if (op.data?.owner) {
-          updateData.userId = op.data.owner;
+        const updateData: Record<string, any> = {};
+        for (const [k, v] of Object.entries(op.data || {})) {
+          if (v !== undefined) updateData[k] = v;
         }
+        if (op.data?.owner) updateData.userId = op.data.owner;
         batch.update(docRef, updateData);
         break;
       case 'delete':

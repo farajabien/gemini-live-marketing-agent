@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { existsSync } from "fs";
-import { unlink, readFile } from "fs/promises";
+import { unlink, readFile, mkdir, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { canUserGenerate } from "@/lib/pricing";
@@ -227,11 +227,14 @@ export async function POST(request: NextRequest) {
         throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
       }
     } else {
-      // --- Pre-download all Remotion assets to local temp files ---
+      // --- Pre-download all Remotion assets to a dedicated temp dir ---
+      const { randomBytes } = await import("crypto");
+      const renderTempDir = join(tmpdir(), `remotion-${planId}-${randomBytes(4).toString("hex")}`);
+      await mkdir(renderTempDir, { recursive: true });
+
       const fetchAndSave = async (url: string, ext: string): Promise<string> => {
         const { writeFile } = await import("fs/promises");
-        const { randomBytes } = await import("crypto");
-        const tempPath = join(tmpdir(), `remotion-asset-${randomBytes(6).toString("hex")}.${ext}`);
+        const tempPath = join(renderTempDir, `remotion-asset-${randomBytes(6).toString("hex")}.${ext}`);
         let downloadUrl = url;
         if (!url.startsWith("http") && !url.startsWith("data:")) {
           // Use Firebase Storage admin to get signed URL if needed
@@ -275,14 +278,12 @@ export async function POST(request: NextRequest) {
 
       console.log('[VideoGen] All Remotion assets pre-downloaded to local temp files.');
 
-      console.log('[VideoGen] Pre-warming proxy-image route...');
-      try {
-        const warmupUrl = `http://localhost:${process.env.PORT || 3000}/api/proxy-image?path=/tmp/warmup`;
-        await fetch(warmupUrl).catch(() => {});
-      } catch {}
-      console.log('[VideoGen] Proxy-image route warmed up.');
+      const { createAssetServer } = await import("@/lib/asset-server");
+      const assetServer = await createAssetServer(renderTempDir);
+      localPlan.assetServerBaseUrl = assetServer.url;
+      console.log(`[VideoGen] Asset server running at ${assetServer.url}`);
 
-      // LEGACY: Remotion renderer (now with local assets)
+      // LEGACY: Remotion renderer (now with local assets via dedicated server)
       console.log('[VideoGen] Using Remotion renderer (legacy, optimized)');
       console.time('[VideoGen] Remotion render');
       try {
@@ -295,6 +296,9 @@ export async function POST(request: NextRequest) {
         console.timeEnd('[VideoGen] Remotion render');
         console.error("Remotion rendering failed:", renderErr);
         throw new Error(`Rendering failed: ${getErrorMessage(renderErr)}`);
+      } finally {
+        assetServer.close();
+        try { await rm(renderTempDir, { recursive: true, force: true }); } catch {}
       }
     }
 

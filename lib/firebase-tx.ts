@@ -16,12 +16,21 @@ export const tx = new Proxy({}, {
       get: (_target2, docId: string) => {
         return {
           update: async (data: any) => {
+            if (!collection || docId == null || docId === '') {
+              throw new Error('tx: collection and document id are required');
+            }
             await upsertDocument(collection, docId, data);
           },
           merge: async (data: any) => {
+            if (!collection || docId == null || docId === '') {
+              throw new Error('tx: collection and document id are required');
+            }
             await upsertDocument(collection, docId, data);
           },
           delete: async () => {
+            if (!collection || docId == null || docId === '') {
+              throw new Error('tx: collection and document id are required');
+            }
             await deleteDocument(collection, docId);
           },
         };

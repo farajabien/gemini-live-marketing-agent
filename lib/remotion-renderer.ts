@@ -104,7 +104,7 @@ export async function renderRemotionVideo(
   const startTime = Date.now();
 
   const cpuCount = os.cpus().length;
-  const concurrencyCap = preset.name === "fast_preview" ? 8 : 4;
+  const concurrencyCap = 2;
   const optimalConcurrency = Math.max(1, Math.min(concurrencyCap, Math.floor(cpuCount * preset.concurrencyMultiplier)));
   console.log(`[Remotion] Concurrency: ${optimalConcurrency} workers (${cpuCount} cores, cap ${concurrencyCap})`);
 
@@ -114,7 +114,7 @@ export async function renderRemotionVideo(
     codec: "h264",
     outputLocation: outputPath,
     inputProps: { plan },
-    timeoutInMilliseconds: 300000,
+    timeoutInMilliseconds: 600000,
     concurrency: optimalConcurrency,
     chromiumOptions: {
       disableWebSecurity: true,

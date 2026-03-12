@@ -31,6 +31,7 @@ export const MainSchema = z.object({
     visualConsistency: z.string().optional(),
     style: z.string().optional(),
     visualMode: z.string().optional(),
+    assetServerBaseUrl: z.string().optional(),
   }),
 });
 
