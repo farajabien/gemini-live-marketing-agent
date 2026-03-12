@@ -2,7 +2,6 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
-import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -26,19 +25,16 @@ export function SeriesNarrativeOverviewScreen({ narrativeId }: { narrativeId: st
 
   if (isLoading || !data) {
     return (
-      <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex flex-col">
-        <Header />
-        <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
-        </div>
+        
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 mt-20">
+    <div className="min-h-full w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12">
         <Link
           href="/dashboard"
           className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-bold flex items-center gap-1 mb-8"

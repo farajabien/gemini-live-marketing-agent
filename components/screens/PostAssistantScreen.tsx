@@ -2,7 +2,6 @@
 
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
-import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -75,9 +74,8 @@ export function PostAssistantScreen({ planId }: PostAssistantScreenProps) {
   const hashtags = socialMetadata.hashtags || [];
 
   return (
-    <div className="min-h-screen bg-[#080911] text-white">
-      <Header />
-      <main className="max-w-5xl mx-auto px-4 pt-32 pb-20">
+    <div className="min-h-full bg-[#080911] text-white">
+      <main className="max-w-5xl mx-auto px-4 py-20">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <h1 className="text-4xl font-black mb-2 tracking-tight">Post Assistant</h1>

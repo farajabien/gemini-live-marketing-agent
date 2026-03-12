@@ -159,9 +159,9 @@ export interface ContentSettings {
 
 export interface User {
   id: string;
-  email?: string;
+  email?: string | null;
   imageURL?: string;
-  planId?: "free" | "pro" | "pro_max";
+  planId?: string;
   type?: string;
   // Quota tracking
   lifetimeGenerations?: number; // Total generations ever

@@ -11,6 +11,8 @@ import { GenerateScreen } from "@/components/screens/GenerateScreen";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
+import { LOGO } from "@/lib/branding";
+import Image from "next/image";
 
 // shadcn UI & Layout
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -69,12 +71,13 @@ import {
   Sparkles
 } from "lucide-react";
 
-import type { FounderNarrative, Series } from "@/lib/types";
+import type { FounderNarrative, Series, User } from "@/lib/types";
 
 interface AppLayoutProps {
   children: React.ReactNode;
   narrativeId?: string;
   seriesId?: string;
+  noPadding?: boolean;
 }
 
 export function AppLayout({ children, narrativeId, seriesId }: AppLayoutProps) {
@@ -85,7 +88,7 @@ export function AppLayout({ children, narrativeId, seriesId }: AppLayoutProps) {
   );
 }
 
-function AppLayoutContent({ children, narrativeId, seriesId }: AppLayoutProps) {
+function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLayoutProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -123,6 +126,17 @@ function AppLayoutContent({ children, narrativeId, seriesId }: AppLayoutProps) {
   );
   const { data: currentNarrativeData } = (db as any).useQuery(currentNarrativeQuery);
   const narrative = currentNarrativeData?.narratives?.[0] as FounderNarrative | undefined;
+
+  // Fetch episodes if in series context
+  const episodesQuery = useMemo(
+    () =>
+      seriesId
+        ? { episodes: { $: { where: { seriesId }, order: { episodeNumber: "asc" } } } }
+        : null,
+    [seriesId]
+  );
+  const { data: episodesData } = (db as any).useQuery(episodesQuery);
+  const seriesEpisodes = (episodesData?.episodes || []) as any[];
 
   // Fetch ALL user narratives and series for the switcher
   const allItemsQuery = useMemo(
@@ -170,6 +184,7 @@ function AppLayoutContent({ children, narrativeId, seriesId }: AppLayoutProps) {
         allNarratives={allNarratives}
         seriesId={seriesId}
         series={series}
+        seriesEpisodes={seriesEpisodes}
         allSeries={allSeries}
         switcherOpen={switcherOpen}
         setSwitcherOpen={setSwitcherOpen}
@@ -181,7 +196,12 @@ function AppLayoutContent({ children, narrativeId, seriesId }: AppLayoutProps) {
         setProfileOpen={setProfileOpen}
         setSecurityOpen={setSecurityOpen}
       />
-      <MainContent breadcrumbs={breadcrumbs}>
+      <MainContent 
+        breadcrumbs={breadcrumbs} 
+        noPadding={noPadding} 
+        latestNarrative={narrative}
+        user={user}
+      >
         {children}
       </MainContent>
 
@@ -219,6 +239,7 @@ function AppSidebar({
   allNarratives,
   seriesId,
   series,
+  seriesEpisodes,
   allSeries,
   switcherOpen,
   setSwitcherOpen,
@@ -235,6 +256,7 @@ function AppSidebar({
   allNarratives: FounderNarrative[];
   seriesId?: string;
   series?: Series;
+  seriesEpisodes: any[];
   allSeries: Series[];
   switcherOpen: boolean;
   setSwitcherOpen: (v: boolean) => void;
@@ -246,6 +268,8 @@ function AppSidebar({
   setProfileOpen: (v: boolean) => void;
   setSecurityOpen: (v: boolean) => void;
 }) {
+  const activeSeriesId = seriesId || narrative?.id; // In our connected plan, sometimes they overlap
+
   return (
     <Sidebar collapsible="icon" className="bg-[#050505] border-r border-white/5">
     
@@ -349,60 +373,105 @@ function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Main Menu */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
-            Main Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {narrativeId ? (
-                <>
-                  <SidebarNavItem 
-                    icon={<LayoutDashboard className="size-4" />} 
-                    label="Overview" 
-                    href={`/narrative/${narrativeId}`} 
-                    isActive={pathname === `/narrative/${narrativeId}`}
-                  />
-                  <SidebarNavItem 
-                    icon={<Brain className="size-4" />} 
-                    label="Content Engine" 
-                    href={`/narrative/${narrativeId}/engine`} 
-                    isActive={pathname.includes("/engine")}
-                  />
-                  <SidebarNavItem 
-                    icon={<FileEdit className="size-4" />} 
-                    label="Content Library" 
-                    href={`/narrative/${narrativeId}/drafts`} 
-                    isActive={pathname.includes("/drafts")}
-                  />
-                </>
-              ) : seriesId ? (
-                <>
-                  <SidebarNavItem 
-                    icon={<LayoutDashboard className="size-4" />} 
-                    label="Series Hub" 
-                    href={`/series/${seriesId}`} 
-                    isActive={pathname === `/series/${seriesId}`}
-                  />
-                  <SidebarNavItem 
-                    icon={<PlusCircle className="size-4" />} 
-                    label="Add Episode" 
-                    href={`/series/${seriesId}?add=1`} 
-                    isActive={pathname === `/series/${seriesId}` && searchParams.get("add") === "1"}
-                  />
-                </>
-              ) : (
+        {/* The Strategic Core (Shared context for Narrative & Linked Series) */}
+        {(narrativeId || (series && series.seriesNarrativeId)) && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
+              The Brain
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarNavItem 
+                  icon={<Brain className="size-4" />} 
+                  label="Strategy Hub" 
+                  href={`/narrative/${narrativeId || series?.seriesNarrativeId}`} 
+                  isActive={pathname === `/narrative/${narrativeId || series?.seriesNarrativeId}`}
+                />
+                <SidebarNavItem 
+                  icon={<Sparkles className="size-4" />} 
+                  label="Context Engine" 
+                  href={`/narrative/${narrativeId || series?.seriesNarrativeId}/engine`} 
+                  isActive={pathname.includes("/engine")}
+                />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Active Production (Episodes) */}
+        {seriesId && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
+              Episodes
+              <button 
+                onClick={() => router.push(`/series/${seriesId}?add=1`)}
+                className="hover:text-amber-500 transition-colors"
+                title="Add New Episode"
+              >
+                <PlusCircle className="size-3" />
+              </button>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarNavItem 
+                  icon={<LayoutDashboard className="size-4" />} 
+                  label="Series Hub" 
+                  href={`/series/${seriesId}`} 
+                  isActive={pathname === `/series/${seriesId}`}
+                />
+                
+                {/* Episodes List */}
+                <div className="mt-2 px-2 pb-2 space-y-1 group-data-[collapsible=icon]:hidden">
+                  {seriesEpisodes.map((ep) => (
+                    <Link 
+                      key={ep.id}
+                      href={`/series/${seriesId}?episodeId=${ep.id}`}
+                      className={cn(
+                        "flex items-center gap-2 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all border border-transparent",
+                        searchParams.get("episodeId") === ep.id 
+                          ? "bg-amber-600/20 text-amber-500 border-amber-600/30" 
+                          : "text-white/30 hover:text-white/60 hover:bg-white/5"
+                      )}
+                    >
+                      <div className={cn(
+                        "size-1.5 rounded-full shrink-0",
+                        ep.status === 'complete' ? "bg-emerald-500" : ep.status === 'generating' ? "bg-amber-500 animate-pulse" : "bg-white/20"
+                      )} />
+                      <span className="truncate">Ep {ep.episodeNumber}: {ep.title}</span>
+                    </Link>
+                  ))}
+                  
+                  <button
+                    onClick={() => router.push(`/series/${seriesId}?add=1`)}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-md text-[10px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-600/10 transition-all border border-dashed border-amber-600/20 hover:border-amber-600/40 mt-2"
+                  >
+                    <PlusCircle className="size-3" />
+                    + New Episode
+                  </button>
+                </div>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Global Dashboard (Fallback) */}
+        {!narrativeId && !seriesId && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
+              Studio
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarNavItem 
                   icon={<LayoutDashboard className="size-4" />} 
                   label="Dashboard" 
                   href="/dashboard" 
                   isActive={pathname === "/dashboard"}
                 />
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* User Footer */}
@@ -473,9 +542,24 @@ function SidebarNavItem({ icon, label, href, isActive }: { icon: React.ReactNode
 }
 
 /* ─── Main Content (with sidebar-aware margin) ─── */
-function MainContent({ children, breadcrumbs }: { children: React.ReactNode; breadcrumbs: { label: string; href: string }[] }) {
+interface MainContentProps {
+  children: React.ReactNode;
+  breadcrumbs: { label: string; href: string }[];
+  noPadding?: boolean;
+  latestNarrative?: FounderNarrative;
+  user?: User | null;
+}
+
+function MainContent({ 
+  children, 
+  breadcrumbs, 
+  noPadding,
+  latestNarrative,
+  user
+}: MainContentProps) {
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   return (
     <main
@@ -484,14 +568,14 @@ function MainContent({ children, breadcrumbs }: { children: React.ReactNode; bre
         marginLeft: isMobile ? 0 : isCollapsed ? "3rem" : "16rem",
       }}
     >
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-20">
-        <div className="flex items-center gap-2 px-4">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-20 px-4">
+        <div className="flex items-center gap-2">
           <SidebarTrigger className="-ml-1 text-white/40 hover:text-white" />
           <Separator orientation="vertical" className="mr-2 h-4 bg-white/10" />
-          <Breadcrumb>
+          <Breadcrumb className="hidden xl:block">
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard" className="text-xs font-bold text-white/40 hover:text-white transition-colors">
+                <BreadcrumbLink href="/dashboard" className="text-xs font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest">
                   Studio
                 </BreadcrumbLink>
               </BreadcrumbItem>
@@ -500,9 +584,9 @@ function MainContent({ children, breadcrumbs }: { children: React.ReactNode; bre
                   <BreadcrumbSeparator className="hidden md:block text-white/20" />
                   <BreadcrumbItem>
                     {idx === breadcrumbs.length - 1 ? (
-                      <BreadcrumbPage className="text-xs font-black text-red-500 uppercase tracking-widest">{crumb.label}</BreadcrumbPage>
+                      <BreadcrumbPage className="text-[10px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-md border border-white/10">{crumb.label}</BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink href={crumb.href} className="text-xs font-bold text-white/40 hover:text-white transition-colors">
+                      <BreadcrumbLink href={crumb.href} className="text-[10px] font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest">
                         {crumb.label}
                       </BreadcrumbLink>
                     )}
@@ -512,9 +596,98 @@ function MainContent({ children, breadcrumbs }: { children: React.ReactNode; bre
             </BreadcrumbList>
           </Breadcrumb>
         </div>
+
+        {/* Center Logo branding */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
+          <Image 
+            src={LOGO.full} 
+            alt={LOGO.alt} 
+            width={120} 
+            height={30} 
+            className="h-6 w-auto"
+            priority
+          />
+          {user?.planId && (
+            <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-600 to-orange-600 text-[8px] font-black text-white uppercase tracking-widest shadow-lg shadow-red-500/20">
+              {user.planId.replace('_', ' ')}
+            </span>
+          )}
+        </div>
+
+        {/* Unified Branding & Global Actions */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+             <Link
+                href="/dashboard"
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition flex items-center gap-2"
+              >
+                <LayoutDashboard className="size-3.5" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </Link>
+
+              <div className="relative">
+                <button 
+                  onClick={() => setCreateMenuOpen(!createMenuOpen)}
+                  className={cn(
+                    "flex items-center gap-1.5 h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] transition-all",
+                    createMenuOpen ? "bg-red-600 text-white" : "bg-white/5 text-white/40 hover:text-white border border-white/5"
+                  )}
+                >
+                  <PlusCircle className="size-3.5" />
+                  Create
+                </button>
+
+                {createMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setCreateMenuOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-56 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-2 z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right backdrop-blur-3xl">
+                      <Link href="/narrative/new" onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
+                        <div className="size-8 rounded-lg bg-red-600/10 flex items-center justify-center text-red-500 group-hover:bg-red-600 group-hover:text-white transition-all">
+                          <Brain className="size-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white">Narrative</span>
+                          <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Define core story</span>
+                        </div>
+                      </Link>
+                      <Link href="/series/new" onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
+                        <div className="size-8 rounded-lg bg-amber-600/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-600 group-hover:text-white transition-all">
+                          <Layers className="size-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white">Series</span>
+                          <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Episodic story</span>
+                        </div>
+                      </Link>
+                      {latestNarrative && (
+                        <>
+                          <div className="h-px bg-white/5 my-1" />
+                          <Link href={`/narrative/${latestNarrative.id}/drafts`} onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
+                            <div className="size-8 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                              <Sparkles className="size-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-white">Quick Video</span>
+                              <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Gen from drafts</span>
+                            </div>
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+          </div>
+        </div>
       </header>
-      <div className="p-6 md:p-8 lg:p-10">
-        <div className="max-w-7xl mx-auto w-full">
+      <div className={cn(
+        "transition-all duration-300",
+        noPadding ? "p-0" : "p-6 md:p-8 lg:p-10"
+      )}>
+        <div className={cn(
+          "mx-auto w-full",
+          noPadding ? "max-w-none" : "max-w-7xl"
+        )}>
           {children}
         </div>
       </div>

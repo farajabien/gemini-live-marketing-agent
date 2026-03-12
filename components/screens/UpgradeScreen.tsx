@@ -4,8 +4,6 @@ import { useState } from "react";
 import { PayPalButtons } from "@paypal/react-paypal-js";
 import { useAuth } from "@/hooks/use-auth";
 import { PRICING_TIERS } from "@/lib/pricing";
-import Link from "next/link";
-import { Header } from "@/components/Header";
 import { SecureAccountDialog } from "@/components/SecureAccountDialog";
 
 export function UpgradeScreen() {
@@ -42,9 +40,8 @@ export function UpgradeScreen() {
   const isPro = user && 'planId' in user && user.planId === "pro";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0d] relative overflow-hidden flex flex-col">
-      <Header />
-      <div className="flex-1 flex flex-col items-center py-20 px-4 mt-16">
+    <div className="min-h-full bg-[#0a0a0d] relative overflow-hidden flex flex-col">
+      <div className="flex-1 flex flex-col items-center py-20 px-4">
       {/* Background Glows */}
       <div className="absolute top-0 -left-20 w-96 h-96 bg-red-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-40 -right-20 w-[500px] h-[500px] bg-red-900/10 rounded-full blur-[150px] pointer-events-none" />

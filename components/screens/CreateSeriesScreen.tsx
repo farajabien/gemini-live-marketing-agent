@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
-import { Header } from "@/components/Header";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
 import { GenerationDialog } from "@/components/GenerationDialog";
 import { AuthScreen } from "@/components/screens/AuthScreen";
@@ -209,8 +208,7 @@ export function CreateSeriesScreen() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
-      <Header />
+    <div className="min-h-full w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
       
       <AuthChoiceDialog 
         isOpen={isAuthDialogOpen} 
@@ -224,7 +222,7 @@ export function CreateSeriesScreen() {
         cost={totalCost} 
       />
 
-      <div className="flex-1 flex items-center justify-center p-6 mt-20">
+      <div className="flex-1 flex items-center justify-center p-6">
         <div className="max-w-3xl w-full">
             <Link href="/dashboard" className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-bold flex items-center gap-1 mb-8">
                 <span className="material-symbols-outlined text-sm">arrow_back</span>

@@ -15,53 +15,12 @@ import { toBlob } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import type { VideoPlan, Scene } from "@/lib/types";
+import { MediaResultPreview } from "@/components/media/MediaResultPreview";
+import { AuthScreen } from "@/components/screens/AuthScreen";
 import { downloadPlanAssets } from "@/lib/download-utils";
 
-import { Header } from "@/components/Header";
-import { AuthScreen } from "@/components/screens/AuthScreen";
 import { SecureAccountDialog } from "@/components/SecureAccountDialog";
 import Image from "next/image";
-
-function RetryingImage({ src, alt, className, slideNumber }: { src: string; alt: string; className: string, slideNumber: number }) {
-  const [retries, setRetries] = useState(0);
-  const [errorSrc, setErrorSrc] = useState<string | null>(null);
-  const maxRetries = 15; // Try for up to 15 seconds while CDN propagates
-
-  useEffect(() => {
-    setRetries(0);
-    setErrorSrc(null);
-  }, [src]);
-
-  const currentSrc = errorSrc || src;
-
-  const handleError = () => {
-    if (retries < maxRetries) {
-      setTimeout(() => {
-        setRetries(r => r + 1);
-        try {
-          const url = new URL(src);
-          url.searchParams.set('retry', String(retries + 1));
-          url.searchParams.set('t', String(Date.now()));
-          setErrorSrc(url.toString());
-        } catch (e) {
-          setErrorSrc(`${src}?retry=${retries + 1}&t=${Date.now()}`);
-        }
-      }, 1000); // Retry every 1s
-    } else {
-      // Fallback SVG after max retries
-      setErrorSrc(`data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23f1f5f9" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" font-size="14" text-anchor="middle" dy=".3em" fill="%2394a3b8"%3ESlide ${slideNumber}%3C/text%3E%3C/svg%3E`);
-    }
-  };
-
-  return (
-    <img
-      src={currentSrc}
-      alt={alt}
-      className={className}
-      onError={handleError}
-    />
-  );
-}
 
 export function SuccessScreen() {
   const searchParams = useSearchParams();
@@ -390,9 +349,8 @@ export function SuccessScreen() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-black font-sans text-white flex flex-col">
-      <Header />
-      <div className="flex-1 flex flex-col items-center justify-center p-4 mt-16">
+    <div className="min-h-full w-full bg-black font-sans text-white flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
       {isReady && <Confetti width={width} height={height} recycle={false} numberOfPieces={500} />}
 
       {/* Series redirect banner */}
@@ -425,183 +383,16 @@ export function SuccessScreen() {
       <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl rounded-2xl border border-white/5 p-8 shadow-xl text-center z-10 grid md:grid-cols-2 gap-8 items-center">
         
         <div className="flex justify-center">
-                {plan && (isReady || (plan.scenes && plan.scenes.some((s) => !!s.imageUrl))) ? (
-                  isCarousel ? (
-                    /* Carousel Preview - Grid of Slides */
-                    <div className="w-full max-w-[350px] max-h-[500px] overflow-y-auto rounded-2xl border border-slate-200 dark:border-[#232948] shadow-xl">
-                      <div className="p-3 space-y-3">
-                        {(plan.scenes || []).map((scene, i) => {
-                          // Resolve storage path via proxy (handles Firebase Storage access)
-                          const imageUrl = scene.imageUrl?.startsWith("http") || scene.imageUrl?.startsWith("data:")
-                            ? scene.imageUrl
-                            : scene.imageUrl
-                              ? `/api/proxy-image?path=${encodeURIComponent(scene.imageUrl)}`
-                              : undefined;
-
-                          // Debug logging for image issues
-                          if (!scene.imageUrl) {
-                            console.log(`[Scene ${i}] No imageUrl - generation may still be in progress`);
-                          } else if (!scene.imageUrl.startsWith("http") && !scene.imageUrl.startsWith("data:")) {
-                            console.log(`[Scene ${i}] Storage path: ${scene.imageUrl} → proxy`);
-                          }
-
-                          return (
-                            <div key={i} className="bg-white dark:bg-[#101322] rounded-xl overflow-hidden border border-slate-100 dark:border-white/5 hover:shadow-lg transition-shadow">
-                              {/* Slide Image */}
-                              <div className="aspect-square relative bg-slate-100 dark:bg-[#0d101b]">
-                                {scene.imageUrl && imageUrl ? (
-                                  <RetryingImage
-                                    src={imageUrl}
-                                    alt={`Slide ${i + 1}`}
-                                    className="w-full h-full object-cover"
-                                    slideNumber={i + 1}
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                    <span className="material-symbols-outlined text-4xl">image</span>
-                                  </div>
-                                )}
-                                {/* Slide Number Badge */}
-                                <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-black">
-                                  {i + 1}/{(plan.scenes || []).length}
-                                </div>
-                              </div>
-
-                              {/* Slide Text */}
-                              {scene.voiceover && (
-                                <div className="p-3 space-y-2">
-                                  <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-                                    {scene.voiceover}
-                                  </p>
-
-                                  {/* Caption Action Buttons */}
-                                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
-                                    <button
-                                      onClick={() => handleCopyCaption(scene.voiceover || "", i + 1)}
-                                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50/5 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-[10px] font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                    >
-                                      <span className="material-symbols-outlined text-xs">content_copy</span>
-                                      Copy Full
-                                    </button>
-
-                                    <button
-                                      onClick={() => handleGenerateSocialCaption(scene.voiceover || "", i)}
-                                      disabled={generatingCaptionFor === i}
-                                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-red-600 to-orange-600 text-white text-[10px] font-bold hover:from-red-700 hover:to-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {generatingCaptionFor === i ? (
-                                        <>
-                                          <span className="animate-spin material-symbols-outlined text-xs">refresh</span>
-                                          Generating...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <span className="material-symbols-outlined text-xs">auto_awesome</span>
-                                          Social
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-
-                                  {/* Generated Social Caption */}
-                                  {socialCaptions[i] && (
-                                    <div className="p-2 rounded-lg bg-white/5 border border-red-500/20">
-                                      <div className="flex items-start justify-between gap-2 mb-1">
-                                        <span className="text-[9px] font-black uppercase tracking-wider text-red-500">
-                                          ✨ Social Caption
-                                        </span>
-                                        <button
-                                          onClick={() => handleCopyCaption(socialCaptions[i], i + 1)}
-                                          className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 transition-colors"
-                                        >
-                                          <span className="material-symbols-outlined text-sm">content_copy</span>
-                                        </button>
-                                      </div>
-                                      <p className="text-xs font-medium text-white">
-                                        {socialCaptions[i]}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Progress Overlay for Incomplete Carousels */}
-                      {!isReady && (
-                        <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-white dark:from-[#191e33] to-transparent p-4 text-center">
-                          <p className="text-sm font-bold text-slate-700 dark:text-white mb-1">{Math.round(visualProgress)}%</p>
-                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">
-                            {statusText}
-                          </p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              triggerVisualsManually();
-                            }}
-                            disabled={isManuallyTriggering}
-                            className="mt-2 text-[10px] text-red-500 hover:text-red-700 transition-colors uppercase tracking-widest font-bold underline cursor-pointer"
-                          >
-                            {isManuallyTriggering ? "Restarting..." : "Stuck? Tap to Restart"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    /* Video Preview - Standard Player */
-                    <div className="relative w-full max-w-[300px] aspect-[9/16] shadow-2xl rounded-2xl overflow-hidden border border-slate-800">
-                      <VideoPreview plan={plan} />
-                      {!isReady && (
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full px-4 z-[100]">
-                            <p className="text-xl font-bold text-white mb-2">{Math.round(visualProgress)}%</p>
-                            <p className="text-[10px] text-white/70 uppercase tracking-widest font-black leading-tight max-w-[120px] mx-auto">
-                              {statusText}
-                            </p>
-                            <div className="flex flex-col items-center gap-2">
-                              <button
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      triggerVisualsManually();
-                                  }}
-                                  disabled={isManuallyTriggering}
-                                  className="mt-4 text-[9px] text-white/40 hover:text-white/80 transition-colors uppercase tracking-widest font-bold underline cursor-pointer"
-                              >
-                                  {isManuallyTriggering ? "Restarting..." : "Stuck? Tap to Restart"}
-                              </button>
-                              <button
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      deepRestart();
-                                  }}
-                                  disabled={isManuallyTriggering}
-                                  className="text-[9px] text-red-500/40 hover:text-red-500/80 transition-colors uppercase tracking-widest font-bold underline cursor-pointer"
-                              >
-                                  Deep Restart (Wipe & Retry)
-                              </button>
-                            </div>
-                          </div>
-                      )}
-                    </div>
-                  )
-            ) : (
-                 <div className="bg-black p-10 rounded-[2.45rem] flex flex-col h-full items-center justify-center bg-slate-100 dark:bg-[#101322] rounded-xl relative overflow-hidden shadow-inner border border-slate-200 dark:border-[#232948]">
-                      <div className="relative z-10 flex flex-col items-center gap-4 p-4 text-center">
-                        <div className="relative h-16 w-16">
-                            <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-[#232948]"></div>
-                        </div>
-                        <div className="text-2xl font-bold text-red-600">{Math.round(visualProgress)}%</div>
-                        <p className="text-[10px] dark:text-white/60 uppercase tracking-widest font-black">{statusText}</p>
-                        <button 
-                              onClick={triggerVisualsManually}
-                              disabled={isManuallyTriggering}
-                              className="mt-2 text-[10px] text-red-500 hover:text-red-700 font-bold uppercase underline"
-                          >
-                              {isManuallyTriggering ? "Restarting..." : "Stuck? Restart"}
-                        </button>
-                      </div>
-                 </div>
+            {plan && (
+              <MediaResultPreview 
+                plan={plan}
+                isReady={isReady}
+                statusText={statusText}
+                visualProgress={visualProgress}
+                onRestart={triggerVisualsManually}
+                onDeepRestart={deepRestart}
+                isManuallyTriggering={isManuallyTriggering}
+              />
             )}
         </div>
 

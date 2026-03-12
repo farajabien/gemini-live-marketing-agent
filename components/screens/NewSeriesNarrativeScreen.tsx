@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { toast } from "sonner";
-import { Header } from "@/components/Header";
 import { createSeriesNarrative, refineSeriesNarrativeAction, autoFillSeriesAction, generateSeasonPlotAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -218,10 +217,8 @@ export function NewSeriesNarrativeScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050510] font-sans text-slate-100 flex flex-col">
-      <Header transparent />
-
-      <main className="flex-1 flex flex-col items-center justify-center p-6 pt-24">
+    <div className="min-h-full bg-[#050510] font-sans text-slate-100 flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="max-w-xl w-full">
           {/* Progress */}
           {step !== "generating" && (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Header } from "@/components/Header";
 import { AuthChoiceDialog } from "@/components/AuthChoiceDialog";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -131,8 +130,7 @@ export function DemoNarratorScreen() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
-      <Header />
+    <div className="min-h-full w-full bg-[#f6f6f8] dark:bg-[#080911] font-sans text-slate-900 dark:text-white flex flex-col">
       
       <AuthChoiceDialog 
         isOpen={isAuthDialogOpen} 
@@ -146,7 +144,7 @@ export function DemoNarratorScreen() {
         <div className="absolute bottom-[20%] -right-[10%] w-[30%] h-[30%] bg-purple-600/5 rounded-full blur-[100px]" />
       </div>
 
-      <div className="flex-1 max-w-6xl mx-auto w-full p-4 sm:p-8 mt-20 relative z-10">
+      <div className="flex-1 max-w-6xl mx-auto w-full p-4 sm:p-8 relative z-10">
         
         <div className="mb-8">
             <Link href="/dashboard" className="text-slate-500 hover:text-slate-800 dark:hover:text-white text-sm font-bold flex items-center gap-1 mb-4">

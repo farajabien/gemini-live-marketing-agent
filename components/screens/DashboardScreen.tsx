@@ -3,30 +3,21 @@
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
-import { Header } from "@/components/Header";
 import { AuthScreen } from "@/components/screens/AuthScreen";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
-import { SeriesCard } from "@/components/dashboard/SeriesCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { NarrativeCard } from "@/components/dashboard/NarrativeCard";
+import { SeriesCard } from "@/components/dashboard/SeriesCard";
+import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { ContentCard } from "@/components/narrative/ContentCard";
-import { useRouter } from "next/navigation";
-import type { VideoPlan, Series, FounderNarrative, ContentPiece, ContentStatus } from "@/lib/types";
 import { useGenerateStore } from "@/hooks/use-generate-store";
-
-// shadcn
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { VideoPlan, Series, FounderNarrative, ContentPiece, ContentStatus } from "@/lib/types";
 
 export function DashboardScreen() {
   const router = useRouter();
@@ -268,8 +259,8 @@ export function DashboardScreen() {
   );
 
   return (
-    <div className="w-full font-sans text-white flex flex-col">
-      <div className="flex-1 w-full">
+    <div className="w-full font-sans text-white">
+      <div className="w-full">
         <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-6">
           {/* Project / Narrative selector — shown once the user has more than one project */}
           {allNarratives.length > 1 && (

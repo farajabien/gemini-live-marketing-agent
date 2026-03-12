@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { toast } from "sonner";
-import { Header } from "@/components/Header";
 import { createBrandNarrative, refineBrandNarrativeAction } from "@/app/actions/marketing";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";

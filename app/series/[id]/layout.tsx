@@ -1,7 +1,7 @@
 "use client";
 
 import { AppLayout } from "@/components/AppLayout";
-import { use } from "react";
+import { use, Suspense } from "react";
 
 interface SeriesLayoutProps {
   children: React.ReactNode;
@@ -11,8 +11,10 @@ interface SeriesLayoutProps {
 export default function SeriesLayout({ children, params }: SeriesLayoutProps) {
   const resolvedParams = use(params);
   return (
-    <AppLayout seriesId={resolvedParams.id}>
-      {children}
-    </AppLayout>
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <AppLayout seriesId={resolvedParams.id} noPadding>
+        {children}
+      </AppLayout>
+    </Suspense>
   );
 }

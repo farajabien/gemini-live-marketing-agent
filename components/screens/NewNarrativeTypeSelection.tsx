@@ -1,6 +1,5 @@
 "use client"
 import { useRouter } from "next/navigation";
-import { Header } from "@/components/Header";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Briefcase, Clapperboard } from "lucide-react";
@@ -34,10 +33,8 @@ export function NewNarrativeTypeSelection() {
   ];
 
   return (
-    <div className="min-h-screen bg-background font-sans text-foreground flex flex-col">
-      <Header transparent />
-
-      <main className="flex-1 flex flex-col items-center justify-center p-6 pt-24">
+    <div className="min-h-full bg-transparent font-sans text-foreground flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="max-w-2xl w-full text-center">
           <span className="text-primary font-bold tracking-widest text-xs uppercase mb-4 block">
             Intelligence Engine
