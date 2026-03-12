@@ -97,6 +97,19 @@ export function Header({ transparent }: HeaderProps) {
                                                         <span className="text-[9px] font-bold text-slate-500">Define your core story</span>
                                                     </div>
                                                 </Link>
+                                                <Link
+                                                    href="/series/new"
+                                                    onClick={() => setCreateMenuOpen(false)}
+                                                    className="flex items-center gap-2.5 p-3 hover:bg-white/5 rounded-lg transition-colors group"
+                                                >
+                                                    <div className="h-8 w-8 rounded-full bg-amber-600/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-600 group-hover:text-white transition-all scale-90">
+                                                        <span className="material-symbols-outlined text-base">auto_stories</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white">New Series</span>
+                                                        <span className="text-[9px] font-bold text-slate-500">Episodic storytelling</span>
+                                                    </div>
+                                                </Link>
                                                 <div className="h-px bg-white/5 my-1.5" />
                                                 {latestNarrative ? (
                                                     <Link

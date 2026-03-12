@@ -69,22 +69,23 @@ import {
   Sparkles
 } from "lucide-react";
 
-import type { FounderNarrative } from "@/lib/types";
+import type { FounderNarrative, Series } from "@/lib/types";
 
 interface AppLayoutProps {
   children: React.ReactNode;
   narrativeId?: string;
+  seriesId?: string;
 }
 
-export function AppLayout({ children, narrativeId }: AppLayoutProps) {
+export function AppLayout({ children, narrativeId, seriesId }: AppLayoutProps) {
   return (
     <Suspense fallback={<div className="flex h-screen bg-black" />}>
-      <AppLayoutContent narrativeId={narrativeId}>{children}</AppLayoutContent>
+      <AppLayoutContent narrativeId={narrativeId} seriesId={seriesId}>{children}</AppLayoutContent>
     </Suspense>
   );
 }
 
-function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
+function AppLayoutContent({ children, narrativeId, seriesId }: AppLayoutProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -123,17 +124,21 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
   const { data: currentNarrativeData } = (db as any).useQuery(currentNarrativeQuery);
   const narrative = currentNarrativeData?.narratives?.[0] as FounderNarrative | undefined;
 
-  // Fetch ALL user narratives for the switcher and count
-  const allNarrativesQuery = useMemo(
+  // Fetch ALL user narratives and series for the switcher
+  const allItemsQuery = useMemo(
     () =>
       user
-        ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } } }
+        ? {
+            narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } },
+            series: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } },
+          }
         : null,
     [user?.id]
   );
-  const { data: allNarrativesData } = (db as any).useQuery(allNarrativesQuery);
-  const allNarratives = (allNarrativesData?.narratives || []) as FounderNarrative[];
-  const narrativeCount = allNarratives.length;
+  const { data: allItemsData } = (db as any).useQuery(allItemsQuery);
+  const allNarratives = ((allItemsData as any)?.narratives || []) as FounderNarrative[];
+  const allSeries = ((allItemsData as any)?.series || []) as Series[];
+  const series = seriesId ? allSeries.find((s) => s.id === seriesId) : undefined;
 
   const isNavItemActive = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
@@ -146,13 +151,16 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
     if (narrative) {
       list.push({ label: narrative.title, href: `/narrative/${narrative.id}` });
     }
+    if (series) {
+      list.push({ label: series.title, href: `/series/${series.id}` });
+    }
     if (pathname.includes("/engine")) {
       list.push({ label: "Content Engine", href: pathname });
     } else if (pathname.includes("/drafts")) {
       list.push({ label: "Content Library", href: pathname });
     }
     return list;
-  }, [narrative, pathname]);
+  }, [narrative, series, pathname]);
 
   return (
     <SidebarProvider>
@@ -160,9 +168,13 @@ function AppLayoutContent({ children, narrativeId }: AppLayoutProps) {
         narrativeId={narrativeId}
         narrative={narrative}
         allNarratives={allNarratives}
+        seriesId={seriesId}
+        series={series}
+        allSeries={allSeries}
         switcherOpen={switcherOpen}
         setSwitcherOpen={setSwitcherOpen}
         pathname={pathname}
+        searchParams={searchParams}
         router={router}
         user={user}
         signOut={signOut}
@@ -205,9 +217,13 @@ function AppSidebar({
   narrativeId,
   narrative,
   allNarratives,
+  seriesId,
+  series,
+  allSeries,
   switcherOpen,
   setSwitcherOpen,
   pathname,
+  searchParams,
   router,
   user,
   signOut,
@@ -217,9 +233,13 @@ function AppSidebar({
   narrativeId?: string;
   narrative?: FounderNarrative;
   allNarratives: FounderNarrative[];
+  seriesId?: string;
+  series?: Series;
+  allSeries: Series[];
   switcherOpen: boolean;
   setSwitcherOpen: (v: boolean) => void;
   pathname: string;
+  searchParams: URLSearchParams;
   router: any;
   user: any;
   signOut: () => void;
@@ -243,16 +263,16 @@ function AppSidebar({
                     >
                       <div className={cn(
                         "flex aspect-square size-7 items-center justify-center rounded font-bold text-[11px] shrink-0 transition-colors",
-                        narrative ? "bg-red-600 text-white" : "bg-white/10 text-white/50"
+                        narrative ? "bg-red-600 text-white" : series ? "bg-amber-600 text-white" : "bg-white/10 text-white/50"
                       )}>
-                        {narrative ? narrative.title.charAt(0).toUpperCase() : <LayoutDashboard className="size-4" />}
+                        {narrative ? narrative.title.charAt(0).toUpperCase() : series ? series.title.charAt(0).toUpperCase() : <LayoutDashboard className="size-4" />}
                       </div>
                       <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="text-xs font-bold text-white truncate">
-                          {narrative ? narrative.title : "All Projects"}
+                          {narrative ? narrative.title : series ? series.title : "All Projects & Series"}
                         </span>
                         <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
-                          {narrative ? "Active Narrative" : "Switch Projects"}
+                          {narrative ? "Active Project" : series ? "Active Series" : "Switch Projects"}
                         </span>
                       </div>
                       <ChevronRight className="ml-auto size-3 text-white/20 group-hover/switcher:text-white/60 transition-colors" />
@@ -260,11 +280,12 @@ function AppSidebar({
                   </PopoverTrigger>
                   <PopoverContent className="w-[240px] p-0 bg-[#0a0a0a] border-white/10 shadow-2xl" align="start">
                     <Command className="bg-transparent">
-                      <CommandInput placeholder="Search projects..." className="h-9" />
+                      <CommandInput placeholder="Search projects & series..." className="h-9" />
                       <CommandList className="max-h-[300px]">
-                        <CommandEmpty className="py-4 text-center text-xs text-white/40">No projects found.</CommandEmpty>
-                        <CommandGroup>
+                        <CommandEmpty className="py-4 text-center text-xs text-white/40">No projects or series found.</CommandEmpty>
+                        <CommandGroup heading="Projects">
                           <CommandItem
+                            value="all-projects"
                             onSelect={() => { router.push("/dashboard"); setSwitcherOpen(false); }}
                             className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
                           >
@@ -274,6 +295,7 @@ function AppSidebar({
                           {allNarratives.map((n) => (
                             <CommandItem
                               key={n.id}
+                              value={`project-${n.title}-${n.id}`}
                               onSelect={() => { router.push(`/narrative/${n.id}`); setSwitcherOpen(false); }}
                               className="flex items-center gap-2 cursor-pointer py-2 focus:bg-red-600/10 focus:text-red-500"
                             >
@@ -284,14 +306,38 @@ function AppSidebar({
                             </CommandItem>
                           ))}
                         </CommandGroup>
+                        <CommandGroup heading="Series">
+                          {allSeries.map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={`series-${s.title}-${s.id}`}
+                              onSelect={() => { router.push(`/series/${s.id}`); setSwitcherOpen(false); }}
+                              className="flex items-center gap-2 cursor-pointer py-2 focus:bg-amber-600/10 focus:text-amber-500"
+                            >
+                              <div className="size-5 rounded bg-amber-600/20 text-amber-500 flex items-center justify-center text-[10px] font-bold">
+                                {s.title.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-sm font-medium truncate">{s.title}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
                         <Separator className="bg-white/5 my-1" />
                         <CommandGroup>
                           <CommandItem
+                            value="new-narrative"
                             onSelect={() => { router.push("/narrative/new"); setSwitcherOpen(false); }}
                             className="flex items-center gap-2 cursor-pointer py-2 text-red-500 font-bold focus:bg-red-600/10"
                           >
                             <PlusCircle className="size-4" />
                             <span className="text-sm">New Narrative</span>
+                          </CommandItem>
+                          <CommandItem
+                            value="new-series"
+                            onSelect={() => { router.push("/series/new"); setSwitcherOpen(false); }}
+                            className="flex items-center gap-2 cursor-pointer py-2 text-amber-500 font-bold focus:bg-amber-600/10"
+                          >
+                            <PlusCircle className="size-4" />
+                            <span className="text-sm">New Series</span>
                           </CommandItem>
                         </CommandGroup>
                       </CommandList>
@@ -329,6 +375,21 @@ function AppSidebar({
                     label="Content Library" 
                     href={`/narrative/${narrativeId}/drafts`} 
                     isActive={pathname.includes("/drafts")}
+                  />
+                </>
+              ) : seriesId ? (
+                <>
+                  <SidebarNavItem 
+                    icon={<LayoutDashboard className="size-4" />} 
+                    label="Series Hub" 
+                    href={`/series/${seriesId}`} 
+                    isActive={pathname === `/series/${seriesId}`}
+                  />
+                  <SidebarNavItem 
+                    icon={<PlusCircle className="size-4" />} 
+                    label="Add Episode" 
+                    href={`/series/${seriesId}?add=1`} 
+                    isActive={pathname === `/series/${seriesId}` && searchParams.get("add") === "1"}
                   />
                 </>
               ) : (

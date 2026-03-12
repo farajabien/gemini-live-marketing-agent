@@ -1,5 +1,15 @@
 import path from "path";
-import { AbsoluteFill, Img, Video, Audio, interpolate, useCurrentFrame, useVideoConfig, staticFile, Series } from "remotion";
+import {
+  AbsoluteFill,
+  Img,
+  Video,
+  Audio,
+  interpolate,
+  useCurrentFrame,
+  useVideoConfig,
+  staticFile,
+  Series,
+} from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import { SceneSchema } from "./Schema";
 import { z } from "zod";
@@ -25,7 +35,11 @@ import { MagazineScene } from "./MagazineScene";
 
 // ... (other imports)
 
-export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; assetServerBaseUrl?: string }> = ({ scene, visualMode, assetServerBaseUrl }) => {
+export const SceneComponent: React.FC<{
+  scene: Scene;
+  visualMode?: string;
+  assetServerBaseUrl?: string;
+}> = ({ scene, visualMode, assetServerBaseUrl }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -39,11 +53,14 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; asset
   const opacity = interpolate(
     frame,
     [0, 15, Math.max(16, durationInFrames - 15), durationInFrames],
-    [0, 1, 1, 0]
+    [0, 1, 1, 0],
   );
 
   // NEW: Sub-scene rendering component
-  const SubSceneVisual: React.FC<{ imageUrl: string; duration: number }> = ({ imageUrl, duration }) => {
+  const SubSceneVisual: React.FC<{ imageUrl: string; duration: number }> = ({
+    imageUrl,
+    duration,
+  }) => {
     const subFrame = useCurrentFrame();
     const subDurationInFrames = duration * fps;
 
@@ -69,20 +86,22 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; asset
 
     // 2. For local absolute paths (/tmp, /var, etc), use asset server if available (bypasses Next.js proxy)
     if (
-      url.startsWith("/tmp/") || 
+      url.startsWith("/tmp/") ||
       url.startsWith("/var/") || // macOS temp folders
       url.startsWith("file:") ||
       url.startsWith("/users/") // local user home
     ) {
       if (assetServerBaseUrl) {
         const filename = url.split("/").pop() || url.replace(/^.*[/\\]/, "");
-        return `${assetServerBaseUrl}/${filename}`;
+        const baseUrl = assetServerBaseUrl.replace(/\/+$/, ""); // Remove trailing slashes
+        return `${baseUrl}/${filename}`;
       }
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       return `${baseUrl}/api/proxy-image?path=${encodeURIComponent(url)}`;
     }
 
-    // 3. If it's a relative path (starts with / but NOT /tmp or /var), 
+    // 3. If it's a relative path (starts with / but NOT /tmp or /var),
     // it's likely a static asset in the public folder. Return as-is.
     if (url.startsWith("/")) return url;
 
@@ -92,43 +111,45 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; asset
   };
 
   // --- NEW: Text Motion & GIF+Voice Mode ---
-  if (visualMode === 'magazine') {
-      return (
-          <AbsoluteFill>
-            <MagazineScene
-                text={scene.voiceover || scene.textOverlay || ""}
-                imageUrl={scene.imageUrl ? getDirectStorageUrl(scene.imageUrl) : null}
-                videoUrl={scene.videoClipUrl ? getDirectStorageUrl(scene.videoClipUrl) : null}
-            />
-            {/* Render audio if available */}
-            {scene.audioUrl && (
-                <Audio
-                src={getDirectStorageUrl(scene.audioUrl)}
-                volume={1.0}
-                delayRenderTimeoutInMilliseconds={300000}
-                />
-            )}
-          </AbsoluteFill>
-      );
+  if (visualMode === "magazine") {
+    return (
+      <AbsoluteFill>
+        <MagazineScene
+          text={scene.voiceover || scene.textOverlay || ""}
+          imageUrl={scene.imageUrl ? getDirectStorageUrl(scene.imageUrl) : null}
+          videoUrl={
+            scene.videoClipUrl ? getDirectStorageUrl(scene.videoClipUrl) : null
+          }
+        />
+        {/* Render audio if available */}
+        {scene.audioUrl && (
+          <Audio
+            src={getDirectStorageUrl(scene.audioUrl)}
+            volume={1.0}
+            delayRenderTimeoutInMilliseconds={300000}
+          />
+        )}
+      </AbsoluteFill>
+    );
   }
 
-  if (visualMode === 'text_motion' || visualMode === 'gif_voice') {
-      return (
-          <AbsoluteFill>
-            <TextMotionScene
-                text={scene.voiceover || scene.textOverlay || ""}
-                videoUrl={scene.imageUrl ? getDirectStorageUrl(scene.imageUrl) : null}
-            />
-            {/* Render audio if available (enabled for gif_voice) */}
-            {scene.audioUrl && (
-                <Audio
-                src={getDirectStorageUrl(scene.audioUrl)}
-                volume={1.0}
-                delayRenderTimeoutInMilliseconds={300000}
-                />
-            )}
-          </AbsoluteFill>
-      );
+  if (visualMode === "text_motion" || visualMode === "gif_voice") {
+    return (
+      <AbsoluteFill>
+        <TextMotionScene
+          text={scene.voiceover || scene.textOverlay || ""}
+          videoUrl={scene.imageUrl ? getDirectStorageUrl(scene.imageUrl) : null}
+        />
+        {/* Render audio if available (enabled for gif_voice) */}
+        {scene.audioUrl && (
+          <Audio
+            src={getDirectStorageUrl(scene.audioUrl)}
+            volume={1.0}
+            delayRenderTimeoutInMilliseconds={300000}
+          />
+        )}
+      </AbsoluteFill>
+    );
   }
 
   // Check if scene has sub-scenes for multi-visual sequence
@@ -147,14 +168,21 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; asset
                 key={subScene.id || `sub-${index}`}
                 durationInFrames={subDurationInFrames}
               >
-                <SubSceneVisual imageUrl={subScene.imageUrl || ""} duration={subScene.duration} />
+                <SubSceneVisual
+                  imageUrl={subScene.imageUrl || ""}
+                  duration={subScene.duration}
+                />
               </Series.Sequence>
             );
           })}
         </Series>
       ) : (
         // Legacy: Single image/video for entire scene
-        <AbsoluteFill style={{ transform: scene.videoClipUrl ? undefined : `scale(${scale})` }}>
+        <AbsoluteFill
+          style={{
+            transform: scene.videoClipUrl ? undefined : `scale(${scale})`,
+          }}
+        >
           {scene.videoClipUrl ? (
             <Video
               src={getDirectStorageUrl(scene.videoClipUrl)}
@@ -174,7 +202,8 @@ export const SceneComponent: React.FC<{ scene: Scene; visualMode?: string; asset
       {/* Dark Overlay for text legibility */}
       <AbsoluteFill
         style={{
-          background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 40%)",
+          background:
+            "linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 40%)",
         }}
       />
 

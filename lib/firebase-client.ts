@@ -27,10 +27,10 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-} from 'firebase/firestore';
-import { useEffect, useState, useCallback } from 'react';
-import { db, storage } from './firebase-config';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+} from "firebase/firestore";
+import { useEffect, useState, useCallback } from "react";
+import { db, storage } from "./firebase-config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Type definitions
 export interface FirestoreQuery {
@@ -38,7 +38,7 @@ export interface FirestoreQuery {
     $?: {
       collection?: string; // Optional: specify different collection than the alias
       where?: Record<string, any>;
-      order?: Record<string, 'asc' | 'desc'>;
+      order?: Record<string, "asc" | "desc">;
       limit?: number;
     };
     [subcollection: string]: any;
@@ -59,12 +59,12 @@ function parseWhereClause(whereClause: Record<string, any>): QueryConstraint[] {
 
   for (const [key, value] of Object.entries(whereClause)) {
     // Handle nested paths like "owner.id"
-    if (key === 'owner.id' || key === 'owner') {
-      constraints.push(where('userId', '==', value));
-    } else if (key.includes('.')) {
-      constraints.push(where(key, '==', value));
+    if (key === "owner.id" || key === "owner") {
+      constraints.push(where("userId", "==", value));
+    } else if (key.includes(".")) {
+      constraints.push(where(key, "==", value));
     } else {
-      constraints.push(where(key, '==', value));
+      constraints.push(where(key, "==", value));
     }
   }
 
@@ -74,7 +74,9 @@ function parseWhereClause(whereClause: Record<string, any>): QueryConstraint[] {
 /**
  * Parse order clause to Firestore orderBy constraints
  */
-function parseOrderClause(orderClause: Record<string, 'asc' | 'desc'>): QueryConstraint[] {
+function parseOrderClause(
+  orderClause: Record<string, "asc" | "desc">,
+): QueryConstraint[] {
   const constraints: QueryConstraint[] = [];
 
   for (const [field, direction] of Object.entries(orderClause)) {
@@ -91,9 +93,9 @@ function buildFirestoreQuery(
   collectionName: string,
   queryConfig?: {
     where?: Record<string, any>;
-    order?: Record<string, 'asc' | 'desc'>;
+    order?: Record<string, "asc" | "desc">;
     limit?: number;
-  }
+  },
 ): Query<DocumentData> {
   let q: Query<DocumentData> = collection(db, collectionName);
 
@@ -124,7 +126,7 @@ function buildFirestoreQuery(
  * Real-time Firestore query hook with snapshot listeners
  */
 export function useFirestoreQuery<T = any>(
-  queryObj: FirestoreQuery | null
+  queryObj: FirestoreQuery | null,
 ): QueryResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,11 +153,15 @@ export function useFirestoreQuery<T = any>(
 
           const queryConfig = config.$;
           const collectionName = queryConfig?.collection || alias;
-          
+
           // Check if this is a simple query by ID
           let isDocQuery = false;
           let docId = null;
-          if (queryConfig?.where?.id && typeof queryConfig.where.id === 'string' && Object.keys(queryConfig.where).length === 1) {
+          if (
+            queryConfig?.where?.id &&
+            typeof queryConfig.where.id === "string" &&
+            Object.keys(queryConfig.where).length === 1
+          ) {
             isDocQuery = true;
             docId = queryConfig.where.id;
           }
@@ -174,20 +180,27 @@ export function useFirestoreQuery<T = any>(
                 setIsLoading(false);
               },
               (err) => {
-                console.error(`Firebase Permission/Query Error on Doc [${collectionName}/${docId}]:`, err.message, err.code);
+                console.error(
+                  `Firebase Permission/Query Error on Doc [${collectionName}/${docId}]:`,
+                  err.message,
+                  err.code,
+                );
                 setError(err as Error);
                 setIsLoading(false);
-              }
+              },
             );
             unsubscribers.push(unsubscribe);
           } else {
-            const firestoreQuery = buildFirestoreQuery(collectionName, queryConfig);
+            const firestoreQuery = buildFirestoreQuery(
+              collectionName,
+              queryConfig,
+            );
 
             // Set up real-time listener
             const unsubscribe = onSnapshot(
               firestoreQuery,
               (snapshot) => {
-                const docs = snapshot.docs.map(doc => ({
+                const docs = snapshot.docs.map((doc) => ({
                   id: doc.id,
                   ...doc.data(),
                 }));
@@ -197,21 +210,27 @@ export function useFirestoreQuery<T = any>(
                 setIsLoading(false);
               },
               (err) => {
-                const userId = (db as any)._currentUser?.id || (db as any)._currentUser?.uid;
-                console.error(`Firebase Permission/Query Error [${collectionName}] (alias: ${alias}) for user [${userId}]:`, err.message, err.code, {
-                  where: queryConfig?.where,
-                  config: queryConfig
-                });
+                const userId =
+                  (db as any)._currentUser?.id || (db as any)._currentUser?.uid;
+                console.error(
+                  `Firebase Permission/Query Error [${collectionName}] (alias: ${alias}) for user [${userId}]:`,
+                  err.message,
+                  err.code,
+                  {
+                    where: queryConfig?.where,
+                    config: queryConfig,
+                  },
+                );
                 setError(err as Error);
                 setIsLoading(false);
-              }
+              },
             );
 
             unsubscribers.push(unsubscribe);
           }
         }
       } catch (err) {
-        console.error('Error setting up query:', err);
+        console.error("Error setting up query:", err);
         setError(err as Error);
         setIsLoading(false);
       }
@@ -221,7 +240,7 @@ export function useFirestoreQuery<T = any>(
 
     // Cleanup function
     return () => {
-      unsubscribers.forEach(unsubscribe => unsubscribe());
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [JSON.stringify(queryObj)]);
 
@@ -233,7 +252,7 @@ export function useFirestoreQuery<T = any>(
  */
 export function useFirestoreDoc<T = any>(
   collectionName: string,
-  documentId: string | null
+  documentId: string | null,
 ): QueryResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -262,7 +281,7 @@ export function useFirestoreDoc<T = any>(
         console.error(`Error fetching document ${documentId}:`, err);
         setError(err as Error);
         setIsLoading(false);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -290,7 +309,11 @@ export class FirestoreTransaction {
     this.operations.push(() => {
       // Standardize on userId, but support owner for compatibility
       const userId = data.userId || data.owner;
-      this.batch.set(docRef, { ...data, id: documentId, userId: userId }, { merge: true });
+      this.batch.set(
+        docRef,
+        { ...data, id: documentId, userId: userId },
+        { merge: true },
+      );
     });
     return this;
   }
@@ -303,7 +326,7 @@ export class FirestoreTransaction {
     this.operations.push(() => {
       // If owner is being updated, ensure userId is also updated
       const updateData = { ...data };
-      if (data.owner) {
+      if (data.owner !== undefined) {
         updateData.userId = data.owner;
       }
       this.batch.update(docRef, updateData);
@@ -327,7 +350,7 @@ export class FirestoreTransaction {
    */
   async commit() {
     // Execute all operations
-    this.operations.forEach(op => op());
+    this.operations.forEach((op) => op());
 
     // Commit the batch
     await this.batch.commit();
@@ -344,22 +367,24 @@ export function createTransaction() {
 /**
  * Execute multiple operations in a Firestore batch
  */
-export async function transact(operations: Array<{
-  collection: string;
-  id: string;
-  action: 'set' | 'update' | 'delete';
-  data?: any
-}>) {
+export async function transact(
+  operations: Array<{
+    collection: string;
+    id: string;
+    action: "set" | "update" | "delete";
+    data?: any;
+  }>,
+) {
   const batch = writeBatch(db);
 
   for (const op of operations) {
     if (!op?.collection || !op?.id) {
-      throw new Error('transact: each operation must have collection and id');
+      throw new Error("transact: each operation must have collection and id");
     }
     const docRef = doc(db, op.collection, op.id);
 
-      switch (op.action) {
-      case 'set':
+    switch (op.action) {
+      case "set":
         const userId = op.data?.userId ?? op.data?.owner;
         const setData: Record<string, any> = { id: op.id };
         if (userId !== undefined) setData.userId = userId;
@@ -368,15 +393,15 @@ export async function transact(operations: Array<{
         }
         batch.set(docRef, setData, { merge: true });
         break;
-      case 'update':
+      case "update":
         const updateData: Record<string, any> = {};
         for (const [k, v] of Object.entries(op.data || {})) {
           if (v !== undefined) updateData[k] = v;
         }
-        if (op.data?.owner) updateData.userId = op.data.owner;
+        if (op.data?.owner !== undefined) updateData.userId = op.data.owner;
         batch.update(docRef, updateData);
         break;
-      case 'delete':
+      case "delete":
         batch.delete(docRef);
         break;
     }
@@ -395,9 +420,15 @@ export function generateId(): string {
 /**
  * Upload a file to Firebase Storage
  */
-export async function uploadFile(path: string, file: File | Blob, opts?: { contentType?: string }) {
+export async function uploadFile(
+  path: string,
+  file: File | Blob,
+  opts?: { contentType?: string },
+) {
   const storageRef = ref(storage, path);
-  const metadata = opts?.contentType ? { contentType: opts.contentType } : undefined;
+  const metadata = opts?.contentType
+    ? { contentType: opts.contentType }
+    : undefined;
   await uploadBytes(storageRef, file, metadata);
   return { path };
 }
@@ -406,12 +437,12 @@ export async function uploadFile(path: string, file: File | Blob, opts?: { conte
  * Get a public URL for a Firebase Storage file synchronously
  */
 export function getFileUrl(path: string): string {
-  if (path.startsWith('http')) return path;
-  if (path.startsWith('data:')) return path;
-  
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("data:")) return path;
+
   const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
   if (!bucket) return path;
-  
+
   // Format: https://firebasestorage.googleapis.com/v0/b/[bucket]/o/[path]?alt=media
   return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`;
 }

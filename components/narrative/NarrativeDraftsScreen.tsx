@@ -11,12 +11,9 @@ import { ACTIVE_GENERATION_STATUSES } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContentCard } from "@/components/narrative/ContentCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
-import { SeriesCard } from "@/components/dashboard/SeriesCard";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
-import type { Series } from "@/lib/types";
-
 // shadcn
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -202,12 +199,9 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
             },
             videoPlans: {
               $: {
-                where: { userId: user.id, "narrative.id": narrativeId },
+                where: { userId: user.id, narrativeId: narrativeId },
                 order: { createdAt: "desc" },
               },
-            },
-            series: {
-              $: { where: { userId: user.id }, order: { createdAt: "desc" } },
             },
           }
         : null,
@@ -296,12 +290,9 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   const queueGeneratingCount = filteredQueueContent.filter(isContentPieceGenerating).length;
   const approvedGeneratingCount = filteredApprovedContent.filter(isContentPieceGenerating).length;
 
-  const allSeries = ((data as any)?.series || []) as Series[];
-  const combinedMedia = [
-    ...allPlans.map(p => ({ ...p, _kind: "plan" as const })),
-    // Series are already scoped by the DB query (narrative link); skip the broken client-side narrativeId check
-    ...allSeries.map(s => ({ ...s, _kind: "series" as const }))
-  ].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  // Project context only: ContentPieces + VideoPlans. Series do NOT appear in Project context (per plan).
+  const combinedMedia = allPlans
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const handleGenerateContent = async () => {
     if (!refreshToken) return;
@@ -746,17 +737,13 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {combinedMedia.map((project: any) =>
-                project._kind === "plan" ? (
-                  <ProjectCard
-                    key={project.id}
-                    plan={project as VideoPlan}
-                    onPreview={setPreviewPlan}
-                  />
-                ) : (
-                  <SeriesCard key={project.id} series={project as Series} />
-                )
-              )}
+              {combinedMedia.map((plan: VideoPlan) => (
+                <ProjectCard
+                  key={plan.id}
+                  plan={plan}
+                  onPreview={setPreviewPlan}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
