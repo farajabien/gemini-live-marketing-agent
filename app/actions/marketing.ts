@@ -156,6 +156,48 @@ export async function createBrandNarrative(
   }
 }
 
+/**
+ * Quick-start action for chat-first onboarding.
+ * Creates a minimal narrative record and returns the ID for immediate redirect.
+ */
+export async function initializeDraftNarrative(ownerId: string): Promise<{ narrativeId: string }> {
+  try {
+    const narrativeId = id();
+    const timestamp = Date.now();
+
+    await adminDb.transact([
+      adminDb.tx.narratives[narrativeId].set({
+        userId: ownerId,
+        title: "Untitled Project",
+        status: "active",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        narrativeStrength: {
+          overallScore: 0,
+          specificityScore: 0,
+          tensionStrength: 0,
+          completeness: 0
+        },
+        // placeholders
+        audience: "",
+        problem: "",
+        solution: "",
+        voice: "calm",
+        versions: [{
+          timestamp,
+          changes: { status: { new: "draft_initialized" } },
+          updatedBy: ownerId
+        }]
+      }).link({ owner: ownerId })
+    ]);
+
+    return { narrativeId };
+  } catch (error: any) {
+    console.error("[Action] Failed to initialize draft narrative:", error);
+    throw new Error("Failed to initialize project");
+  }
+}
+
 export async function generateContentDraft(
   input: DraftGenerationInput,
   ownerId: string

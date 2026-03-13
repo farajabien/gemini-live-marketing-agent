@@ -40,6 +40,7 @@ export function LiveDirectorFAB({ narrativeId, seriesId }: LiveDirectorFABProps)
         <div className="absolute -inset-2 bg-blue-500/20 rounded-full blur-xl group-hover:bg-blue-500/30 transition-all animate-pulse" />
         <Button
           onClick={() => setIsOpen(true)}
+          data-director-fab
           className={cn(
             "relative size-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-white/10",
             isOpen && "scale-0 opacity-0"

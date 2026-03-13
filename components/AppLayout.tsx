@@ -70,8 +70,12 @@ import {
   Layers,
   Sparkles,
   Mic,
-  Volume2
+  Volume2,
+  Plus,
+  MessageSquare
 } from "lucide-react";
+import { initializeDraftNarrative } from "@/app/actions/marketing";
+import { toast } from "sonner";
 import { LiveDirectorFAB } from "./narrative/LiveDirectorFAB";
 
 
@@ -98,6 +102,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isCreatingGlobal, setIsCreatingGlobal] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
@@ -184,10 +189,8 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
     if (series) {
       list.push({ label: series.title, href: `/series/${series.id}` });
     }
-    if (pathname.includes("/engine")) {
-      list.push({ label: "Content Engine", href: pathname });
-    } else if (pathname.includes("/drafts")) {
-      list.push({ label: "Content Library", href: pathname });
+    if (pathname.includes("/media")) {
+      list.push({ label: "Media Library", href: "/media" });
     }
     return list;
   }, [narrative, series, pathname]);
@@ -211,6 +214,8 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
         signOut={signOut}
         setProfileOpen={setProfileOpen}
         setSecurityOpen={setSecurityOpen}
+        isCreatingGlobal={isCreatingGlobal}
+        setIsCreatingGlobal={setIsCreatingGlobal}
       />
       <MainContent 
         breadcrumbs={breadcrumbs} 
@@ -218,6 +223,8 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
         latestNarrative={narrative}
         user={user}
         activeProductionPlan={activeProductionPlan}
+        isCreatingGlobal={isCreatingGlobal}
+        setIsCreatingGlobal={setIsCreatingGlobal}
       >
         {children}
         <LiveDirectorFAB narrativeId={narrativeId} seriesId={seriesId} />
@@ -268,6 +275,8 @@ function AppSidebar({
   signOut,
   setProfileOpen,
   setSecurityOpen,
+  isCreatingGlobal,
+  setIsCreatingGlobal,
 }: {
   narrativeId?: string;
   narrative?: FounderNarrative;
@@ -285,6 +294,8 @@ function AppSidebar({
   signOut: () => void;
   setProfileOpen: (v: boolean) => void;
   setSecurityOpen: (v: boolean) => void;
+  isCreatingGlobal: boolean;
+  setIsCreatingGlobal: (v: boolean) => void;
 }) {
   const activeSeriesId = seriesId || narrative?.id; // In our connected plan, sometimes they overlap
 
@@ -367,15 +378,27 @@ function AppSidebar({
                         <CommandGroup>
                           <CommandItem
                             value="new-narrative"
-                            onSelect={() => { router.push("/narrative/new"); setSwitcherOpen(false); }}
+                            onSelect={async () => {
+                              if (isCreatingGlobal) return;
+                              setIsCreatingGlobal(true);
+                              setSwitcherOpen(false);
+                              try {
+                                const { narrativeId: nid } = await initializeDraftNarrative(user.id);
+                                router.push(`/narrative/${nid}`);
+                              } catch (e) {
+                                toast.error("Failed to start project");
+                              } finally {
+                                setIsCreatingGlobal(false);
+                              }
+                            }}
                             className="flex items-center gap-2 cursor-pointer py-2 text-red-500 font-bold focus:bg-red-600/10"
                           >
                             <PlusCircle className="size-4" />
-                            <span className="text-sm">New Narrative</span>
+                            <span className="text-sm">{isCreatingGlobal ? "Creating..." : "New Narrative"}</span>
                           </CommandItem>
                           <CommandItem
                             value="new-series"
-                            onSelect={() => { router.push("/series/new"); setSwitcherOpen(false); }}
+                            onSelect={() => { router.push("/series-narrative"); setSwitcherOpen(false); }}
                             className="flex items-center gap-2 cursor-pointer py-2 text-amber-500 font-bold focus:bg-amber-600/10"
                           >
                             <PlusCircle className="size-4" />
@@ -391,25 +414,18 @@ function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* The Strategic Core (Shared context for Narrative & Linked Series) */}
-        {(narrativeId || (series && series.seriesNarrativeId)) && !seriesId && (
+        {narrativeId && !seriesId && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
-              Business
+              Management
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarNavItem 
                   icon={<Brain className="size-4" />} 
-                  label="Strategy Hub" 
-                  href={`/narrative/${narrativeId || series?.seriesNarrativeId}`} 
-                  isActive={pathname === `/narrative/${narrativeId || series?.seriesNarrativeId}`}
-                />
-                <SidebarNavItem 
-                  icon={<Sparkles className="size-4" />} 
-                  label="Context Engine" 
-                  href={`/narrative/${narrativeId || series?.seriesNarrativeId}/engine`} 
-                  isActive={pathname.includes("/engine")}
+                  label="Command Center" 
+                  href={`/narrative/${narrativeId}`} 
+                  isActive={pathname === `/narrative/${narrativeId}`}
                 />
               </SidebarMenu>
             </SidebarGroupContent>
@@ -472,8 +488,6 @@ function AppSidebar({
           </SidebarGroup>
         )}
 
-        {/* Global Dashboard (Fallback) */}
-        {!narrativeId && !seriesId && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
               Studio
@@ -486,10 +500,15 @@ function AppSidebar({
                   href="/dashboard" 
                   isActive={pathname === "/dashboard"}
                 />
+                <SidebarNavItem 
+                  icon={<Video className="size-4" />} 
+                  label="Media Library" 
+                  href="/media" 
+                  isActive={pathname === "/media"}
+                />
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
       </SidebarContent>
 
       {/* User Footer */}
@@ -567,6 +586,8 @@ interface MainContentProps {
   latestNarrative?: FounderNarrative;
   user?: User | null;
   activeProductionPlan?: VideoPlan;
+  isCreatingGlobal: boolean;
+  setIsCreatingGlobal: (v: boolean) => void;
 }
 
 function MainContent({ 
@@ -575,7 +596,9 @@ function MainContent({
   noPadding,
   latestNarrative,
   user,
-  activeProductionPlan
+  activeProductionPlan,
+  isCreatingGlobal,
+  setIsCreatingGlobal,
 }: MainContentProps) {
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -677,15 +700,32 @@ function MainContent({
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setCreateMenuOpen(false)} />
                     <div className="absolute right-0 mt-3 w-56 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-2 z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right backdrop-blur-3xl">
-                      <Link href="/narrative/new" onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
+                      <button 
+                        onClick={async () => {
+                          if (isCreatingGlobal || !user) return;
+                          setIsCreatingGlobal(true);
+                          setCreateMenuOpen(false);
+                          try {
+                            const { narrativeId: nid } = await initializeDraftNarrative(user.id);
+                            router.push(`/narrative/${nid}`);
+                          } catch (e) {
+                            toast.error("Failed to start project");
+                          } finally {
+                            setIsCreatingGlobal(false);
+                          }
+                        }}
+                        className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group text-left"
+                      >
                         <div className="size-8 rounded-lg bg-red-600/10 flex items-center justify-center text-red-500 group-hover:bg-red-600 group-hover:text-white transition-all">
                           <Brain className="size-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white">Narrative</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white">
+                            {isCreatingGlobal ? "Initializing..." : "Narrative"}
+                          </span>
                           <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Define core story</span>
                         </div>
-                      </Link>
+                      </button>
                       <Link href="/series/new" onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
                         <div className="size-8 rounded-lg bg-amber-600/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-600 group-hover:text-white transition-all">
                           <Layers className="size-4" />
@@ -698,15 +738,22 @@ function MainContent({
                       {latestNarrative && (
                         <>
                           <div className="h-px bg-white/5 my-1" />
-                          <Link href={`/narrative/${latestNarrative.id}/drafts`} onClick={() => setCreateMenuOpen(false)} className="flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group">
+                          <button 
+                            onClick={() => {
+                              setCreateMenuOpen(false);
+                              const fabToggle = document.querySelector('[data-director-fab]') as HTMLButtonElement;
+                              if (fabToggle) fabToggle.click();
+                            }} 
+                            className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl transition-colors group text-left"
+                          >
                             <div className="size-8 rounded-lg bg-emerald-600/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
                               <Sparkles className="size-4" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-white">Quick Video</span>
-                              <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Gen from drafts</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-white">Ask Director</span>
+                              <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Tactical advice</span>
                             </div>
-                          </Link>
+                          </button>
                         </>
                       )}
                     </div>

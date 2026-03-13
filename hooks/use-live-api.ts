@@ -16,7 +16,7 @@ export interface LiveAPIConfig {
 
 export function useLiveAPI({
   apiKey,
-  model = "models/gemini-2.5-flash-native-audio-latest",
+  model = "models/gemini-2.0-flash-exp", 
   systemInstruction,
   onMessage,
   onConnected,
@@ -76,9 +76,9 @@ export function useLiveAPI({
         throw new Error("Gemini API Key is missing. Please check your environment variables.");
       }
 
-      // Trying v1alpha with full GCP publisher path
+      // Switching to v1alpha as v1beta is rejecting 2.0 Flash models currently
       const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-      console.log("Connecting to Director (v1alpha):", url.split('?')[0]); 
+      console.log("Director: Connecting to", url.split('?')[0]); 
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -87,12 +87,12 @@ export function useLiveAPI({
         setIsConnecting(false);
         onConnected?.();
 
-        // v1alpha BidiGenerateContent setup
+        // v1beta BidiGenerateContent setup
         const setup: any = {
           setup: {
-            model: model,
+            model: "models/gemini-2.0-flash-exp", 
             generation_config: {
-              response_modalities: ["AUDIO"]
+              response_modalities: ["TEXT", "AUDIO"]
             }
           }
         };
@@ -103,18 +103,20 @@ export function useLiveAPI({
           };
         }
 
+        console.log("Director: Sending setup message:", setup.setup.model);
         ws.send(JSON.stringify(setup));
       };
 
       ws.onmessage = (event) => {
         if (event.data instanceof Blob) {
-          // If we receive a Blob, it's likely binary audio data that we normally expect in JSON base64.
-          // For now, we skip it to prevent JSON.parse errors, but in some protocols this might be raw PCM.
+          // If we receive a Blob, it's likely binary audio data.
           return;
         }
 
         try {
+          console.log("Director Socket Raw:", event.data.substring(0, 100));
           const message = JSON.parse(event.data);
+          console.log("Director Message Parsed:", JSON.stringify(message).substring(0, 200));
           
           if (message.setupComplete || message.setup_complete) {
             setIsReady(true);
@@ -133,8 +135,9 @@ export function useLiveAPI({
           }
           
           // Handle text responses
-          if (mt?.parts?.[0]?.text) {
-             console.log("Director Text:", mt.parts[0].text);
+          const text = mt?.parts?.find((p: any) => p.text)?.text;
+          if (text) {
+             console.log("Director Text Response:", text);
           }
 
           // Handle interrupts
@@ -179,13 +182,14 @@ export function useLiveAPI({
   const sendText = useCallback((text: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     
+    // Use snake_case for the wire format in BidiGenerateContent
     const message = {
-      clientContent: {
+      client_content: {
         turns: [{
           role: "user",
           parts: [{ text }]
         }],
-        turnComplete: true
+        turn_complete: true
       }
     };
     wsRef.current.send(JSON.stringify(message));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
@@ -11,8 +11,11 @@ import { NarrativeSection } from "./NarrativeSection";
 import { StrengthGauge } from "./StrengthGauge";
 import { updateNarrativeField, regeneratePositioning, generateSmartTitleAction } from "@/app/actions/marketing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Brain, Sparkles, Activity, PlusCircle, LayoutGrid, Target, ArrowRight, FileText, CheckCircle2 } from "lucide-react";
+import { Search, Brain, Sparkles, Activity, PlusCircle, LayoutGrid, Target, ArrowRight, FileText, CheckCircle2, Play, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
+import { VideoPlan } from "@/lib/types";
+import { useCollection } from "@/hooks/use-firestore";
 
 
 interface NarrativeOverviewScreenProps {
@@ -28,13 +31,40 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
   const [isEditingOneLiner, setIsEditingOneLiner] = useState(false);
   const [editedOneLiner, setEditedOneLiner] = useState("");
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
 
 
-  const narrativeQuery = useMemo(
-    () => user ? { narratives: { $: { where: { id: narrativeId } } } } : null,
+  const query = useMemo(
+    () => user ? { 
+      narratives: { $: { where: { id: narrativeId } } },
+      videoPlans: { $: { where: { narrativeId: narrativeId }, order: { createdAt: "desc" }, limit: 8 } }
+    } : null,
     [user?.id, narrativeId]
   );
-  const { data, isLoading, error } = (db as any).useQuery(narrativeQuery);
+  const { data, isLoading, error } = (db as any).useQuery(query);
+
+  const { data: chatMessages } = useCollection(`narratives/${narrativeId}/chat_messages`, {
+    orderBy: [{ field: 'createdAt', direction: 'desc' }],
+    limit: 1
+  });
+
+  const lastDirectorMessage = chatMessages?.find(m => m.role === 'model');
+
+  // Chat Onboarding Auto-Pop
+  useEffect(() => {
+    const narrative = (data as any)?.narratives?.[0];
+    if (!isLoading && narrative && narrative.narrativeStrength?.overallScore === 0) {
+      const fabToggle = document.querySelector('[data-director-fab]') as HTMLButtonElement;
+      if (fabToggle) {
+        // Small delay to ensure layout is ready
+        setTimeout(() => {
+          if (!document.querySelector('[data-director-dialog]')) {
+            fabToggle.click();
+          }
+        }, 800);
+      }
+    }
+  }, [isLoading, data, narrativeId]);
 
   if (error) {
     return (
@@ -136,7 +166,7 @@ const positioning = narrative.aiPositioning;
 
     
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
         <div className="flex-1 space-y-2">
@@ -233,285 +263,207 @@ const positioning = narrative.aiPositioning;
 
         {strength && (
           <div className="shrink-0 mt-4 md:mt-0">
-            <StrengthGauge score={strength.overallScore} size="lg" />
+             <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 flex items-center gap-4">
+               <StrengthGauge score={strength.overallScore} size="xs" />
+               <div className="space-y-0.5">
+                  <div className="text-[8px] font-black uppercase tracking-widest text-slate-500">Narrative Health</div>
+                  <div className="text-sm font-black text-white">{Math.round(strength.overallScore)}%</div>
+               </div>
+             </div>
           </div>
         )}
       </div>
 
-      <Tabs defaultValue="strategy" className="w-full">
-        <TabsList className="bg-white/5 border border-white/10 px-1 mb-6 overflow-x-auto w-full justify-start h-12 rounded-2xl flex items-center gap-2">
-          <TabsTrigger value="strategy" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
-            <Target className="size-3.5" /> Strategy
-          </TabsTrigger>
-          <TabsTrigger value="inputs" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
-            <Search className="size-3.5" /> Strategic Inputs
-          </TabsTrigger>
-
-          <TabsTrigger value="pulse" className="rounded-xl px-6 h-9 data-[state=active]:bg-white/10 data-[state=active]:text-white transition-all text-[11px] font-black uppercase tracking-widest gap-2">
-            <Activity className="size-3.5" /> Narrative Pulse
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="strategy" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 outline-none">
-          {positioning ? (
-            <div className="space-y-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-black text-white">AI-Extracted Positioning</h2>
-                  <p className="text-slate-400 text-sm">Strategic narrative elements identified from your inputs</p>
-                </div>
-                <Button
-                  onClick={handleRegeneratePositioning}
-                  disabled={isRegenerating}
-                  variant="outline"
-                  size="sm"
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10 h-9 rounded-full px-4"
-                >
-                  {isRegenerating ? (
-                    <>
-                      <Activity className="size-3.5 animate-spin mr-2" />
-                      Regenerating...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="size-3.5 mr-2" />
-                      Regenerate Strategy
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.07] transition-colors relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Target className="size-16" />
+      {/* Strategic Intelligence Strip */}
+      {positioning && (
+        <div className="bg-gradient-to-r from-blue-600/5 to-transparent border border-white/5 rounded-[2rem] p-6 group">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="md:col-span-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-1">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-red-500/60 flex items-center gap-1.5">
+                    <Activity className="size-3" /> The Villain
                   </div>
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-black mb-4">The Villain</h3>
-                  <p className="text-xl text-slate-200 leading-relaxed font-medium">{positioning.villain}</p>
+                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3">{positioning.villain}</p>
                 </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.07] transition-colors relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Sparkles className="size-16" />
+                <div className="space-y-1">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-blue-500/60 flex items-center gap-1.5">
+                    <Target className="size-3" /> The Hero
                   </div>
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-blue-500 font-black mb-4">The Hero</h3>
-                  <p className="text-xl text-slate-200 leading-relaxed font-medium">{positioning.hero}</p>
+                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3">{positioning.hero}</p>
                 </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.07] transition-colors relative overflow-hidden group">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-orange-500 font-black mb-4">The Stakes</h3>
-                  <p className="text-xl text-slate-200 leading-relaxed font-medium">{positioning.stakes}</p>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 hover:bg-white/[0.07] transition-colors relative overflow-hidden group">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-green-500 font-black mb-4">The Promise</h3>
-                  <p className="text-xl text-slate-200 leading-relaxed font-medium">{positioning.promise}</p>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 md:col-span-2 relative overflow-hidden group">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-purple-500 font-black mb-4">The Unique Mechanism</h3>
-                  <p className="text-2xl font-black text-white leading-tight max-w-3xl">{positioning.mechanism}</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-3xl p-8 group">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-black mb-4">Before State</h3>
-                  <p className="text-lg text-slate-300 leading-relaxed italic">"{positioning.contrast?.before}"</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 rounded-3xl p-8 group">
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-green-500 font-black mb-4">After State</h3>
-                  <p className="text-lg text-slate-300 leading-relaxed italic">"{positioning.contrast?.after}"</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="py-20 text-center">
-              <Brain className="size-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">Positioning data is not available yet.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="inputs" className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-500 outline-none pb-20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-black text-white">Strategic Brief</h2>
-              <p className="text-slate-400 text-sm">The foundational logic that drives your entire content engine</p>
-            </div>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-widest text-slate-500 border-white/10 px-4 py-1.5 rounded-full">Foundation Data</Badge>
-          </div>
-
-          <div className="grid grid-cols-1 gap-12">
-            {/* Market & Reality */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                <div className="size-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Target className="size-4 text-blue-500" />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Market & Reality</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="Target Audience"
-                  field="audience"
-                  value={narrative.audience || ""}
-                  placeholder="e.g. Solo founders building in public..."
-                />
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="Current Reality"
-                  field="currentState"
-                  value={narrative.currentState || ""}
-                  placeholder="What is their day-to-day like right now?"
-                />
-              </div>
-            </div>
-
-            {/* The Value Gap */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                <div className="size-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <Brain className="size-4 text-red-500" />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">The Value Gap</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="The Expensive Pain"
-                  field="problem"
-                  value={narrative.problem || ""}
-                  placeholder="What is the core problem keeping them stuck?"
-                />
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="Cost of Inaction"
-                  field="costOfInaction"
-                  value={narrative.costOfInaction || ""}
-                  placeholder="What happens if they do nothing?"
-                />
-              </div>
-            </div>
-
-            {/* The Transformation */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                <div className="size-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <Sparkles className="size-4 text-green-500" />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">The Transformation</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="md:col-span-2">
-                  <NarrativeSection
-                    narrativeId={narrativeId}
-                    title="Unique Mechanism"
-                    field="solution"
-                    value={narrative.solution || ""}
-                    placeholder="Your unique approach or system..."
-                  />
-                </div>
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="The After State"
-                  field="afterState"
-                  value={narrative.afterState || ""}
-                  placeholder="What does their life look like after using your system?"
-                />
-                <NarrativeSection
-                  narrativeId={narrativeId}
-                  title="Identity Shift"
-                  field="identityShift"
-                  value={narrative.identityShift || ""}
-                  placeholder="Who do they become in the process?"
-                />
-              </div>
-            </div>
-
-            {/* Brand Voice Card */}
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 flex items-center justify-between group">
-              <div className="flex items-center gap-6">
-                <div className="size-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-red-500/20 transition-all">
-                  <Activity className="size-8 text-slate-500 group-hover:text-red-500 transition-colors" />
-                </div>
-                <div>
-                  <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-black mb-1">Brand Voice Strategy</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-black text-white capitalize">{narrative.voice || "calm"}</span>
-                    <Badge variant="outline" className="text-[9px] border-red-500/20 text-red-500/60 font-black uppercase">Active</Badge>
+                <div className="space-y-1">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-purple-500/60 flex items-center gap-1.5">
+                    <Brain className="size-3" /> The Mechanism
                   </div>
+                  <p className="text-[11px] text-white font-black italic leading-tight line-clamp-3">{positioning.mechanism}</p>
                 </div>
               </div>
-              <Button variant="outline" className="border-white/10 text-slate-400 hover:text-white rounded-full h-10 px-6 font-black uppercase tracking-widest text-[10px]">
-                Adjust Voice
+            </div>
+            
+            <div className="flex items-center justify-between md:justify-end gap-6 md:border-l md:border-white/5 md:pl-8">
+              <div className="flex gap-4">
+                <div className="text-center">
+                  <div className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-2">Specificity</div>
+                  <StrengthGauge score={strength?.specificityScore || 0} size="xs" />
+                </div>
+                <div className="text-center">
+                  <div className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-2">Tension</div>
+                  <StrengthGauge score={strength?.tensionStrength || 0} size="xs" />
+                </div>
+              </div>
+              <Button 
+                onClick={() => {
+                  const fabToggle = document.querySelector('[data-director-fab]') as HTMLButtonElement;
+                  if (fabToggle) fabToggle.click();
+                }}
+                className="size-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 transition-all hover:scale-105 active:scale-95 group/btn"
+              >
+                <Sparkles className="size-5 group-hover/btn:animate-pulse" />
               </Button>
             </div>
           </div>
-        </TabsContent>
 
-
-        <TabsContent value="pulse" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 outline-none">
-          {strength ? (
-            <div className="space-y-12">
-              <div className="text-center space-y-4 max-w-2xl mx-auto">
-                <h2 className="text-4xl font-black text-white">Narrative Pulse Score</h2>
-                <p className="text-slate-400">Comprehensive breakdown of how your narrative foundation performs across key strategic dimensions.</p>
+          {lastDirectorMessage && (
+            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-black uppercase tracking-widest text-blue-400">
+                  Latest Insight
+                </div>
+                <p className="text-[10px] text-slate-400 italic line-clamp-1">"{lastDirectorMessage.text}"</p>
               </div>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-                <div className="bg-white/5 rounded-3xl p-8 flex flex-col items-center gap-6 border border-white/5">
-                  <StrengthGauge score={strength.specificityScore} size="lg" />
-                  <div className="text-center">
-                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-1">Specificity</h4>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Target Precision</p>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 rounded-3xl p-8 flex flex-col items-center gap-6 border border-white/5">
-                  <StrengthGauge score={strength.emotionalClarity} size="lg" />
-                  <div className="text-center">
-                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-1">Clarity</h4>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Emotional Impact</p>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 rounded-3xl p-8 flex flex-col items-center gap-6 border border-white/5">
-                  <StrengthGauge score={strength.tensionStrength} size="lg" />
-                  <div className="text-center">
-                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-1">Tension</h4>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Narrative Stakes</p>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 rounded-3xl p-8 flex flex-col items-center gap-6 border border-white/5">
-                  <StrengthGauge score={strength.contrastScore} size="lg" />
-                  <div className="text-center">
-                    <h4 className="font-black text-white text-sm uppercase tracking-widest mb-1">Contrast</h4>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Before vs After</p>
-                  </div>
-                </div>
+              <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600 whitespace-nowrap">
+                Director Intelligence Standby
               </div>
-              
-              <div className="bg-gradient-to-br from-red-600/10 to-transparent border border-red-600/20 rounded-3xl p-10 text-center space-y-6">
-                <h3 className="text-3xl font-black text-white">Unlock Full Growth</h3>
-                <p className="text-slate-400 max-w-xl mx-auto">Your overall narrative score of <strong>{Math.round(strength.overallScore)}/100</strong> shows a strong foundation. Use the content engine to build authority with consistent, strategic output.</p>
-                <Button 
-                  onClick={() => router.push(`/narrative/${narrativeId}/engine`)}
-                  className="bg-red-600 hover:bg-red-700 text-white font-black rounded-full h-12 px-8 uppercase tracking-widest text-xs gap-2"
-                >
-                  Enter Content Engine <ArrowRight className="size-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="py-20 text-center">
-              <Activity className="size-12 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400">Score analysis is not available yet.</p>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <LayoutGrid className="size-5 text-slate-500" />
+            <h3 className="text-lg font-black uppercase tracking-widest text-white">Media Archive</h3>
+          </div>
+          <div className="flex items-center gap-4">
+            {narrative.audience && (
+              <Badge variant="ghost" className="text-[9px] font-black uppercase tracking-widest text-slate-500 gap-2 border border-white/5 hover:bg-white/5 px-3">
+                Targeting: {narrative.audience}
+              </Badge>
+            )}
+            <Badge variant="outline" className="border-white/10 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold">
+              {(data as any)?.videoPlans?.length || 0} Assets
+            </Badge>
+          </div>
+        </div>
+
+        {((data as any)?.videoPlans?.length || 0) === 0 ? (
+          <div className="bg-white/5 border border-dashed border-white/10 rounded-[3rem] p-20 text-center space-y-4">
+            <div className="size-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+              <PlusCircle className="size-8 text-slate-600" />
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-black text-white uppercase tracking-widest text-lg italic">The Grid is Empty</h4>
+              <p className="text-slate-500 text-xs font-medium max-w-xs mx-auto">
+                Trigger the Director to generate your first content angle or stress-test the transformation.
+              </p>
+            </div>
+            <Button 
+              onClick={() => {
+                const fabToggle = document.querySelector('[data-director-fab]') as HTMLButtonElement;
+                if (fabToggle) fabToggle.click();
+              }}
+              variant="outline"
+              className="border-blue-500/20 text-blue-500 hover:bg-blue-500/10 font-black uppercase tracking-widest text-[10px] h-10 px-6 rounded-xl mt-4"
+            >
+              Start Brainstorming
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {(data as any).videoPlans.map((plan: any) => (
+              <div 
+                key={plan.id} 
+                onClick={() => setPreviewPlan(plan)}
+                className="bg-white/5 border border-white/10 rounded-[1.5rem] p-4 flex flex-col gap-4 hover:bg-white/10 transition-all group cursor-pointer border-transparent hover:border-white/20"
+              >
+                <div className="aspect-video rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden relative">
+                  {plan.coverUrl ? (
+                    <img src={plan.coverUrl} className="size-full object-cover group-hover:scale-110 transition-transform duration-700" alt={plan.title} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 opacity-20">
+                      <FileText className="size-8" />
+                      <span className="text-[8px] font-black uppercase">Draft Asset</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                    <Badge className="bg-white/10 backdrop-blur-md border-white/10 text-[8px] font-black uppercase tracking-widest text-white/60 py-0 px-2 h-5">
+                      {plan.status || 'draft'}
+                    </Badge>
+                    <div className="size-8 rounded-full bg-red-600 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-300 shadow-xl shadow-red-600/40">
+                      <Play className="size-3 text-white fill-current" />
+                    </div>
+                  </div>
+                </div>
+                <div className="px-1">
+                  <div className="text-[11px] font-black text-white truncate uppercase tracking-widest italic mb-1">{plan.title || "Untitled Video"}</div>
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 font-bold uppercase tracking-wider">
+                    <span>{new Date(plan.createdAt).toLocaleDateString()}</span>
+                    {(plan.scripts?.length || 0) > 0 && (
+                      <span className="flex items-center gap-1 text-emerald-500">
+                        <CheckCircle2 className="size-3" /> Scripted
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Foundational Inputs Collapsible Strip */}
+        <div className="pt-12 border-t border-white/5">
+          <details className="group">
+            <summary className="flex items-center gap-3 cursor-pointer list-none">
+              <div className="size-8 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 group-hover:text-white transition-colors">
+                <Target className="size-4" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Strategic Foundations</h4>
+                <p className="text-[9px] text-slate-600 uppercase tracking-widest">Audience, Problem & Core Voice</p>
+              </div>
+              <div className="text-slate-600 group-hover:text-red-500 transition-colors mr-4">
+                <PlusCircle className="size-4 group-open:rotate-45 transition-transform" />
+              </div>
+            </summary>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 animate-in slide-in-from-top-2 duration-300">
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Target Audience</span>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium">{narrative.audience || "Not defined"}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Core Problem</span>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium">{narrative.problem || "Not defined"}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Market Voice</span>
+                <div className="pt-1">
+                  <Badge variant="outline" className="border-red-500/20 text-red-500 text-[9px] font-black uppercase px-3 py-1">{narrative.voice || "calm"}</Badge>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <PreviewDialog 
+        isOpen={!!previewPlan}
+        plan={previewPlan}
+        onClose={() => setPreviewPlan(null)}
+      />
     </div>
 
   );

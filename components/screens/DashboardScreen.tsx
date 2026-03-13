@@ -12,8 +12,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NarrativeCard } from "@/components/dashboard/NarrativeCard";
-import { SeriesCard } from "@/components/dashboard/SeriesCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { initializeDraftNarrative } from "@/app/actions/marketing";
+import { toast } from "sonner";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { ContentCard } from "@/components/narrative/ContentCard";
 import { useGenerateStore } from "@/hooks/use-generate-store";
@@ -24,6 +25,7 @@ export function DashboardScreen() {
   const { user, isInitialLoading, refreshToken } = useAuth();
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [isCreatingInDashboard, setIsCreatingInDashboard] = useState(false);
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -49,25 +51,11 @@ export function DashboardScreen() {
                   limit: 50,
                 },
               },
-              series: {
-                $: {
-                  where: { userId: user.id },
-                  order: { createdAt: "desc" },
-                  limit: 50,
-                },
-              },
               narratives: {
                 $: {
                   where: { userId: user.id },
                   order: { createdAt: "desc" },
                   limit: 50,
-                },
-              },
-              contentPieces: {
-                $: {
-                  where: { userId: user.id },
-                  order: { createdAt: "desc" },
-                  limit: 100,
                 },
               },
             }
@@ -97,40 +85,10 @@ export function DashboardScreen() {
   }
 
   const allPlans = ((data as any)?.videoPlans || []) as VideoPlan[];
-  const allSeries = ((data as any)?.series || []) as Series[];
   const allNarratives = ((data as any)?.narratives || []) as FounderNarrative[];
-  const allContentPieces = ((data as any)?.contentPieces || []) as ContentPiece[];
-
-  const queuedContent = allContentPieces.filter(
-    (p) => p.status === "suggested" || p.status === "edited"
-  );
-  const approvedContent = allContentPieces.filter(
-    (p) => p.status === "approved" || p.status === "published"
-  );
-
-  // Compute dynamic format counts for Content (Drafts)
-  const availableContentFormats = Array.from(new Set(allContentPieces.map(c => c.format))).filter(Boolean) as string[];
-  const contentFormatCounts = availableContentFormats.reduce((acc, format) => {
-    acc[format] = allContentPieces.filter(c => c.format === format).length;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const filteredQueueContent = queuedContent.filter(
-    (c) => (contentFormatFilter === "all" || c.format === contentFormatFilter) &&
-            (narrativeOriginFilter === "all" || c.narrativeId === narrativeOriginFilter)
-  );
-  const filteredApprovedContent = approvedContent.filter(
-    (c) => (contentFormatFilter === "all" || c.format === contentFormatFilter) &&
-            (narrativeOriginFilter === "all" || c.narrativeId === narrativeOriginFilter)
-  );
 
   // Compute dynamic format counts for Media
-  const videoCount = allPlans.filter((p) => p.type === "video").length;
-  const carouselCount = allPlans.filter((p) => p.type === "carousel").length;
-  const seriesCount = allSeries.length;
-
   const availableMediaFormats = new Set<string>();
-  if (allSeries.length > 0) availableMediaFormats.add("series");
   allPlans.forEach(p => {
     if (p.outputFormat) availableMediaFormats.add(p.outputFormat);
     else availableMediaFormats.add(p.type);
@@ -138,22 +96,17 @@ export function DashboardScreen() {
   const mediaFormatsList = Array.from(availableMediaFormats).filter(Boolean);
   
   const mediaFormatCounts = mediaFormatsList.reduce((acc, format) => {
-    if (format === "series") {
-      acc[format] = allSeries.length;
-    } else {
-      acc[format] = allPlans.filter(p => p.outputFormat === format || (!p.outputFormat && p.type === format)).length;
-    }
+    acc[format] = allPlans.filter(p => p.outputFormat === format || (!p.outputFormat && p.type === format)).length;
     return acc;
   }, {} as Record<string, number>);
 
   const getFilteredPlans = () => {
     return allPlans.filter((p) => {
       // Media Format filter
-      if (mediaFormatFilter !== "all" && mediaFormatFilter !== "series") {
+      if (mediaFormatFilter !== "all") {
         const pFormat = p.outputFormat || p.type;
         if (pFormat !== mediaFormatFilter) return false;
       }
-      if (mediaFormatFilter === "series") return false;
 
       // Advanced filter: Media type
       if (mediaTypeFilter !== "all" && p.type !== mediaTypeFilter) return false;
@@ -170,55 +123,7 @@ export function DashboardScreen() {
   };
 
   const getCombinedProjects = () => {
-    // Strict separation: Projects = VideoPlans only, Series = Series only (per plan)
-    const showProjects = mediaContextFilter === "all" || mediaContextFilter === "projects";
-    const showSeries = mediaContextFilter === "all" || mediaContextFilter === "series";
-
-    const filteredPlans = showProjects ? getFilteredPlans() : [];
-    const displaySeries = showSeries
-      ? (mediaFormatFilter === "all" || mediaFormatFilter === "series" ? allSeries : [])
-      : [];
-
-    // When showing only Projects, filter out series from mediaFormatFilter
-    const plans = filteredPlans.map((p) => ({ ...p, _kind: "plan" as const }));
-    const seriesItems = displaySeries.map((s) => ({ ...s, _kind: "series" as const }));
-
-    return [...plans, ...seriesItems].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  };
-
-  const handleUpdateStatus = async (contentId: string, status: ContentStatus) => {
-    if (!refreshToken) return;
-    try {
-      const response = await fetch(`/api/narrative/content/${contentId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${refreshToken}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error("Failed to update status");
-    } catch (err: any) {
-      console.error("Failed to update status:", err);
-    }
-  };
-
-  const handleCreateVideoFromScript = (body: string, narrativeId?: string) => {
-    useGenerateStore.getState().openGenerator({
-      script: body,
-      mode: "verbatim",
-      format: "video",
-      narrativeId: narrativeId,
-    });
-  };
-
-  const handleCreateCarouselFromScript = (body: string, narrativeId?: string) => {
-    useGenerateStore.getState().openGenerator({
-      script: body,
-      mode: "verbatim",
-      format: "carousel",
-      narrativeId: narrativeId,
-    });
+    return getFilteredPlans().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   };
 
   const handleCopyPost = (body: string) => {
@@ -292,30 +197,12 @@ export function DashboardScreen() {
             </TabsTrigger>
 
             <TabsTrigger
-              value="storytelling"
-              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
-            >
-              <span className="material-symbols-outlined text-lg mr-2">auto_stories</span>
-              Series
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-amber-500/10 text-amber-500 border-none px-2">{allSeries.length}</Badge>
-            </TabsTrigger>
-            
-            <TabsTrigger
-              value="drafts"
-              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
-            >
-              <span className="material-symbols-outlined text-lg mr-2">auto_awesome_motion</span>
-              Drafts
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-blue-500/10 text-blue-500 border-none px-2">{allContentPieces.length}</Badge>
-            </TabsTrigger>
-
-            <TabsTrigger
               value="media"
               className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
             >
               <span className="material-symbols-outlined text-lg mr-2">play_circle</span>
               Media
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length + seriesCount}</Badge>
+              <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length}</Badge>
             </TabsTrigger>
             </TabsList>
 
@@ -328,213 +215,40 @@ export function DashboardScreen() {
                 description="Answer 10 questions about your startup. Get AI content that sounds like you."
                 action={
                   <Button
-                    asChild
+                    onClick={async () => {
+                      setIsCreatingInDashboard(true);
+                      try {
+                        const { narrativeId } = await initializeDraftNarrative(user.id);
+                        router.push(`/narrative/${narrativeId}`);
+                      } catch (e) {
+                        toast.error("Failed to start strategy");
+                      } finally {
+                        setIsCreatingInDashboard(false);
+                      }
+                    }}
+                    disabled={isCreatingInDashboard}
                     className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20 rounded-full px-8 h-11"
                   >
-                    <Link href="/narrative/new">Create Strategy</Link>
+                    {isCreatingInDashboard ? "Creating..." : "Create Strategy"}
                   </Button>
                 }
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {allNarratives.map((narrative) => {
-                  // Calculate pieces for this specific narrative from allContentPieces
-                  const narrativePieces = allContentPieces.filter(p => p.narrativeId === narrative.id);
-                  const queued = narrativePieces.filter(
-                    (p) => p.status === "suggested" || p.status === "edited"
-                  ).length;
-                  const approved = narrativePieces.filter(
-                    (p) => p.status === "approved" || p.status === "published"
-                  ).length;
-                  
-                  const mediaCount = allPlans.filter(p => p.narrativeId === narrative.id).length;
-
-                  return (
-                    <NarrativeCard
-                      key={narrative.id}
-                      narrative={narrative}
-                      queuedCount={queued}
-                      approvedCount={approved}
-                      mediaCount={mediaCount}
-                    />
-                  );
-                })}
-              </div>
-            )}
-            </TabsContent>
-
-            {/* 1b. SERIES TAB */}
-            <TabsContent value="storytelling" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            {allSeries.length === 0 ? (
-              <EmptyState
-                icon="auto_stories"
-                title="Launch a new series"
-                description="Create episodic content that builds a narrative over time."
-                action={
-                  <Button
-                    asChild
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-amber-500/20 rounded-full px-8 h-11"
-                  >
-                    <Link href="/series/new">New Series</Link>
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {allSeries.map((s) => (
-                  <SeriesCard key={s.id} series={s} />
+                {allNarratives.map((narrative) => (
+                  <NarrativeCard
+                    key={narrative.id}
+                    narrative={narrative}
+                  />
                 ))}
               </div>
             )}
             </TabsContent>
 
-            {/* 2. DRAFTS TAB */}
-            <TabsContent value="drafts" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            <Tabs defaultValue="queue" className="w-full">
-              <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-                <TabsList className="bg-white/5 border border-white/10 p-1 h-10 rounded-full flex-shrink-0">
-                  <TabsTrigger 
-                    value="queue" 
-                    className="rounded-full px-6 data-[state=active]:bg-blue-600 data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest h-full"
-                  >
-                    Queue
-                    <Badge className="ml-2 bg-black/20 text-white border-0 text-[9px]">{filteredQueueContent.length}</Badge>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="approved" 
-                    className="rounded-full px-6 data-[state=active]:bg-green-600 data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest h-full"
-                  >
-                    Approved
-                    <Badge className="ml-2 bg-black/20 text-white border-0 text-[9px]">{filteredApprovedContent.length}</Badge>
-                  </TabsTrigger>
-                </TabsList>
-
-                {availableContentFormats.length > 0 && (
-                  <Select value={contentFormatFilter} onValueChange={setContentFormatFilter}>
-                    <SelectTrigger className="w-[200px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-slate-400">filter_list</span>
-                        <SelectValue placeholder="Format" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center justify-between w-full pr-2">
-                          <span>All Formats</span>
-                          <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                            {allContentPieces.length}
-                          </span>
-                        </div>
-                      </SelectItem>
-                      {availableContentFormats.map((format) => (
-                        <SelectItem key={format} value={format}>
-                          <div className="flex items-center justify-between w-full pr-2">
-                            <span className="capitalize">{format.replace('-', ' ')}</span>
-                            <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                              {contentFormatCounts[format]}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
-              <TabsContent value="queue" className="animate-in fade-in slide-in-from-left-4 duration-300">
-                <div className="space-y-4 max-w-3xl">
-                  {filteredQueueContent.length === 0 ? (
-                    <EmptyState
-                      icon="inbox"
-                      title="Queue is empty"
-                      description="Generate content from your narratives to see it here."
-                    />
-                  ) : (
-                    filteredQueueContent.map((piece) => (
-                      <ContentCard
-                        key={piece.id}
-                        piece={piece}
-                        expanded={expandedPost === piece.id}
-                        onToggle={() =>
-                          setExpandedPost(expandedPost === piece.id ? null : piece.id)
-                        }
-                        onUpdateStatus={handleUpdateStatus}
-                        onCopy={handleCopyPost}
-                        onCreateVideo={(body, draftId) => handleCreateVideoFromScript(body, piece.narrativeId)}
-                        onCreateCarousel={(body, draftId) => handleCreateCarouselFromScript(body, piece.narrativeId)}
-                      />
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="approved" className="animate-in fade-in slide-in-from-left-4 duration-300">
-                <div className="space-y-4 max-w-3xl">
-                  {filteredApprovedContent.length === 0 ? (
-                    <EmptyState
-                      icon="check_circle"
-                      title="No approved content"
-                      description="Approve suggested posts to see them here."
-                    />
-                  ) : (
-                    filteredApprovedContent.map((piece) => (
-                      <ContentCard
-                        key={piece.id}
-                        piece={piece}
-                        expanded={expandedPost === piece.id}
-                        onToggle={() =>
-                          setExpandedPost(expandedPost === piece.id ? null : piece.id)
-                        }
-                        onUpdateStatus={handleUpdateStatus}
-                        onCopy={handleCopyPost}
-                        onCreateVideo={(body, draftId) => handleCreateVideoFromScript(body, piece.narrativeId)}
-                        onCreateCarousel={(body, draftId) => handleCreateCarouselFromScript(body, piece.narrativeId)}
-                      />
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-            </TabsContent>
-
             {/* 3. MEDIA TAB */}
             <TabsContent value="media" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
               <div className="flex items-center justify-end mb-8 gap-3 flex-wrap">
-              <Select value={mediaContextFilter} onValueChange={(v: "all" | "projects" | "series") => setMediaContextFilter(v)}>
-                <SelectTrigger className="w-[180px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-slate-400">category</span>
-                    <SelectValue placeholder="Context" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    <div className="flex items-center justify-between w-full pr-2">
-                      <span>All Content</span>
-                      <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                        {allPlans.length + allSeries.length}
-                      </span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="projects">
-                    <div className="flex items-center justify-between w-full pr-2">
-                      <span>Projects</span>
-                      <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                        {allPlans.length}
-                      </span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="series">
-                    <div className="flex items-center justify-between w-full pr-2">
-                      <span>Series</span>
-                      <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                        {allSeries.length}
-                      </span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {mediaFormatsList.length > 0 && mediaContextFilter !== "series" && (
+              {mediaFormatsList.length > 0 && (
                 <Select value={mediaFormatFilter} onValueChange={setMediaFormatFilter}>
                   <SelectTrigger className="w-[200px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
                     <div className="flex items-center gap-2">
@@ -547,7 +261,7 @@ export function DashboardScreen() {
                       <div className="flex items-center justify-between w-full pr-2">
                         <span>All Formats</span>
                         <span className="text-slate-500 text-[10px] ml-4 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                          {allPlans.length + seriesCount}
+                          {allPlans.length}
                         </span>
                       </div>
                     </SelectItem>
@@ -575,15 +289,12 @@ export function DashboardScreen() {
                 />
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getCombinedProjects().map((project) =>
-                    project._kind === "plan" ? (
+                  {getCombinedProjects().map((project) => (
                       <ProjectCard
                         key={project.id}
                         plan={project as VideoPlan}
                         onPreview={setPreviewPlan}
                       />
-                    ) : (
-                      <SeriesCard key={project.id} series={project as Series} />
                     )
                   )}
                 </div>

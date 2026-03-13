@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface StrengthGaugeProps {
   score: number; // 0-100
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   label?: string;
   showLabel?: boolean;
 }
@@ -30,6 +30,13 @@ export function StrengthGauge({
 
   // Size configurations
   const sizes = {
+    xs: {
+      container: "w-10 h-10",
+      strokeWidth: 3,
+      text: "text-[10px]",
+      labelText: "text-[8px]",
+      radius: 16
+    },
     sm: {
       container: "w-16 h-16",
       strokeWidth: 4,

@@ -227,7 +227,11 @@ async function executeTransaction(operations: TransactionOperation[]): Promise<v
     switch (op.action) {
       case 'set':
         const userId = op.data?.userId || op.data?.owner;
-        batch.set(docRef, { ...op.data, id: op.id, userId }, { merge: true });
+        const dataToSet: any = { ...op.data, id: op.id };
+        if (userId !== undefined) {
+          dataToSet.userId = userId;
+        }
+        batch.set(docRef, dataToSet, { merge: true });
         break;
       case 'update':
         const updateData = { ...op.data };
