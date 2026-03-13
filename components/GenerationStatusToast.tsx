@@ -22,8 +22,7 @@ function statusLabel(status: string): string {
       return "Generating visuals...";
     case "generating_audio":
       return "Synthesizing audio...";
-    case "rendering_video":
-    case "rendering":
+    case 'rendering':
       return "Rendering MP4...";
     case "pending":
       return "Starting...";

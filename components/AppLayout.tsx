@@ -160,7 +160,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
                 collection: 'videoPlans', 
                 where: { 
                   userId: user.id, 
-                  status: { in: ['pending', 'generating', 'generating_audio', 'rendering_video', 'rendering'] } 
+                  status: { in: ['pending', 'generating', 'generating_audio', 'rendering'] } 
                 },
                 order: { createdAt: 'desc' },
                 limit: 1

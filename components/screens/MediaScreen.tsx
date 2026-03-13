@@ -101,7 +101,7 @@ export function MediaScreen() {
 
   return (
     <div className="min-h-screen bg-[#020205] text-white font-sans selection:bg-blue-500/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
+      <div className="w-full px-4 sm:px-6 lg:px-12 py-16 space-y-12">
         {/* Header Section */}
         <div className="flex flex-col gap-10 pb-8 border-b border-white/5">
            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

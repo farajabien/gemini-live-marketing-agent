@@ -22,7 +22,6 @@ function statusLabel(status: string): string {
   switch (status) {
     case "generating": return "Generating";
     case "generating_audio": return "Audio";
-    case "rendering_video":
     case "rendering": return "Rendering";
     case "pending": return "Starting";
     default: return "Processing";

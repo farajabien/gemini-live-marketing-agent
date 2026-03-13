@@ -226,7 +226,6 @@ export function SuccessScreen() {
         text = `Step 2/3 — Synthesizing Voiceover (${audioDone}/${totalScenes})`;
         target = 60 + ((audioDone / totalScenes) * 25);
         break;
-      case 'rendering_video':
       case 'rendering': {
         const renderPct = (plan as any).renderProgress || 0;
         text = renderPct > 0 ? `Step 3/3 — Compiling Video... ${renderPct}%` : "Step 3/3 — Compiling Final Video";

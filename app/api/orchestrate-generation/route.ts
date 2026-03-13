@@ -232,16 +232,34 @@ export async function POST(request: NextRequest) {
           : preRenderScenes.every((s: any) => hasVisuals(s) && !!s.audioUrl);
 
       if (readyForRender && !preRenderPlan?.videoUrl) {
-        await updateStatus(planId, "rendering_video");
+        // LOCK: Check if already rendering to prevent duplicate processes
+        if (preRenderPlan?.status === "rendering") {
+          console.log("[Orchestrate] Already rendering, skipping redundant dispatch.");
+          return NextResponse.json({ success: true, status: "rendering_in_progress" });
+        }
+
+        await updateStatus(planId, "rendering");
 
         // Fire-and-forget: generate-video self-marks "completed" in Firestore.
-        // The SuccessScreen watches Firestore reactively, so we don't need to wait.
+        // We use a short timeout so we don't wait for the long render to complete.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000); 
+
         fetch(`${baseUrl}/api/generate-video`, {
           method: "POST",
           headers,
           body: JSON.stringify({ planId, background: true }),
+          signal: controller.signal
+        }).then(() => {
+          clearTimeout(timeoutId);
+          console.log("[Orchestrate] Render dispatch acknowledged.");
         }).catch((err) => {
-          console.error("[Orchestrate] generate-video fire-and-forget error:", err);
+          clearTimeout(timeoutId);
+          if (err.name === 'AbortError') {
+            console.log("[Orchestrate] Render dispatched and detached successfully.");
+          } else {
+            console.error("[Orchestrate] generate-video dispatch error:", err);
+          }
         });
 
         console.log("[Orchestrate] Render dispatched (fire-and-forget).");

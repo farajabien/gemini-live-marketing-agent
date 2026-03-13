@@ -10,7 +10,7 @@ import type { FounderNarrative, ContentPiece, ContentFormat, ContentStatus, Vide
 import { ACTIVE_GENERATION_STATUSES } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ContentCard } from "@/components/narrative/ContentCard";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { StudioCard } from "@/components/dashboard/StudioCard";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
@@ -738,10 +738,11 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {combinedMedia.map((plan: VideoPlan) => (
-                <ProjectCard
+                <StudioCard
                   key={plan.id}
-                  plan={plan}
-                  onPreview={setPreviewPlan}
+                  variant="project"
+                  data={plan}
+                  onPreview={() => setPreviewPlan(plan)}
                 />
               ))}
             </div>

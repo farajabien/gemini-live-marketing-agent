@@ -179,7 +179,7 @@ export function DashboardScreen() {
   return (
     <div className="w-full font-sans text-white">
       <div className="w-full">
-        <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        <div className="w-full px-4 sm:px-6 lg:px-12 py-10 space-y-6">
           {/* Project / Narrative selector — shown once the user has more than one project */}
           {allNarratives.length > 1 && (
             <div className="mb-4">
