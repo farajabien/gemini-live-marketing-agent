@@ -11,7 +11,7 @@ import { MediaResultPreview } from "@/components/media/MediaResultPreview";
 import type { Series, Episode, SeriesWithEpisodes, VideoPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { PlusCircle, Play, Film, MessageSquare, AlertCircle, ChevronRight, LayoutDashboard, Brain, Sparkles, Settings2, Download, ExternalLink } from "lucide-react";
+import { PlusCircle, Play, Film, MessageSquare, AlertCircle, ChevronRight, LayoutDashboard, Brain, Sparkles, Settings2, Download, ExternalLink, Pencil } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { useGenerateStore } from "@/hooks/use-generate-store";
@@ -685,13 +685,22 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                     />
                     
                     {selectedEpisode?.status === 'complete' && (
-                      <button
-                        onClick={() => handleDownloadEpisode(selectedEpisode)}
-                        className="absolute bottom-10 right-10 size-12 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all z-10"
-                        title="Download MP4"
-                      >
-                        <Download className="size-6" />
-                      </button>
+                      <div className="flex gap-2 absolute bottom-10 right-10 z-10">
+                        <button
+                          onClick={() => openGenerator({ planId: selectedEpisode.videoPlanId, seriesId })}
+                          className="size-12 rounded-full bg-white/10 text-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all backdrop-blur-md border border-white/10"
+                          title="Edit Script/Visuals"
+                        >
+                          <Pencil className="size-6" />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadEpisode(selectedEpisode)}
+                          className="size-12 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all"
+                          title="Download MP4"
+                        >
+                          <Download className="size-6" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

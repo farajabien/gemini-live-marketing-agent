@@ -7,6 +7,7 @@ interface GenerateParams {
   narrativeId?: string;
   mode?: "verbatim" | "ai";
   planId?: string;
+  seriesId?: string;
 }
 
 interface GenerateStore {

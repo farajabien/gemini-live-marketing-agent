@@ -619,6 +619,16 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         body: JSON.stringify({ planId: finalPlanId })
       }).catch(err => console.error("Initial generation trigger failed:", err));
 
+      // Direct Redirect Optimization: If in series context, just close the modal.
+      // The SeriesDetailScreen (which is already behind the modal) will pick up the progress.
+      if (generateParams.seriesId || isModal && !initialPlanId) {
+          if (generateParams.seriesId) {
+            toast.success("Generation started! Tracking progress on Series Hub.", { icon: "📺" });
+            closeGenerator();
+            return;
+          }
+      }
+
       router.push(`/success?type=${plan.type}&planId=${finalPlanId}`);
     } catch (err: unknown) {
       const message = getErrorMessage(err);

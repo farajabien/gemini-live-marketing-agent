@@ -231,6 +231,23 @@ export function SuccessScreen() {
         const renderPct = (plan as any).renderProgress || 0;
         text = renderPct > 0 ? `Step 3/3 — Compiling Video... ${renderPct}%` : "Step 3/3 — Compiling Final Video";
         target = 90 + (renderPct / 100) * 9;
+
+        // Auto-redirect series episodes as soon as rendering starts
+        if (episode?.seriesId && !seriesRedirectTimer.current) {
+          console.log(`[SuccessScreen] Rendering started for series ${episode.seriesId}, starting countdown...`);
+          setSeriesRedirectCountdown(5);
+          let remaining = 5;
+          seriesRedirectTimer.current = setInterval(() => {
+            remaining -= 1;
+            setSeriesRedirectCountdown(remaining);
+            if (remaining <= 0) {
+              if (seriesRedirectTimer.current) clearInterval(seriesRedirectTimer.current);
+              seriesRedirectTimer.current = null;
+              router.push(`/series/${episode.seriesId}`);
+              toast.success("Returning to Series Generation...");
+            }
+          }, 1000);
+        }
         break;
       }
       case 'completed':
@@ -238,8 +255,9 @@ export function SuccessScreen() {
         target = 100;
         if (!isReady) {
           setIsReady(true);
-          if (episode?.seriesId && !seriesRedirectTimer.current) {
-            console.log(`[SuccessScreen] Part of series ${episode.seriesId}, starting countdown...`);
+          // Only trigger here if it wasn't already triggered during rendering
+          if (episode?.seriesId && !seriesRedirectTimer.current && seriesRedirectCountdown === null) {
+            console.log(`[SuccessScreen] Completed part of series ${episode.seriesId}, starting countdown...`);
             setSeriesRedirectCountdown(5);
             let remaining = 5;
             seriesRedirectTimer.current = setInterval(() => {
