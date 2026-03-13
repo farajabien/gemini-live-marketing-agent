@@ -5,6 +5,7 @@ import { PayPalButtons } from "@paypal/react-paypal-js";
 import { useAuth } from "@/hooks/use-auth";
 import { PRICING_TIERS } from "@/lib/pricing";
 import { SecureAccountDialog } from "@/components/SecureAccountDialog";
+import Link from "next/link";
 
 export function UpgradeScreen() {
   const { user, isLoading } = useAuth();

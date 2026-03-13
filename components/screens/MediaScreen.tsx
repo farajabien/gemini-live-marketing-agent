@@ -2,18 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useDb } from "@/hooks/use-firestore";
+import { firebaseDb as db } from "@/lib/firebase-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Download, ExternalLink, Calendar, Search, Filter, FileText } from "lucide-react";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
-import { VideoPlan } from "@/types/marketing";
+import { VideoPlan } from "@/lib/types";
 
 export function MediaScreen() {
   const { user } = useAuth();
-  const db = useDb();
   const [formatFilter, setFormatFilter] = useState("all");
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
 
@@ -98,8 +97,8 @@ export function MediaScreen() {
             {filteredPlans.map((plan) => (
               <Card key={plan.id} className="bg-[#08080c] border-white/5 rounded-[2.5rem] overflow-hidden group hover:border-blue-500/20 transition-all shadow-2xl hover:shadow-blue-500/5">
                  <div className="aspect-video relative overflow-hidden bg-slate-900">
-                    {plan.coverUrl ? (
-                      <img src={plan.coverUrl} className="size-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
+                    {plan.thumbnailUrl ? (
+                      <img src={plan.thumbnailUrl} className="size-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
                     ) : (
                       <div className="size-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-black">
                          <Play className="size-12 text-slate-800" />
@@ -129,7 +128,7 @@ export function MediaScreen() {
                     <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-600">
                        <div className="flex items-center gap-2">
                          <Calendar className="size-3.5" />
-                         {new Date(plan.createdAt).toLocaleDateString()}
+                          {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "No Date"}
                        </div>
                     </div>
 

@@ -166,7 +166,7 @@ const positioning = narrative.aiPositioning;
 
     
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="w-full space-y-6 pb-20">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
         <div className="flex-1 space-y-2">
@@ -284,19 +284,19 @@ const positioning = narrative.aiPositioning;
                   <div className="text-[9px] font-black uppercase tracking-widest text-red-500/60 flex items-center gap-1.5">
                     <Activity className="size-3" /> The Villain
                   </div>
-                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3">{positioning.villain}</p>
+                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3 break-words">{positioning.villain}</p>
                 </div>
                 <div className="space-y-1">
                   <div className="text-[9px] font-black uppercase tracking-widest text-blue-500/60 flex items-center gap-1.5">
                     <Target className="size-3" /> The Hero
                   </div>
-                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3">{positioning.hero}</p>
+                  <p className="text-[11px] text-slate-300 font-medium leading-relaxed line-clamp-3 break-words">{positioning.hero}</p>
                 </div>
                 <div className="space-y-1">
                   <div className="text-[9px] font-black uppercase tracking-widest text-purple-500/60 flex items-center gap-1.5">
                     <Brain className="size-3" /> The Mechanism
                   </div>
-                  <p className="text-[11px] text-white font-black italic leading-tight line-clamp-3">{positioning.mechanism}</p>
+                  <p className="text-[11px] text-white font-black italic leading-tight line-clamp-3 break-words">{positioning.mechanism}</p>
                 </div>
               </div>
             </div>
@@ -325,14 +325,14 @@ const positioning = narrative.aiPositioning;
           </div>
 
           {lastDirectorMessage && (
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-black uppercase tracking-widest text-blue-400">
+            <div className="mt-4 pt-4 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+                <div className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[8px] font-black uppercase tracking-widest text-blue-400 shrink-0 mt-0.5 sm:mt-0">
                   Latest Insight
                 </div>
-                <p className="text-[10px] text-slate-400 italic line-clamp-1">"{lastDirectorMessage.text}"</p>
+                <p className="text-[10px] text-slate-400 italic break-words">"{lastDirectorMessage.text}"</p>
               </div>
-              <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600 whitespace-nowrap">
+              <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600 whitespace-nowrap shrink-0">
                 Director Intelligence Standby
               </div>
             </div>
@@ -342,18 +342,18 @@ const positioning = narrative.aiPositioning;
 
       {/* Main Content Area */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <LayoutGrid className="size-5 text-slate-500" />
             <h3 className="text-lg font-black uppercase tracking-widest text-white">Media Archive</h3>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 sm:justify-end">
             {narrative.audience && (
-              <Badge variant="ghost" className="text-[9px] font-black uppercase tracking-widest text-slate-500 gap-2 border border-white/5 hover:bg-white/5 px-3">
-                Targeting: {narrative.audience}
+              <Badge variant="ghost" className="text-[9px] font-black uppercase tracking-widest text-slate-500 gap-2 border border-white/5 hover:bg-white/5 px-3 py-1.5 h-auto max-w-[250px] sm:max-w-[400px]">
+                <span className="truncate">Targeting: {narrative.audience}</span>
               </Badge>
             )}
-            <Badge variant="outline" className="border-white/10 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold">
+            <Badge variant="outline" className="border-white/10 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold shrink-0">
               {(data as any)?.videoPlans?.length || 0} Assets
             </Badge>
           </div>
@@ -443,16 +443,16 @@ const positioning = narrative.aiPositioning;
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 animate-in slide-in-from-top-2 duration-300">
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Target Audience</span>
-                <p className="text-xs text-slate-400 leading-relaxed font-medium">{narrative.audience || "Not defined"}</p>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium break-words">{narrative.audience || "Not defined"}</p>
               </div>
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Core Problem</span>
-                <p className="text-xs text-slate-400 leading-relaxed font-medium">{narrative.problem || "Not defined"}</p>
+                <p className="text-xs text-slate-400 leading-relaxed font-medium break-words">{narrative.problem || "Not defined"}</p>
               </div>
               <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Market Voice</span>
                 <div className="pt-1">
-                  <Badge variant="outline" className="border-red-500/20 text-red-500 text-[9px] font-black uppercase px-3 py-1">{narrative.voice || "calm"}</Badge>
+                  <Badge variant="outline" className="border-red-500/20 text-red-500 text-[9px] font-black uppercase px-3 py-1 break-words">{narrative.voice || "calm"}</Badge>
                 </div>
               </div>
             </div>

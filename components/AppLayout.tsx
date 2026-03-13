@@ -603,6 +603,7 @@ function MainContent({
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <main

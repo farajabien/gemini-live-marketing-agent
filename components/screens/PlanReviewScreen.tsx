@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
 import type { VideoPlan } from "@/lib/types";
+import { Header } from "../Header";
 
 interface PlanReviewProps {
   plan: VideoPlan;
