@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
     const userId = authUser.id;
 
-    const { planId } = await request.json();
+    const { planId, force = false } = await request.json();
     if (!planId) {
       return NextResponse.json({ error: "Missing planId" }, { status: 400 });
     }
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
 
       if (readyForRender && !preRenderPlan?.videoUrl) {
         // LOCK: Check if already rendering to prevent duplicate processes
-        if (preRenderPlan?.status === "rendering") {
+        if (preRenderPlan?.status === "rendering" && !force) {
           console.log("[Orchestrate] Already rendering, skipping redundant dispatch.");
           return NextResponse.json({ success: true, status: "rendering_in_progress" });
         }
@@ -241,28 +241,19 @@ export async function POST(request: NextRequest) {
         await updateStatus(planId, "rendering");
 
         // Fire-and-forget: generate-video self-marks "completed" in Firestore.
-        // We use a short timeout so we don't wait for the long render to complete.
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000); 
-
+        // We trigger it and let it run in the background.
         fetch(`${baseUrl}/api/generate-video`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ planId, background: true }),
-          signal: controller.signal
-        }).then(() => {
-          clearTimeout(timeoutId);
-          console.log("[Orchestrate] Render dispatch acknowledged.");
+          body: JSON.stringify({ planId, background: true, forceRerender: force }),
         }).catch((err) => {
-          clearTimeout(timeoutId);
-          if (err.name === 'AbortError') {
-            console.log("[Orchestrate] Render dispatched and detached successfully.");
-          } else {
-            console.error("[Orchestrate] generate-video dispatch error:", err);
-          }
+          console.error("[Orchestrate] generate-video background dispatch error:", err);
         });
 
-        console.log("[Orchestrate] Render dispatched (fire-and-forget).");
+        // Give the background request a tiny head-start to ensure the body is sent
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        console.log("[Orchestrate] Render dispatched (background process started).");
       } else if (preRenderPlan?.videoUrl) {
         console.log("[Orchestrate] Video already rendered.");
       } else {

@@ -80,7 +80,7 @@ export function SuccessScreen() {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${refreshToken}`
         },
-        body: JSON.stringify({ planId: plan.id })
+        body: JSON.stringify({ planId: plan.id, force: true })
     })
     .then(res => {
         console.log("Orchestration re-trigger response:", res.status);

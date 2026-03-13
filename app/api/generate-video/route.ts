@@ -13,6 +13,7 @@ import {
   renderVideoWithFFmpeg,
   estimateRenderTime,
 } from "@/lib/ffmpeg/renderer";
+import { FFmpegRegistry } from "@/lib/ffmpeg/process-registry";
 import { getRenderPreset, type RenderPresetName } from "@/lib/render-presets";
 
 // Feature flag: Use FFmpeg renderer (default: true)
@@ -23,7 +24,7 @@ const USE_FFMPEG_RENDERER = process.env.USE_FFMPEG_RENDERER !== "false";
  * Attempts to acquire a render lock for a plan by atomically updating its status.
  * Returns true if lock was acquired, false if already rendering.
  */
-async function acquireRenderLockForPlan(planId: string): Promise<boolean> {
+async function acquireRenderLockForPlan(planId: string, force: boolean = false): Promise<boolean> {
   try {
     // Query current plan status
     const queryResult = await adminDb.query({
@@ -38,10 +39,10 @@ async function acquireRenderLockForPlan(planId: string): Promise<boolean> {
     }
 
     const now = Date.now();
-    const RENDER_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+    const RENDER_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes (some renders take 50+ mins)
 
-    // If already rendering, check if it's expired
-    if (plan.status === "rendering") {
+    // If already rendering, check if it's expired OR if we are forcing a rerender
+    if (plan.status === "rendering" && !force) {
       const startedAt = (plan as any).renderStartedAt || 0;
       const isExpired = now - startedAt > RENDER_TIMEOUT_MS;
 
@@ -49,6 +50,10 @@ async function acquireRenderLockForPlan(planId: string): Promise<boolean> {
         return false;
       }
       console.log(`[RenderLock] Previous render for ${planId} expired, re-acquiring lock.`);
+    }
+
+    if (force && plan.status === "rendering") {
+      console.log(`[RenderLock] ⚠️ FORCING render lock acquisition for ${planId} despite current rendering status.`);
     }
 
     // Atomically set status to rendering with timestamp
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing planId" }, { status: 400 });
 
     // Attempt to acquire DB-level render lock
-    const lockAcquired = await acquireRenderLockForPlan(planId);
+    const lockAcquired = await acquireRenderLockForPlan(planId, forceRerender);
     if (!lockAcquired) {
       console.log(
         `[VideoGen] Render already in progress for plan: ${planId}, returning 409`,
@@ -116,6 +121,13 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
+
+    // If forcing a rerender, ensure we kill any hanging local processes
+    if (forceRerender) {
+      console.log(`[VideoGen] 🧹 Force rerender: Cleaning up active processes for ${planId}`);
+      await FFmpegRegistry.killForPlan(planId);
+    }
+
     lockedPlanId = planId;
 
     const authHeader = request.headers.get("Authorization");

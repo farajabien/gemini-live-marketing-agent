@@ -11,6 +11,7 @@ import { join } from "path";
 import { writeFile, unlink, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { adminDb } from "@/lib/firebase-admin";
+import { FFmpegRegistry } from "./process-registry";
 
 export interface SceneRenderOptions {
   format: "9:16" | "1:1" | "16:9"; // Aspect ratio
@@ -105,7 +106,8 @@ export function detectGPUEncoder(): string | null {
 export async function renderScene(
   scene: Scene,
   outputPath: string,
-  options: SceneRenderOptions = DEFAULT_SCENE_OPTIONS
+  options: SceneRenderOptions = DEFAULT_SCENE_OPTIONS,
+  planId?: string
 ): Promise<void> {
   console.log(`[FFmpeg Scene Renderer] Starting render for scene...`);
   const sceneTimingLabel = `[FFmpeg Scene Renderer] Total render time ${scene.id}`;
@@ -182,11 +184,16 @@ export async function renderScene(
       }
 
       // Video filter: scale + fade transitions + watermark overlay
+      // Guard against very short durations for fade filters
+      const fadeDuration = 0.3;
+      const safeDuration = Math.max(scene.duration, fadeDuration * 2 + 0.1);
+      const outStart = Math.max(0, safeDuration - fadeDuration);
+
       const videoFilter = [
         `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p[bg]`,
         `[1:v]scale=${watermarkSize}:${watermarkSize}[wm]`,
         `[bg][wm]overlay=W-w-${watermarkPad}:H-h-${watermarkPad}:format=auto[watermarked]`,
-        `[watermarked]fade=t=in:st=0:d=0.3,fade=t=out:st=${scene.duration - 0.3}:d=0.3[final]`
+        `[watermarked]fade=t=in:st=0:d=${fadeDuration},fade=t=out:st=${outStart}:d=${fadeDuration}[final]`
       ].join(";");
 
       command = command.complexFilter(videoFilter);
@@ -244,18 +251,24 @@ export async function renderScene(
         console.log(`[FFmpeg] Executing: ${commandLine.substring(0, 100)}...`);
       });
 
+      let lastLogTime = 0;
       command.on("progress", (progress) => {
-        if (progress.percent) {
-          console.log(`[FFmpeg] Progress: ${progress.percent.toFixed(1)}%`);
+        if (progress.percent !== undefined) {
+           // Throttle progress logs
+           const now = Date.now();
+           if (now - lastLogTime > 2000) {
+              console.log(`[FFmpeg] Scene ${scene.id?.substring(0,8)} progress: ${progress.percent.toFixed(1)}%`);
+              lastLogTime = now;
+           }
         }
       });
 
-      // Run with manual timeout
+      // Run with manual timeout (increased to 3 minutes for slow servers)
       const timeout = setTimeout(() => {
-        console.error(`[FFmpeg] Scene render timed out after 60s: ${outputPath}`);
+        console.error(`[FFmpeg] Scene render timed out after 180s: ${outputPath}`);
         command.kill('SIGKILL');
-        reject(new Error("FFmpeg scene render timed out after 60s"));
-      }, 60000);
+        reject(new Error("FFmpeg scene render timed out after 180s"));
+      }, 180000);
 
       command.on("end", () => {
         clearTimeout(timeout);
@@ -275,6 +288,11 @@ export async function renderScene(
       });
 
       command.run();
+
+      // Register with process registry so it can be killed if needed
+      if (planId) {
+        FFmpegRegistry.register(planId, command);
+      }
     });
 
     const sceneTimingLabel = `[FFmpeg Scene Renderer] Total render time ${scene.id}`;
@@ -300,12 +318,13 @@ export async function renderScene(
  */
 export async function renderSceneToBuffer(
   scene: Scene,
-  options: SceneRenderOptions = DEFAULT_SCENE_OPTIONS
+  options: SceneRenderOptions = DEFAULT_SCENE_OPTIONS,
+  planId?: string
 ): Promise<Buffer> {
   const tempOutput = join(tmpdir(), `scene-${Date.now()}-${Math.random().toString(36).substring(7)}.mp4`);
 
   try {
-    await renderScene(scene, tempOutput, options);
+    await renderScene(scene, tempOutput, options, planId);
 
     if (!existsSync(tempOutput)) {
       throw new Error("Rendered scene file not found");

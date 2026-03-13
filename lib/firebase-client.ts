@@ -478,7 +478,7 @@ export const firebaseDb = {
   useQuery: useFirestoreQuery,
   useDoc: useFirestoreDoc,
   query: fetchFirestoreQuery,
-  transact,
+  transact: transact,
   createTransaction,
   id: generateId,
 };

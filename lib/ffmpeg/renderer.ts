@@ -161,7 +161,7 @@ export async function renderVideoWithFFmpeg(
       console.log(`[FFmpeg Renderer][${elapsed}s] ${msg}`);
     };
 
-    const CONCURRENCY = 3;
+    const CONCURRENCY = process.platform === "darwin" ? 2 : 3;
     log(`Processing ${plan.scenes.length} scenes (Pool size: ${CONCURRENCY})...`);
 
     // Worker pool: Render N scenes at once
@@ -192,7 +192,7 @@ export async function renderVideoWithFFmpeg(
         progress.cachedScenes++;
       } else {
         log(`🎬 Cache MISS - Rendering Scene ${sceneNumber}...`);
-        const sceneBuffer = await renderSceneToBuffer(scene, renderOptions);
+        const sceneBuffer = await renderSceneToBuffer(scene, renderOptions, plan.id);
 
         if (enableCache) {
           await saveSceneToCache(sceneHash, sceneBuffer);
@@ -219,7 +219,12 @@ export async function renderVideoWithFFmpeg(
       while (queue.length > 0) {
         const idx = queue.shift();
         if (idx !== undefined) {
-          await processScene(idx);
+          try {
+            await processScene(idx);
+          } catch (err) {
+            console.error(`[FFmpeg Renderer] Fatal error in worker processing scene ${idx}:`, err);
+            throw err; // Propagate to Promise.all
+          }
         }
       }
     });
