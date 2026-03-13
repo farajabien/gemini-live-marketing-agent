@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Play, Download, ExternalLink, Calendar, Search, Filter, FileText, ArrowUpDown, Clock, Type } from "lucide-react";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
+import { StudioCard } from "@/components/dashboard/StudioCard";
 import { VideoPlan } from "@/lib/types";
 
 export function MediaScreen() {
@@ -242,79 +243,14 @@ export function MediaScreen() {
              </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {filteredPlans.map((plan) => (
-              <Card key={plan.id} className="bg-[#08080c] border-white/5 rounded-[2.5rem] overflow-hidden group hover:border-blue-500/20 transition-all shadow-2xl hover:shadow-blue-500/5">
-                 <div className="aspect-video relative overflow-hidden bg-slate-900">
-                    {plan.thumbnailUrl ? (
-                      <img src={plan.thumbnailUrl} className="size-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
-                    ) : (
-                      <div className="size-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-black">
-                         <Play className="size-12 text-slate-800" />
-                      </div>
-                    )}
-                    
-                    <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black to-transparent">
-                       <div className="flex items-center gap-2 mb-2">
-                         <Badge className="bg-blue-600/90 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">
-                           {plan.outputFormat || plan.type}
-                         </Badge>
-                         {plan.title?.includes(" - Episode ") && (
-                            <Badge className="bg-amber-600/90 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">
-                              Series
-                            </Badge>
-                         )}
-                       </div>
-                       <h3 className="text-xl font-black text-white italic truncate leading-tight tracking-tight">
-                         {plan.title || "Untitled Project"}
-                       </h3>
-                    </div>
-
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                       <Button 
-                         onClick={() => setPreviewPlan(plan)}
-                         className="size-14 rounded-full bg-white text-black hover:bg-blue-500 hover:text-white transition-all scale-90 group-hover:scale-100"
-                        >
-                          <Play className="size-6 fill-current" />
-                       </Button>
-                    </div>
-                 </div>
-
-                 <CardContent className="p-8 space-y-6">
-                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-600">
-                       <div className="flex items-center gap-2">
-                         <Calendar className="size-3.5" />
-                          {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : "No Date"}
-                       </div>
-                       {plan.duration && (
-                         <div className="flex items-center gap-2">
-                           <Clock className="size-3.5" />
-                           {plan.duration}s
-                         </div>
-                       )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                       <Button 
-                         onClick={() => setPreviewPlan(plan)}
-                         variant="outline" 
-                         className="border-white/10 text-white hover:bg-white/5 rounded-2xl h-12 font-black uppercase tracking-widest text-[10px] gap-2"
-                        >
-                          <ExternalLink className="size-3.5" />
-                          View
-                       </Button>
-                       <Button 
-                         variant="outline" 
-                         className="border-white/10 text-slate-400 hover:text-white hover:bg-white/5 rounded-2xl h-12 font-black uppercase tracking-widest text-[10px] gap-2"
-                         disabled={!plan.videoUrl}
-                         onClick={() => plan.videoUrl && window.open(plan.videoUrl, '_blank')}
-                        >
-                          <Download className="size-3.5" />
-                          Save
-                       </Button>
-                    </div>
-                 </CardContent>
-              </Card>
+              <StudioCard
+                key={plan.id}
+                variant="media"
+                data={plan}
+                onPreview={setPreviewPlan}
+              />
             ))}
           </div>
         )}

@@ -448,11 +448,36 @@ export function getFileUrl(path: string): string {
 }
 
 /**
+ * Fetch one-off Firestore query results (async)
+ */
+export async function fetchFirestoreQuery<T = any>(
+  queryObj: FirestoreQuery,
+): Promise<T> {
+  const results: Record<string, any[]> = {};
+
+  for (const [alias, config] of Object.entries(queryObj)) {
+    if (!config) continue;
+
+    const queryConfig = config.$;
+    const collectionName = queryConfig?.collection || alias;
+    const firestoreQuery = buildFirestoreQuery(collectionName, queryConfig);
+    const snapshot = await getDocs(firestoreQuery);
+    results[alias] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  }
+
+  return results as T;
+}
+
+/**
  * Export Firebase client interface
  */
 export const firebaseDb = {
   useQuery: useFirestoreQuery,
   useDoc: useFirestoreDoc,
+  query: fetchFirestoreQuery,
   transact,
   createTransaction,
   id: generateId,

@@ -36,17 +36,18 @@ if (!isE2E) {
   if (!getApps().length) {
     console.log('Initializing Firebase Client for project:', firebaseConfig.projectId);
     app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache(),
+    });
+    storage = getStorage(app);
   } else {
     app = getApps()[0];
+    const { getFirestore } = require('firebase/firestore');
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
   }
-
-  // Initialize Firebase services
-  auth = getAuth(app);
-  // persistentLocalCache must be set at init time — cannot race with Firestore ops
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache(),
-  });
-  storage = getStorage(app);
 } else {
   // Mock Firebase for E2E testing
   // These will be properly mocked in the test environment

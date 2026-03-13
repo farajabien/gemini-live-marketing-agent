@@ -96,7 +96,7 @@ export function GenerationStatusToast() {
                 },
               },
             };
-            const epData = await (db as any).query(epQuery);
+            const epData = await db.query(epQuery) as { episodes: any[] };
             const ep = epData?.episodes?.[0];
             dest = getDestination(plan, ep);
           } catch (e) {

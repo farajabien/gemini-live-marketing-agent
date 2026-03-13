@@ -102,6 +102,7 @@ export interface VideoPlan {
     };
     hashtags?: string[];
   };
+  seriesId?: string;
 }
 
 export type VideoPlanStatus = "draft" | "pending" | "generating" | "generating_audio" | "rendering" | "rendering_video" | "completed";

@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { NarrativeCard } from "@/components/dashboard/NarrativeCard";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { StudioCard } from "@/components/dashboard/StudioCard";
 import { initializeDraftNarrative } from "@/app/actions/marketing";
 import { toast } from "sonner";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
@@ -58,6 +57,13 @@ export function DashboardScreen() {
                   limit: 50,
                 },
               },
+              series: {
+                $: {
+                  where: { userId: user.id },
+                  order: { createdAt: "desc" },
+                  limit: 50,
+                },
+              },
             }
           : null,
       [user?.id]
@@ -86,6 +92,7 @@ export function DashboardScreen() {
 
   const allPlans = ((data as any)?.videoPlans || []) as VideoPlan[];
   const allNarratives = ((data as any)?.narratives || []) as FounderNarrative[];
+  const allSeries = ((data as any)?.series || []) as Series[];
 
   // Compute dynamic format counts for Media
   const availableMediaFormats = new Set<string>();
@@ -110,11 +117,17 @@ export function DashboardScreen() {
 
       // Advanced filter: Media type
       if (mediaTypeFilter !== "all" && p.type !== mediaTypeFilter) return false;
-      // Advanced filter: Content source
-      if (contentSourceFilter === "narrative" && !p.narrativeId) return false;
-      if (contentSourceFilter === "direct" && p.narrativeId) return false;
-      // Advanced filter: Narrative origin
+      // Filter by Project or Series context
+      if (mediaContextFilter === "projects" && !p.narrativeId) return false;
+      if (mediaContextFilter === "series" && !p.seriesId) return false;
+
+      // Filter by specific Project
       if (narrativeOriginFilter !== "all" && p.narrativeId !== narrativeOriginFilter) return false;
+      
+      // Filter by specific Series
+      // (Assuming p.seriesId exists or we eventually enrich it)
+      // if (seriesOriginFilter !== "all" && p.seriesId !== seriesOriginFilter) return false;
+
       // Advanced filter: Posting status
       if (postingStatusFilter === "posted" && !p.postedAt) return false;
       if (postingStatusFilter === "unposted" && p.postedAt) return false;
@@ -197,11 +210,20 @@ export function DashboardScreen() {
             </TabsTrigger>
 
             <TabsTrigger
+              value="series"
+              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
+            >
+              <span className="material-symbols-outlined text-lg mr-2">auto_stories</span>
+              Series
+              <Badge variant="secondary" className="ml-2 text-[9px] bg-blue-500/10 text-blue-500 border-none px-2">{allSeries.length}</Badge>
+            </TabsTrigger>
+
+            <TabsTrigger
               value="media"
               className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
             >
               <span className="material-symbols-outlined text-lg mr-2">play_circle</span>
-              Media
+              Media Library
               <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length}</Badge>
             </TabsTrigger>
             </TabsList>
@@ -234,11 +256,41 @@ export function DashboardScreen() {
                 }
               />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {allNarratives.map((narrative) => (
-                  <NarrativeCard
+                  <StudioCard
                     key={narrative.id}
-                    narrative={narrative}
+                    variant="project"
+                    data={narrative}
+                  />
+                ))}
+              </div>
+            )}
+            </TabsContent>
+
+            {/* 2. SERIES TAB */}
+            <TabsContent value="series" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
+            {allSeries.length === 0 ? (
+              <EmptyState
+                icon="auto_stories"
+                title="Your storylines start here"
+                description="Create episodic content series with a consistent persona and visual identity."
+                action={
+                  <Button
+                    onClick={() => router.push("/series")}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/20 rounded-full px-8 h-11"
+                  >
+                    Go to Series Hub
+                  </Button>
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {allSeries.map((s) => (
+                  <StudioCard
+                    key={s.id}
+                    variant="series"
+                    data={s}
                   />
                 ))}
               </div>
@@ -248,6 +300,19 @@ export function DashboardScreen() {
             {/* 3. MEDIA TAB */}
             <TabsContent value="media" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
               <div className="flex items-center justify-end mb-8 gap-3 flex-wrap">
+              
+              {/* Context Selector: Project vs Series */}
+              <Select value={mediaContextFilter} onValueChange={(val: any) => setMediaContextFilter(val)}>
+                <SelectTrigger className="w-[160px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
+                  <SelectValue placeholder="Context" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Contexts</SelectItem>
+                  <SelectItem value="projects">Individual Projects</SelectItem>
+                  <SelectItem value="series">Series Episodes</SelectItem>
+                </SelectContent>
+              </Select>
+
               {mediaFormatsList.length > 0 && (
                 <Select value={mediaFormatFilter} onValueChange={setMediaFormatFilter}>
                   <SelectTrigger className="w-[200px] h-10 bg-white/5 border-white/10 text-xs font-bold rounded-full">
@@ -288,11 +353,12 @@ export function DashboardScreen() {
                   description="Use the tools above to create videos and series."
                 />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {getCombinedProjects().map((project) => (
-                      <ProjectCard
+                      <StudioCard
                         key={project.id}
-                        plan={project as VideoPlan}
+                        variant="media"
+                        data={project}
                         onPreview={setPreviewPlan}
                       />
                     )
