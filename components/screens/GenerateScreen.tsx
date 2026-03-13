@@ -57,6 +57,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const [format, setFormat] = useState<"video" | "carousel">("video");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [targetSeriesId, setTargetSeriesId] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [isLoadingPlan, setIsLoadingPlan] = useState(!!initialPlanId);
 
@@ -154,7 +155,7 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
   const isOverLimit = currentUsage >= planLimit;
   
   // Load params from URL query string OR global store (backward compat)
-  const { params: generateParams } = useGenerateStore();
+  const { params: generateParams, closeGenerator } = useGenerateStore();
 
   useEffect(() => {
     // Priority 1: URL params (new route-based flow)
@@ -208,6 +209,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         }
         if (generateParams.format) {
             setFormat(generateParams.format);
+        }
+        if (generateParams.seriesId) {
+            setTargetSeriesId(generateParams.seriesId);
         }
         if (generateParams.draftId) {
             setSelectedDraftId(generateParams.draftId);
@@ -271,6 +275,24 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         const { plan: loadedPlan } = await response.json();
         setPlan(loadedPlan);
         setPlanId(initialPlanId);
+        
+        // Update target series ID if found in plan
+        if (loadedPlan.seriesId) setTargetSeriesId(loadedPlan.seriesId);
+
+        // Proactive Series Detection: Check if this plan belongs to an episode
+        try {
+          const epQuery = {
+            episodes: { $: { where: { videoPlanId: initialPlanId } } }
+          };
+          const epData = await (db as any).query(epQuery);
+          const episode = epData?.episodes?.[0];
+          if (episode) {
+            const sid = episode.seriesId || episode.series;
+            setTargetSeriesId(sid);
+          }
+        } catch (epErr) {
+          console.warn("Failed to detect series context for plan:", epErr);
+        }
         
         // Restore settings from the plan
         if (loadedPlan.style || loadedPlan.audience || loadedPlan.goal || loadedPlan.outputFormat) {
@@ -619,16 +641,29 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
         body: JSON.stringify({ planId: finalPlanId })
       }).catch(err => console.error("Initial generation trigger failed:", err));
 
-      // Direct Redirect Optimization: If in series context, just close the modal.
-      // The SeriesDetailScreen (which is already behind the modal) will pick up the progress.
-      if (generateParams.seriesId || isModal && !initialPlanId) {
-          if (generateParams.seriesId) {
-            toast.success("Generation started! Tracking progress on Series Hub.", { icon: "📺" });
+      // ─── SERIES REDIRECT PRIORITY ───
+      // As requested: Check for series ID availability directly first.
+      const seriesContextId = generateParams.seriesId || targetSeriesId || (plan as any)?.seriesId;
+      
+      if (seriesContextId) {
+          console.log("Series context detected, performing direct redirect to Series Hub:", seriesContextId);
+          toast.success("Generation started! Tracking progress on Series Hub.", { icon: "📺" });
+          
+          if (isModal) {
             closeGenerator();
-            return;
+          } else {
+            router.push(`/series/${seriesContextId}`);
           }
+          return;
       }
 
+      // Fallback: If no series context, check if we just need to close the modal (e.g. standard project edit)
+      if (isModal && !initialPlanId) {
+          closeGenerator();
+          return;
+      }
+
+      // Final Fallback: Success Screen
       router.push(`/success?type=${plan.type}&planId=${finalPlanId}`);
     } catch (err: unknown) {
       const message = getErrorMessage(err);

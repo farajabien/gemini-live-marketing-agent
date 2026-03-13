@@ -73,13 +73,61 @@ export function GenerationStatusToast() {
   const { data } = db.useQuery(plansQuery);
   const plans = (data && "videoPlans" in data ? data.videoPlans : []) as ActivePlan[];
 
+  // Fire toast on completion transitions
+  useEffect(() => {
+    if (!plans || plans.length === 0) return;
+
+    const checkCompletions = async () => {
+      for (const plan of plans) {
+        if (!plan.id || !plan.status) continue;
+
+        const prev = previousStatuses.current[plan.id];
+
+        if (plan.status === "completed" && prev && prev !== "completed") {
+          // Fetch episode context for this specific plan to determine destination
+          let dest = `/success?planId=${plan.id}&type=${plan.type || "video"}`;
+          try {
+            const epQuery = {
+              episodes: {
+                $: {
+                  collection: "episodes" as const,
+                  where: { videoPlanId: plan.id },
+                  limit: 1,
+                },
+              },
+            };
+            const epData = await (db as any).query(epQuery);
+            const ep = epData?.episodes?.[0];
+            dest = getDestination(plan, ep);
+          } catch (e) {
+            console.error("Failed to determine toast destination:", e);
+          }
+
+          toast.success(`"${plan.title || "Your video"}" is ready!`, {
+            duration: 8000,
+            action: {
+              label: "View",
+              onClick: () => {
+                window.location.href = dest;
+              },
+            },
+          });
+        }
+
+        previousStatuses.current[plan.id] = plan.status;
+      }
+    };
+
+    checkCompletions();
+  }, [plans]);
+
   // Find actively generating plans
   const activePlans = plans.filter((p) =>
     ACTIVE_GENERATION_STATUSES.includes(p.status as any)
   );
   const activePlan = activePlans[0] ?? null;
 
-  // Fetch episodes for the primary active plan to detect series membership
+  // Fetch episodes for the primary active plan to detect series membership for the PILL
   const episodesQuery = useMemo(
     () =>
       activePlan
@@ -99,31 +147,6 @@ export function GenerationStatusToast() {
   const episode = (episodesData as any)?.episodes?.[0] as
     | { seriesId?: string }
     | undefined;
-
-  // Fire toast on completion transitions
-  useEffect(() => {
-    if (!plans || plans.length === 0) return;
-
-    for (const plan of plans) {
-      if (!plan.id || !plan.status) continue;
-
-      const prev = previousStatuses.current[plan.id];
-
-      if (plan.status === "completed" && prev && prev !== "completed") {
-        toast.success(`"${plan.title || "Your video"}" is ready!`, {
-          duration: 8000,
-          action: {
-            label: "View",
-            onClick: () => {
-              window.location.href = `/success?planId=${plan.id}&type=${plan.type || "video"}`;
-            },
-          },
-        });
-      }
-
-      previousStatuses.current[plan.id] = plan.status;
-    }
-  }, [plans]);
 
   // Hide FAB on the success page or series page (they have their own progress UI)
   const isOnSuccessPage = pathname?.startsWith("/success");

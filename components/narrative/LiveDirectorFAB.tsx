@@ -65,6 +65,7 @@ export function LiveDirectorFAB({ narrativeId, seriesId }: LiveDirectorFABProps)
         isOpen={isOpen} 
         onClose={() => setIsOpen(false)} 
         narrativeId={narrativeId || ""} // In our current backend, it expects narrativeId for extraction
+        seriesId={seriesId}
         systemInstruction={prompt}
       />
     </>

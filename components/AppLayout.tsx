@@ -109,11 +109,12 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   const { isOpen: isGenerateOpen, closeGenerator, params: generateParams } = useGenerateStore();
 
   const initialPlanId = searchParams.get("planId") || undefined;
+  const initialSeriesId = searchParams.get("seriesId") || seriesId;
 
   useEffect(() => {
     // Open generator if either tool=generate OR we have a planId
     if ((searchParams.get("tool") === "generate" || initialPlanId) && !isGenerateOpen) {
-      useGenerateStore.getState().openGenerator({ narrativeId, planId: initialPlanId });
+      useGenerateStore.getState().openGenerator({ narrativeId, planId: initialPlanId, seriesId: initialSeriesId });
       
       // We purposefully DO NOT clean up planId from the URL here, because GenerateScreen
       // needs to read `initialPlanId` from its own searchParams hook to load the plan.

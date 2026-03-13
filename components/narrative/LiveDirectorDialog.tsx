@@ -14,10 +14,11 @@ interface LiveDirectorDialogProps {
   isOpen: boolean;
   onClose: () => void;
   narrativeId: string;
+  seriesId?: string;
   systemInstruction?: string;
 }
 
-export function LiveDirectorDialog({ isOpen, onClose, narrativeId, systemInstruction }: LiveDirectorDialogProps) {
+export function LiveDirectorDialog({ isOpen, onClose, narrativeId, seriesId, systemInstruction }: LiveDirectorDialogProps) {
   const { user, getFreshToken } = useAuth();
   const [lastInsight, setLastInsight] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -387,7 +388,8 @@ export function LiveDirectorDialog({ isOpen, onClose, narrativeId, systemInstruc
                                                script: m.blueprint.script || m.blueprint.video_script,
                                                mode: "verbatim",
                                                format: "video",
-                                               narrativeId: narrativeId
+                                               narrativeId: narrativeId,
+                                               seriesId: seriesId
                                              });
                                            }}
                                            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 shadow-xl shadow-blue-900/40"

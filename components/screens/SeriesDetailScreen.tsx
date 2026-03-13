@@ -654,7 +654,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
 
               {selectedEpisode?.videoPlanId && (
                 <button
-                  onClick={() => openGenerator({ planId: selectedEpisode.videoPlanId, narrativeId: seriesData.seriesNarrativeId })}
+                   onClick={() => openGenerator({ planId: selectedEpisode.videoPlanId, narrativeId: seriesData.seriesNarrativeId, seriesId })}
                   className="h-9 px-4 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
                   title="Open in Production Lab"
                 >
