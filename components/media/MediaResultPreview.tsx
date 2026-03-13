@@ -5,6 +5,13 @@ import { VideoPreview } from "@/components/VideoPreview";
 import { cn } from "@/lib/utils";
 import type { VideoPlan, Scene } from "@/lib/types";
 import { toast } from "sonner";
+import { 
+  Carousel, 
+  CarouselContent, 
+  CarouselItem, 
+  CarouselNext, 
+  CarouselPrevious 
+} from "@/components/ui/carousel";
 
 /* ─── Retrying Image Component ─── */
 function RetryingImage({ src, alt, className, slideNumber }: { src: string; alt: string; className: string, slideNumber: number }) {
@@ -115,70 +122,111 @@ export function MediaResultPreview({
   return (
     <div className="w-full flex justify-center">
       {isCarousel ? (
-        /* Carousel Preview - Grid of Slides */
-        <div className="w-full max-w-[350px] max-h-[500px] overflow-y-auto rounded-2xl border border-white/10 shadow-2xl bg-black/20 backdrop-blur-sm">
-          <div className="p-3 space-y-3">
-            {(plan.scenes || []).map((scene, i) => {
-              const imageUrl = scene.imageUrl?.startsWith("http") || scene.imageUrl?.startsWith("data:")
-                ? scene.imageUrl
-                : scene.imageUrl
-                  ? `/api/proxy-image?path=${encodeURIComponent(scene.imageUrl)}`
-                  : undefined;
+        /* Carousel Preview - Horizontal shadcn Carousel */
+        <div className="w-full max-w-4xl mx-auto">
+          <Carousel className="w-full" opts={{ align: "start", loop: true }}>
+            <CarouselContent className="-ml-2 md:-ml-4">
+              {(plan.scenes || []).map((scene, i) => {
+                const imageUrl = scene.imageUrl?.startsWith("http") || scene.imageUrl?.startsWith("data:")
+                  ? scene.imageUrl
+                  : scene.imageUrl
+                    ? `/api/proxy-image?path=${encodeURIComponent(scene.imageUrl)}`
+                    : undefined;
 
-              return (
-                <div key={i} className="bg-white/5 rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all">
-                  <div className="aspect-square relative bg-white/5">
-                    {scene.imageUrl && imageUrl ? (
-                      <RetryingImage
-                        src={imageUrl}
-                        alt={`Slide ${i + 1}`}
-                        className="w-full h-full object-cover"
-                        slideNumber={i + 1}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/20">
-                        <span className="material-symbols-outlined text-4xl">image</span>
-                      </div>
-                    )}
-                    <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-black shadow-lg">
-                      {i + 1}/{(plan.scenes || []).length}
-                    </div>
-                  </div>
+                return (
+                  <CarouselItem key={i} className="pl-2 md:pl-4 basis-full md:basis-1/2 lg:basis-1/2">
+                    <div className="group relative bg-[#0a0b14] rounded-[2rem] overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 shadow-2xl">
+                      {/* Image Container */}
+                      <div className="aspect-[4/5] relative overflow-hidden">
+                        {scene.imageUrl && imageUrl ? (
+                          <div className="w-full h-full transition-transform duration-700 group-hover:scale-105">
+                            <RetryingImage
+                              src={imageUrl}
+                              alt={`Slide ${i + 1}`}
+                              className="w-full h-full object-cover"
+                              slideNumber={i + 1}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.02] text-white/20">
+                            <span className="material-symbols-outlined text-5xl mb-2 animate-pulse">image</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Rendering...</span>
+                          </div>
+                        )}
+                        
+                        {/* Slide Badge */}
+                        <div className="absolute top-6 left-6 z-10">
+                          <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black text-white shadow-xl">
+                            SLIDE {i + 1} / {(plan.scenes || []).length}
+                          </div>
+                        </div>
 
-                  {scene.voiceover && (
-                    <div className="p-3 space-y-2">
-                      <p className="text-xs leading-relaxed text-white/70 italic">
-                        "{scene.voiceover}"
-                      </p>
-                      <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-                        <button
-                          onClick={() => handleCopyCaption(scene.voiceover || "", i + 1)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-white/60 text-[10px] font-bold hover:bg-white/10 hover:text-white transition-all shadow-sm"
-                        >
-                          <span className="material-symbols-outlined text-xs">content_copy</span>
-                          Copy
-                        </button>
+                        {/* Hover Overlay for Copy */}
+                        {scene.voiceover && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-8 text-center">
+                            <p className="text-sm font-medium leading-relaxed text-white/90 mb-6 line-clamp-4">
+                              &quot;{scene.voiceover}&quot;
+                            </p>
+                            <button
+                              onClick={() => handleCopyCaption(scene.voiceover || "", i + 1)}
+                              className="px-6 py-2.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-all shadow-lg flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined text-sm">content_copy</span>
+                              Copy Script
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info Bar (Always visible) */}
+                      <div className="p-5 border-t border-white/5 flex items-center justify-between">
+                         <div className="flex-1 min-w-0 pr-4">
+                            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Visual Hook</p>
+                            <p className="text-xs font-bold text-white/70 truncate">{scene.textOverlay || scene.voiceover || "No script"}</p>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            {scene.audioUrl && (
+                               <div className="size-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                                  <span className="material-symbols-outlined text-sm animate-pulse">volume_up</span>
+                               </div>
+                            )}
+                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+            
+            {/* Controls */}
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <CarouselPrevious className="static translate-y-0 bg-white/5 border-white/10 hover:bg-white/10 text-white" />
+              <div className="px-4 py-2 rounded-full bg-white/5 border border-white/5 flex items-center gap-2">
+                 <div className="size-1.5 rounded-full bg-red-600 animate-pulse" />
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Navigator</span>
+              </div>
+              <CarouselNext className="static translate-y-0 bg-white/5 border-white/10 hover:bg-white/10 text-white" />
+            </div>
+          </Carousel>
 
           {!isReady && (
-            <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4 text-center">
-              <p className="text-sm font-bold text-white mb-1">{Math.round(visualProgress)}%</p>
-              <p className="text-[10px] text-white/50 uppercase tracking-widest font-black leading-tight">
-                {statusText}
+            <div className="mt-8 flex flex-col items-center gap-3">
+              <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-red-600 transition-all duration-1000" 
+                  style={{ width: `${visualProgress}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-white/40 uppercase tracking-[0.3em] font-black">
+                {statusText} • {Math.round(visualProgress)}%
               </p>
               {onRestart && (
                 <button
                   onClick={onRestart}
                   disabled={isManuallyTriggering}
-                  className="mt-2 text-[10px] text-red-500 hover:text-red-700 transition-colors uppercase tracking-widest font-bold underline"
+                  className="text-[9px] text-red-500/60 hover:text-red-500 transition-colors uppercase tracking-[0.2em] font-black underline underline-offset-4"
                 >
-                  {isManuallyTriggering ? "Restarting..." : "Stuck? Restart"}
+                  {isManuallyTriggering ? "Initializing..." : "Stuck? Restart Stage"}
                 </button>
               )}
             </div>

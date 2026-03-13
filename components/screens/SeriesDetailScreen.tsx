@@ -11,7 +11,11 @@ import { MediaResultPreview } from "@/components/media/MediaResultPreview";
 import type { Series, Episode, SeriesWithEpisodes, VideoPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { PlusCircle, Play, Film, MessageSquare, AlertCircle, ChevronRight, LayoutDashboard, Brain, Sparkles, Settings2 } from "lucide-react";
+import { PlusCircle, Play, Film, MessageSquare, AlertCircle, ChevronRight, LayoutDashboard, Brain, Sparkles, Settings2, Download, ExternalLink } from "lucide-react";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import { useGenerateStore } from "@/hooks/use-generate-store";
+import { toast } from "sonner";
 
 interface SeriesDetailScreenProps {
   seriesId: string;
@@ -24,6 +28,9 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const urlEpisodeId = searchParams.get("episodeId");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(urlEpisodeId);
   const [isEditingVisuals, setIsEditingVisuals] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const openGenerator = useGenerateStore(state => state.openGenerator);
 
   // Sync with URL
   useEffect(() => {
@@ -90,12 +97,15 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const episodeProgressRef = useRef(episodeProgress);
   episodeProgressRef.current = episodeProgress;
   const orchestratingRef = useRef(false);
+  const seriesDataRef = useRef(seriesData);
+  seriesDataRef.current = seriesData;
 
   useEffect(() => {
-    if (!seriesData || !user) return;
+    if (!user || !seriesId) return;
 
-    const generatingEpisodes = (seriesData.episodes || []).filter(e => e.status === 'generating' && e.videoPlanId);
-    if (generatingEpisodes.length === 0) return;
+    const getGeneratingEpisodes = () => (seriesDataRef.current?.episodes || []).filter(e => e.status === 'generating' && e.videoPlanId);
+    
+    if (getGeneratingEpisodes().length === 0) return;
 
     const orchestrate = async () => {
       if (orchestratingRef.current) return;
@@ -105,6 +115,9 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
         orchestratingRef.current = false;
         return;
       }
+      const generatingEpisodes = getGeneratingEpisodes();
+      if (generatingEpisodes.length === 0) return;
+
       try {
         for (const episode of generatingEpisodes) {
           if (!episode.id || !episode.videoPlanId) continue;
@@ -183,7 +196,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                   body: JSON.stringify({ planId: plan.id })
                 }).then(res => {
-                  if (!res.ok) triggeredVisuals.current.delete(episode.id);
+                  if (!res.ok && res.status !== 409) triggeredVisuals.current.delete(episode.id);
                 }).catch(() => triggeredVisuals.current.delete(episode.id));
               }
               continue;
@@ -285,6 +298,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     // the effect to re-run (which would create a feedback loop)
     const getInterval = () => {
       const prog = episodeProgressRef.current;
+      const generatingEpisodes = getGeneratingEpisodes();
       const allInRenderOrComplete = generatingEpisodes.every(e => {
         const p = prog[e.id];
         return p?.phase === 'rendering' || p?.phase === 'complete';
@@ -302,7 +316,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     orchestrate().then(scheduleNext);
 
     return () => clearTimeout(timer);
-  }, [seriesData, user, refreshToken, getFreshToken, db]);
+  }, [user?.id, seriesId, !!seriesData?.episodes?.some(e => e.status === 'generating')]);
 
   const handleEditScript = (episode: Episode) => {
     // TODO: Implement script editing modal
@@ -347,6 +361,48 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
 
     } catch (err: any) {
       console.error("[SeriesDetail] Video generation orchestration failed:", err);
+    }
+  };
+
+  const handleDownloadSeries = async () => {
+    if (!seriesData || isDownloading) return;
+    
+    const completedEpisodes = (seriesData.episodes || []).filter(ep => ep.status === 'complete' && ep.videoUrl);
+    if (completedEpisodes.length === 0) {
+      alert("No completed episodes ready for download yet.");
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(seriesData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase());
+      
+      const downloadTasks = completedEpisodes.map(async (ep) => {
+        try {
+          const url = (ep.videoUrl!.startsWith('http') || ep.videoUrl!.startsWith('data:'))
+            ? ep.videoUrl! 
+            : `/api/proxy-image?path=${encodeURIComponent(ep.videoUrl!)}`;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          const fileName = `episode_${ep.episodeNumber}_${ep.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp4`;
+          folder?.file(fileName, blob);
+        } catch (err) {
+          console.error(`Failed to download episode ${ep.episodeNumber}:`, err);
+          toast.error(`Failed to include Episode ${ep.episodeNumber} in the ZIP.`);
+        }
+      });
+
+      await Promise.all(downloadTasks);
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `${seriesData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_series.zip`);
+      toast.success("Series ZIP ready!");
+    } catch (err) {
+      console.error("Failed to generate series ZIP:", err);
+      toast.error("Failed to generate ZIP. Please check your connection.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -502,7 +558,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
             })}
           </div>
 
-          <div className="p-4 border-t border-white/5 bg-[#0d0d0c]">
+          <div className="p-4 border-t border-white/5 bg-[#0d0d0c] space-y-2">
              <button
                disabled={progressPercent === 100}
                onClick={() => sortedEpisodes.filter(e => e.status !== 'complete').forEach(handleGenerateVideo)}
@@ -510,6 +566,15 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
              >
                <Sparkles className="size-4" />
                Compile Remainder
+             </button>
+             
+             <button
+               disabled={completedEpisodes === 0 || isDownloading}
+               onClick={handleDownloadSeries}
+               className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white/10 transition-all disabled:opacity-30"
+             >
+               <Download className={cn("size-4", isDownloading && "animate-bounce")} />
+               {isDownloading ? "Zipping..." : "Download Series"}
              </button>
           </div>
         </div>
@@ -543,7 +608,28 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                   onClick={() => handleGenerateVideo(selectedEpisode)}
                   className="h-9 px-5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
                 >
-                  Regenerate
+                  Fresh Cut
+                </button>
+              )}
+              
+              {seriesData.episodes?.some(e => e.status === 'generating' || e.status === 'failed') && !showProductionOverlay && (
+                <button
+                  onClick={() => setShowProductionOverlay(true)}
+                  className="h-9 px-4 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-500 hover:bg-blue-600/20 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 animate-pulse"
+                >
+                  <Sparkles className="size-3" />
+                  Show Status
+                </button>
+              )}
+
+              {selectedEpisode?.videoPlanId && (
+                <button
+                  onClick={() => openGenerator({ planId: selectedEpisode.videoPlanId, narrativeId: seriesData.seriesNarrativeId })}
+                  className="h-9 px-4 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                  title="Open in Production Lab"
+                >
+                  <ExternalLink className="size-3" />
+                  <span className="hidden lg:inline">Edit Scenes</span>
                 </button>
               )}
             </div>

@@ -57,10 +57,20 @@ async function releaseVisualLockForPlan(planId: string, status: "pending" | "gen
 
 export async function POST(request: NextRequest) {
   let lockedPlanId: string | null = null;
+  const text = await request.text();
+  let planId: string | null = null;
   try {
-    const { planId } = await request.json();
-    if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
+    if (!text) throw new Error("Empty request body");
+    const body = JSON.parse(text);
+    planId = body.planId;
+  } catch (err) {
+    console.error("[Visual API] Failed to parse body:", text, err);
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
+  if (!planId) return NextResponse.json({ error: "Missing planId" }, { status: 400 });
+
+  try {
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized: Missing or invalid token" }, { status: 401 });

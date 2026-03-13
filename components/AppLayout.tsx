@@ -71,7 +71,7 @@ import {
   Sparkles
 } from "lucide-react";
 
-import type { FounderNarrative, Series, User } from "@/lib/types";
+import type { FounderNarrative, Series, User, VideoPlan } from "@/lib/types";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -139,19 +139,31 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   const seriesEpisodes = (episodesData?.episodes || []) as any[];
 
   // Fetch ALL user narratives and series for the switcher
-  const allItemsQuery = useMemo(
+  const allItemsQuery: any = useMemo(
     () =>
       user
         ? {
             narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } },
             series: { $: { where: { userId: user.id }, order: { createdAt: "desc" } } },
+            activePlans: { 
+              $: { 
+                collection: 'videoPlans', 
+                where: { 
+                  userId: user.id, 
+                  status: { in: ['pending', 'generating', 'generating_audio', 'rendering_video', 'rendering'] } 
+                },
+                order: { createdAt: 'desc' },
+                limit: 1
+              } 
+            }
           }
         : null,
     [user?.id]
   );
-  const { data: allItemsData } = (db as any).useQuery(allItemsQuery);
-  const allNarratives = ((allItemsData as any)?.narratives || []) as FounderNarrative[];
-  const allSeries = ((allItemsData as any)?.series || []) as Series[];
+  const { data: allItemsData } = db.useQuery(allItemsQuery);
+  const allNarratives = ((allItemsData)?.narratives || []) as FounderNarrative[];
+  const allSeries = ((allItemsData)?.series || []) as Series[];
+  const activeProductionPlan = ((allItemsData)?.activePlans?.[0]);
   const series = seriesId ? allSeries.find((s) => s.id === seriesId) : undefined;
 
   const isNavItemActive = (href: string) => {
@@ -201,6 +213,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
         noPadding={noPadding} 
         latestNarrative={narrative}
         user={user}
+        activeProductionPlan={activeProductionPlan}
       >
         {children}
       </MainContent>
@@ -374,10 +387,10 @@ function AppSidebar({
         </SidebarGroup>
 
         {/* The Strategic Core (Shared context for Narrative & Linked Series) */}
-        {(narrativeId || (series && series.seriesNarrativeId)) && (
+        {(narrativeId || (series && series.seriesNarrativeId)) && !seriesId && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2">
-              The Brain
+              Business
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -399,10 +412,10 @@ function AppSidebar({
         )}
 
         {/* Active Production (Episodes) */}
-        {seriesId && (
+        {seriesId && !narrativeId && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.2em] font-black px-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
-              Episodes
+            <SidebarGroupLabel className="text-white/30 uppercase text-[9px] tracking-[0.15em] font-black px-2 flex items-center justify-between group-data-[collapsible=icon]:hidden">
+              <span className="truncate max-w-[120px]">{series?.title || "Episodes"}</span>
               <button 
                 onClick={() => router.push(`/series/${seriesId}?add=1`)}
                 className="hover:text-amber-500 transition-colors"
@@ -548,6 +561,7 @@ interface MainContentProps {
   noPadding?: boolean;
   latestNarrative?: FounderNarrative;
   user?: User | null;
+  activeProductionPlan?: VideoPlan;
 }
 
 function MainContent({ 
@@ -555,7 +569,8 @@ function MainContent({
   breadcrumbs, 
   noPadding,
   latestNarrative,
-  user
+  user,
+  activeProductionPlan
 }: MainContentProps) {
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -617,6 +632,22 @@ function MainContent({
         {/* Unified Branding & Global Actions */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
+             {activeProductionPlan && (
+               <button
+                 onClick={() => useGenerateStore.getState().openGenerator({ 
+                   planId: activeProductionPlan.id,
+                   narrativeId: activeProductionPlan.narrativeId
+                 })}
+                 className="flex items-center gap-2 h-8 px-3 rounded-lg bg-blue-600/10 border border-blue-600/20 text-blue-500 text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all group"
+               >
+                 <span className="relative flex size-2">
+                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                   <span className="relative inline-flex rounded-full size-2 bg-blue-500 group-hover:bg-white" />
+                 </span>
+                 Resume Production
+               </button>
+             )}
+
              <Link
                 href="/dashboard"
                 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition flex items-center gap-2"

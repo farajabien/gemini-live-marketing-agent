@@ -125,9 +125,10 @@ export function GenerationStatusToast() {
     }
   }, [plans]);
 
-  // Hide FAB on the success page (it has its own progress UI)
+  // Hide FAB on the success page or series page (they have their own progress UI)
   const isOnSuccessPage = pathname?.startsWith("/success");
-  if (activePlans.length === 0 || isOnSuccessPage) return null;
+  const isOnSeriesPage = pathname?.startsWith("/series/");
+  if (activePlans.length === 0 || isOnSuccessPage || isOnSeriesPage) return null;
 
   const destination = getDestination(activePlan!, episode);
   const isSeries = !!episode?.seriesId;
