@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Brain, Sparkles, Activity, PlusCircle, LayoutGrid, Target, ArrowRight, FileText, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+
 interface NarrativeOverviewScreenProps {
   narrativeId: string;
 }
@@ -27,6 +28,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
   const [isEditingOneLiner, setIsEditingOneLiner] = useState(false);
   const [editedOneLiner, setEditedOneLiner] = useState("");
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+
 
   const narrativeQuery = useMemo(
     () => user ? { narratives: { $: { where: { id: narrativeId } } } } : null,
@@ -511,5 +513,6 @@ const positioning = narrative.aiPositioning;
         </TabsContent>
       </Tabs>
     </div>
+
   );
 }

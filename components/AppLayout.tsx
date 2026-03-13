@@ -68,8 +68,12 @@ import {
   ChevronRight,
   MoreVertical,
   Layers,
-  Sparkles
+  Sparkles,
+  Mic,
+  Volume2
 } from "lucide-react";
+import { LiveDirectorFAB } from "./narrative/LiveDirectorFAB";
+
 
 import type { FounderNarrative, Series, User, VideoPlan } from "@/lib/types";
 
@@ -216,6 +220,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
         activeProductionPlan={activeProductionPlan}
       >
         {children}
+        <LiveDirectorFAB narrativeId={narrativeId} seriesId={seriesId} />
       </MainContent>
 
       <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>

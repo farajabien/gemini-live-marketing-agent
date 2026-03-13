@@ -1030,3 +1030,33 @@ export async function generateSeasonPlotAction(seriesNarrativeId: string, episod
     throw new Error(error.message || "Failed to generate season plot");
   }
 }
+
+export async function getLiveConfigAction() {
+  return {
+    apiKey: process.env.GEMINI_API_KEY || "",
+  };
+}
+
+export async function getDirectorPromptAction(type: 'narrative' | 'series', id: string) {
+  try {
+    const data = await adminDb.query({
+      [type === 'narrative' ? 'narratives' : 'seriesNarratives']: { $: { where: { id } } }
+    });
+    const narrative = (data as any)[type === 'narrative' ? 'narratives' : 'seriesNarratives']?.[0];
+
+    if (!narrative) return "You are a Brand Brainstorming Director. Help the user clarify their strategy.";
+
+    const context = type === 'narrative' 
+      ? `Brand: ${narrative.title}. Audience: ${narrative.audience}. Core Message: ${narrative.coreMessage}.`
+      : `Series: ${narrative.title}. Logline: ${narrative.logline}. Theme: ${narrative.centralTheme}.`;
+
+    return `You are the Brainstorming Director for a high-end marketing agency. 
+Your goal is to talk with the user and help them refine their ${type}.
+Current Context: ${context}
+
+Be encouraging, critical but constructive, and always try to find the "villain" and "hero" in every story. 
+Keep your responses concise and conversational (since this is a voice interaction).`;
+  } catch (err) {
+    return "You are a Brand Brainstorming Director. Help the user clarify their strategy.";
+  }
+}

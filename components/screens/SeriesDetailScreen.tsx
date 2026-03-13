@@ -405,6 +405,26 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       setIsDownloading(false);
     }
   };
+  
+  const handleDownloadEpisode = async (episode: Episode) => {
+    if (!episode.videoUrl) return;
+    
+    try {
+      const url = (episode.videoUrl.startsWith('http') || episode.videoUrl.startsWith('data:'))
+        ? episode.videoUrl 
+        : `/api/proxy-image?path=${encodeURIComponent(episode.videoUrl)}`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const fileName = `ep_${episode.episodeNumber}_${episode.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp4`;
+      saveAs(blob, fileName);
+      toast.success(`Downloading Episode ${episode.episodeNumber}...`);
+    } catch (err) {
+      console.error("Failed to download episode:", err);
+      toast.error("Failed to download episode.");
+    }
+  };
 
 
   if (isInitialLoading) {
@@ -556,26 +576,27 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 </button>
               );
             })}
-          </div>
-
-          <div className="p-4 border-t border-white/5 bg-[#0d0d0c] space-y-2">
-             <button
-               disabled={progressPercent === 100}
-               onClick={() => sortedEpisodes.filter(e => e.status !== 'complete').forEach(handleGenerateVideo)}
-               className="w-full h-12 rounded-xl bg-amber-500 text-black font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-amber-400 transition-all disabled:opacity-30"
-             >
-               <Sparkles className="size-4" />
-               Compile Remainder
-             </button>
-             
-             <button
-               disabled={completedEpisodes === 0 || isDownloading}
-               onClick={handleDownloadSeries}
-               className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white/10 transition-all disabled:opacity-30"
-             >
-               <Download className={cn("size-4", isDownloading && "animate-bounce")} />
-               {isDownloading ? "Zipping..." : "Download Series"}
-             </button>
+            
+            {/* Global Actions - Moved inside scrollable area for better flow */}
+            <div className="pt-6 pb-2 space-y-3">
+               <button
+                 disabled={progressPercent === 100}
+                 onClick={() => sortedEpisodes.filter(e => e.status !== 'complete').forEach(handleGenerateVideo)}
+                 className="w-full h-12 rounded-2xl bg-amber-500 text-black font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 hover:bg-amber-400 transition-all disabled:opacity-30 shadow-lg shadow-amber-500/10"
+               >
+                 <Sparkles className="size-4" />
+                 Compile Remainder
+               </button>
+               
+               <button
+                 disabled={completedEpisodes === 0 || isDownloading}
+                 onClick={handleDownloadSeries}
+                 className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 hover:bg-white/10 transition-all disabled:opacity-30"
+               >
+                 <Download className={cn("size-4", isDownloading && "animate-bounce")} />
+                 {isDownloading ? "Zipping..." : "Download Series"}
+               </button>
+            </div>
           </div>
         </div>
 
@@ -604,12 +625,21 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                 </button>
               )}
               {selectedEpisode?.status === 'complete' && (
-                <button
-                  onClick={() => handleGenerateVideo(selectedEpisode)}
-                  className="h-9 px-5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
-                >
-                  Fresh Cut
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleDownloadEpisode(selectedEpisode)}
+                    className="h-9 w-9 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all"
+                    title="Download MP4"
+                  >
+                    <Download className="size-4" />
+                  </button>
+                  <button
+                    onClick={() => handleGenerateVideo(selectedEpisode)}
+                    className="h-9 px-5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Fresh Cut
+                  </button>
+                </div>
               )}
               
               {seriesData.episodes?.some(e => e.status === 'generating' || e.status === 'failed') && !showProductionOverlay && (
@@ -653,6 +683,16 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                       visualProgress={selectedEpisode?.status === 'complete' ? 100 : (episodeProgress[selectedEpisode?.id]?.visualsDone / episodeProgress[selectedEpisode?.id]?.totalScenes) * 100 || 0}
                       onRestart={() => handleGenerateVideo(selectedEpisode)}
                     />
+                    
+                    {selectedEpisode?.status === 'complete' && (
+                      <button
+                        onClick={() => handleDownloadEpisode(selectedEpisode)}
+                        className="absolute bottom-10 right-10 size-12 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all z-10"
+                        title="Download MP4"
+                      >
+                        <Download className="size-6" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
