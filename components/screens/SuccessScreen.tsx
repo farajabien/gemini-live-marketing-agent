@@ -72,7 +72,7 @@ export function SuccessScreen() {
 
     setIsManuallyTriggering(true);
     orchestrationStarted.current = false; // Allow re-trigger
-    console.log("Manual re-trigger of orchestration pipeline");
+    console.log("🚀 [SuccessScreen] MANUAL RESTART CLICKED for plan:", plan.id);
 
     fetch("/api/orchestrate-generation", {
         method: "POST",
@@ -83,7 +83,7 @@ export function SuccessScreen() {
         body: JSON.stringify({ planId: plan.id, force: true })
     })
     .then(res => {
-        console.log("Orchestration re-trigger response:", res.status);
+        console.log("✅ [SuccessScreen] Orchestration re-trigger SUCCESS response:", res.status);
         if (res.ok) toast.success("Generation restarted!");
         else toast.error("Failed to restart generation");
     })

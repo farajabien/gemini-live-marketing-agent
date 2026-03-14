@@ -60,25 +60,31 @@ export async function downloadAsset(url: string, ext: string): Promise<string> {
 
   console.log(`[FFmpeg] Downloading asset: ${downloadUrl.substring(0, 80)}...`);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+  // Hard timeout for the entire download process (fetch + transfer)
+  return new Promise<string>(async (resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Download timed out after 45s: ${url.substring(0, 50)}`));
+    }, 45000);
 
-  try {
-    const response = await fetch(downloadUrl, { signal: controller.signal });
-    if (!response.ok) {
-      throw new Error(`Failed to download asset: ${response.statusText}`);
+    try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download asset: ${response.statusText}`);
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await writeFile(tempPath, buffer);
+
+      console.log(
+        `[FFmpeg] ✅ Downloaded to ${tempPath} (${(buffer.length / 1024).toFixed(2)} KB)`,
+      );
+      resolve(tempPath);
+    } catch (err) {
+      reject(err);
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await writeFile(tempPath, buffer);
-
-    console.log(
-      `[FFmpeg] ✅ Downloaded to ${tempPath} (${(buffer.length / 1024).toFixed(2)} KB)`,
-    );
-    return tempPath;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }
 
 /**
@@ -287,12 +293,13 @@ export async function renderScene(
         reject(err);
       });
 
-      command.run();
-
       // Register with process registry so it can be killed if needed
       if (planId) {
+        console.log(`[FFmpeg Registry] Registering command for segment of ${planId}`);
         FFmpegRegistry.register(planId, command);
       }
+
+      command.run();
     });
 
     const sceneTimingLabel = `[FFmpeg Scene Renderer] Total render time ${scene.id}`;

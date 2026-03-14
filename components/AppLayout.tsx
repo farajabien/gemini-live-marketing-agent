@@ -88,10 +88,12 @@ interface AppLayoutProps {
   noPadding?: boolean;
 }
 
-export function AppLayout({ children, narrativeId, seriesId }: AppLayoutProps) {
+export function AppLayout({ children, narrativeId, seriesId, noPadding }: AppLayoutProps) {
   return (
     <Suspense fallback={<div className="flex h-screen bg-black" />}>
-      <AppLayoutContent narrativeId={narrativeId} seriesId={seriesId}>{children}</AppLayoutContent>
+      <AppLayoutContent narrativeId={narrativeId} seriesId={seriesId} noPadding={noPadding}>
+        {children}
+      </AppLayoutContent>
     </Suspense>
   );
 }
@@ -109,7 +111,12 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   const { isOpen: isGenerateOpen, closeGenerator, params: generateParams } = useGenerateStore();
 
   const initialPlanId = searchParams.get("planId") || undefined;
-  const initialSeriesId = searchParams.get("seriesId") || seriesId;
+  
+  // Resolve context IDs from props or search params
+  const resolvedNarrativeId = narrativeId || searchParams.get("narrativeId") || undefined;
+  const resolvedSeriesId = seriesId || searchParams.get("seriesId") || undefined;
+
+  const initialSeriesId = searchParams.get("seriesId") || resolvedSeriesId;
 
   useEffect(() => {
     // Open generator if either tool=generate OR we have a planId
@@ -129,10 +136,10 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   // Fetch current narrative if ID present - with userId guard
   const currentNarrativeQuery = useMemo(
     () =>
-      narrativeId && user
-        ? { narratives: { $: { where: { id: narrativeId, userId: user.id } } } }
+      resolvedNarrativeId && user
+        ? { narratives: { $: { where: { id: resolvedNarrativeId, userId: user.id } } } }
         : null,
-    [narrativeId, user?.id]
+    [resolvedNarrativeId, user?.id]
   );
   const { data: currentNarrativeData } = (db as any).useQuery(currentNarrativeQuery);
   const narrative = currentNarrativeData?.narratives?.[0] as FounderNarrative | undefined;
@@ -140,10 +147,10 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   // Fetch episodes if in series context
   const episodesQuery = useMemo(
     () =>
-      seriesId
-        ? { episodes: { $: { where: { seriesId }, order: { episodeNumber: "asc" } } } }
+      resolvedSeriesId
+        ? { episodes: { $: { where: { seriesId: resolvedSeriesId }, order: { episodeNumber: "asc" } } } }
         : null,
-    [seriesId]
+    [resolvedSeriesId]
   );
   const { data: episodesData } = (db as any).useQuery(episodesQuery);
   const seriesEpisodes = (episodesData?.episodes || []) as any[];
@@ -174,7 +181,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   const allNarratives = ((allItemsData)?.narratives || []) as FounderNarrative[];
   const allSeries = ((allItemsData)?.series || []) as Series[];
   const activeProductionPlan = ((allItemsData)?.activePlans?.[0]);
-  const series = seriesId ? allSeries.find((s) => s.id === seriesId) : undefined;
+  const series = resolvedSeriesId ? allSeries.find((s) => s.id === resolvedSeriesId) : undefined;
 
   const isNavItemActive = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
@@ -199,10 +206,10 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
   return (
     <SidebarProvider>
       <AppSidebar 
-        narrativeId={narrativeId}
+        narrativeId={resolvedNarrativeId}
         narrative={narrative}
         allNarratives={allNarratives}
-        seriesId={seriesId}
+        seriesId={resolvedSeriesId}
         series={series}
         seriesEpisodes={seriesEpisodes}
         allSeries={allSeries}
@@ -226,9 +233,11 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding }: AppLay
         activeProductionPlan={activeProductionPlan}
         isCreatingGlobal={isCreatingGlobal}
         setIsCreatingGlobal={setIsCreatingGlobal}
+        resolvedNarrativeId={resolvedNarrativeId}
+        resolvedSeriesId={resolvedSeriesId}
       >
         {children}
-        <LiveDirectorFAB narrativeId={narrativeId} seriesId={seriesId} />
+        {!resolvedNarrativeId && !resolvedSeriesId && <LiveDirectorFAB narrativeId={resolvedNarrativeId} seriesId={resolvedSeriesId} />}
       </MainContent>
 
       <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>
@@ -424,7 +433,7 @@ function AppSidebar({
               <SidebarMenu>
                 <SidebarNavItem 
                   icon={<Brain className="size-4" />} 
-                  label="Command Center" 
+                  label="War Room" 
                   href={`/narrative/${narrativeId}`} 
                   isActive={pathname === `/narrative/${narrativeId}`}
                 />
@@ -497,15 +506,19 @@ function AppSidebar({
               <SidebarMenu>
                 <SidebarNavItem 
                   icon={<LayoutDashboard className="size-4" />} 
-                  label="Dashboard" 
+                  label="Hub" 
                   href="/dashboard" 
                   isActive={pathname === "/dashboard"}
                 />
                 <SidebarNavItem 
                   icon={<Video className="size-4" />} 
                   label="Media Library" 
-                  href="/media" 
-                  isActive={pathname === "/media"}
+                  href={
+                    seriesId ? `/series/${seriesId}?type=media` : 
+                    narrativeId ? `/narrative/${narrativeId}?type=media` : 
+                    "/media"
+                  } 
+                  isActive={pathname === "/media" || searchParams.get("type") === "media"}
                 />
               </SidebarMenu>
             </SidebarGroupContent>
@@ -589,6 +602,8 @@ interface MainContentProps {
   activeProductionPlan?: VideoPlan;
   isCreatingGlobal: boolean;
   setIsCreatingGlobal: (v: boolean) => void;
+  resolvedNarrativeId?: string;
+  resolvedSeriesId?: string;
 }
 
 function MainContent({ 
@@ -600,11 +615,16 @@ function MainContent({
   activeProductionPlan,
   isCreatingGlobal,
   setIsCreatingGlobal,
+  resolvedNarrativeId,
+  resolvedSeriesId,
 }: MainContentProps) {
   const { state, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+
+  const isFocusedView = (pathname !== "/media" && pathname !== "/") || !!resolvedNarrativeId || !!resolvedSeriesId;
 
   return (
     <main
@@ -613,12 +633,13 @@ function MainContent({
         marginLeft: isMobile ? 0 : isCollapsed ? "3rem" : "16rem",
       }}
     >
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-20 px-4">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger className="-ml-1 text-white/40 hover:text-white" />
-          <Separator orientation="vertical" className="mr-2 h-4 bg-white/10" />
-          <Breadcrumb className="hidden xl:block">
-            <BreadcrumbList>
+      {!isFocusedView ? (
+        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-20 px-4">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="-ml-1 text-white/40 hover:text-white" />
+            <Separator orientation="vertical" className="mr-2 h-4 bg-white/10" />
+            <Breadcrumb className="hidden xl:block">
+              <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
                 <BreadcrumbLink href="/dashboard" className="text-xs font-bold text-white/40 hover:text-white transition-colors uppercase tracking-widest">
                   Studio
@@ -764,7 +785,13 @@ function MainContent({
               </div>
           </div>
         </div>
-      </header>
+        </header>
+      ) : (
+        <div className="fixed top-4 left-4 z-[100] group/trigger">
+          <div className="absolute inset-0 bg-red-600/20 blur-xl rounded-full opacity-0 group-hover/trigger:opacity-100 transition-opacity" />
+          <SidebarTrigger className="relative size-10 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl text-white/40 hover:text-white hover:border-red-500/50 transition-all shadow-2xl flex items-center justify-center" />
+        </div>
+      )}
       <div className={cn(
         "transition-all duration-300",
         noPadding ? "p-0" : "p-6 md:p-8 lg:p-10"

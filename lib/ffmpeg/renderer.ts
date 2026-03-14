@@ -161,8 +161,8 @@ export async function renderVideoWithFFmpeg(
       console.log(`[FFmpeg Renderer][${elapsed}s] ${msg}`);
     };
 
-    const CONCURRENCY = process.platform === "darwin" ? 2 : 3;
-    log(`Processing ${plan.scenes.length} scenes (Pool size: ${CONCURRENCY})...`);
+    const CONCURRENCY = process.platform === "darwin" ? 1 : 3;
+    log(`Processing ${plan.scenes.length} scenes (Sequential on Mac for stability)...`);
 
     // Worker pool: Render N scenes at once
     const queue = Array.from({ length: plan.scenes.length }, (_, i) => i);

@@ -2,11 +2,44 @@
 
 import { LANDING_CONTENT } from "@/lib/landing-content";
 import { Header } from "@/components/Header";
+import { useAuth } from "@/hooks/use-auth";
+import { firebaseDb as db } from "@/lib/firebase-client";
+import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Sparkles, ChevronRight } from "lucide-react";
 
 export function LandingPageContent() {
+  const { user, isAuthenticated } = useAuth();
   const { hero, problem, solution, howItWorks, whoItIsFor, gettingStarted, finalCta } = LANDING_CONTENT;
+
+  const globalQuery = useMemo(
+    () => user ? { 
+        narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } },
+        series: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } }
+    } : null,
+    [user?.id]
+  );
+  const { data } = (db as any).useQuery(globalQuery);
+  const latestNarrative = data?.narratives?.[0];
+  const latestSeries = data?.series?.[0];
+
+  const launchPath = useMemo(() => {
+    if (!isAuthenticated) return "/narrative/new";
+    if (latestSeries && (!latestNarrative || latestSeries.updatedAt > latestNarrative.updatedAt)) {
+      return `/series/${latestSeries.id}`;
+    }
+    if (latestNarrative) {
+      return `/narrative/${latestNarrative.id}`;
+    }
+    return "/dashboard";
+  }, [isAuthenticated, latestNarrative, latestSeries]);
+
+  const ctaLabel = useMemo(() => {
+    if (!isAuthenticated) return hero.cta;
+    if (latestSeries || latestNarrative) return "Launch War Room";
+    return "Enter Hub";
+  }, [isAuthenticated, latestSeries, latestNarrative, hero.cta]);
 
   return (
     <div className="min-h-screen bg-black font-sans selection:bg-red-500/30 text-slate-100">
@@ -37,10 +70,11 @@ export function LandingPageContent() {
                 </div>
                 <div className="flex flex-col w-full sm:flex-row gap-4 justify-center pt-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-1000 fill-mode-both">
                   <Link
-                    href="/narrative/new"
-                    className="inline-flex h-14 items-center justify-center rounded-xl bg-red-600 px-10 text-lg font-bold text-white shadow-xl shadow-red-500/25 transition-all hover:scale-105 active:scale-95 hover:bg-red-500"
+                    href={launchPath}
+                    className="inline-flex h-14 items-center gap-2 px-10 rounded-xl bg-red-600 text-lg font-black text-white shadow-xl shadow-red-500/25 transition-all hover:scale-105 active:scale-95 hover:bg-red-500 group"
                   >
-                    {hero.cta}
+                    {ctaLabel}
+                    <ChevronRight className="size-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                   <Link
                     href="#how-it-works"
@@ -175,10 +209,10 @@ export function LandingPageContent() {
 
                 <div className="mt-16 text-center">
                     <Link
-                        href="/narrative/new"
+                        href={launchPath}
                         className="inline-flex h-14 items-center justify-center rounded-xl bg-red-600 px-10 text-lg font-bold text-white shadow-xl shadow-red-500/25 transition-all hover:scale-105 active:scale-95 hover:bg-red-500"
                     >
-                        Start Your First Narrative
+                        {isAuthenticated && (latestNarrative || latestSeries) ? "Resume Your War Room" : "Start Your First Narrative"}
                     </Link>
                     <p className="mt-4 text-sm text-white/40">No credit card required &bull; 1 free video included</p>
                 </div>
@@ -227,10 +261,11 @@ export function LandingPageContent() {
                 {finalCta.title}
             </h2>
             <Link
-              href="/narrative/new"
-              className="inline-flex h-16 items-center justify-center rounded-2xl bg-red-600 px-12 text-xl font-black text-white shadow-2xl shadow-red-500/30 transition hover:scale-105 active:scale-95"
+              href={launchPath}
+              className="inline-flex h-16 items-center gap-3 rounded-2xl bg-red-600 px-12 text-xl font-black text-white shadow-2xl shadow-red-500/30 transition hover:scale-105 active:scale-95 group"
             >
-              {finalCta.buttonText}
+              {latestNarrative || latestSeries ? "Enter Your War Room" : finalCta.buttonText}
+              <Sparkles className="size-6 text-white/50 group-hover:text-white transition-colors" />
             </Link>
           </div>
         </section>

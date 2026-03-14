@@ -21,12 +21,16 @@ export function Header({ transparent }: HeaderProps) {
     const [securityOpen, setSecurityOpen] = useState(false);
     const [authChoiceOpen, setAuthChoiceOpen] = useState(false);
 
-    const narrativeQuery = useMemo(
-        () => user ? { narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } } } : null,
+    const globalQuery = useMemo(
+        () => user ? { 
+            narratives: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } },
+            series: { $: { where: { userId: user.id }, order: { createdAt: "desc" }, limit: 1 } }
+        } : null,
         [user?.id]
     );
-    const { data } = (db as any).useQuery(narrativeQuery);
+    const { data } = (db as any).useQuery(globalQuery);
     const latestNarrative = data?.narratives?.[0];
+    const latestSeries = data?.series?.[0];
 
     return (
         <>
@@ -63,8 +67,8 @@ export function Header({ transparent }: HeaderProps) {
                                     href="/dashboard"
                                     className="text-[11px] font-black uppercase tracking-widest text-[#929bc9] transition hover:text-white flex items-center gap-1.5"
                                 >
-                                    <span className="material-symbols-outlined text-base">dashboard</span>
-                                    Dashboard
+                                    <span className="material-symbols-outlined text-base">hub</span>
+                                    Hub
                                 </Link>
 
                                 <div className="relative">
