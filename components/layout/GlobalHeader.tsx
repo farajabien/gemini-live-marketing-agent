@@ -34,6 +34,7 @@ import {
   MoreVertical,
   Settings,
   LogOut,
+  Search,
   Plus
 } from "lucide-react";
 
@@ -182,6 +183,17 @@ export function GlobalHeader({
               </Command>
             </PopoverContent>
           </Popover>
+
+          <Separator orientation="vertical" className="h-4 bg-white/10" />
+
+          {/* Global Search Shortcut Hint */}
+          <button 
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            className="flex items-center gap-2 px-3 h-8 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/20 transition-all text-slate-500 hover:text-white group"
+          >
+            <Search className="size-3" />
+            <kbd className="hidden sm:inline-flex text-[9px] font-black opacity-30 group-hover:opacity-60 tabular-nums">⌘K</kbd>
+          </button>
         </div>
 
         <Separator orientation="vertical" className="h-4 bg-white/10 hidden xl:block" />

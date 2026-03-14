@@ -76,30 +76,36 @@ export function NarrativeCanvas({
 
               <div className="grid grid-cols-1 gap-2">
                 {/* Villain */}
-                <div className="p-3 rounded-2xl bg-red-500/[0.02] border border-red-500/10 group/card transition-all hover:bg-red-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-1.5">
-                      <Activity className="size-3 text-red-500/60" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-red-500/60">The Villain</span>
+                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-red-500/[0.03] to-transparent border border-red-500/10 group/card transition-all hover:bg-red-500/[0.05] hover:border-red-500/20 shadow-lg shadow-black/20">
+                   <div className="flex items-center gap-2 mb-2">
+                      <div className="size-5 rounded-lg bg-red-500/10 flex items-center justify-center">
+                        <Activity className="size-3 text-red-500" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-500/80">The Villain</span>
                    </div>
-                   <p className="text-[11px] text-slate-300 leading-relaxed font-medium">{positioning?.villain || "Not defined yet..."}</p>
+                   <p className="text-[12px] text-slate-300 leading-relaxed font-medium pl-1 italic">{positioning?.villain || "Not defined yet..."}</p>
                 </div>
 
                 {/* Hero */}
-                <div className="p-3 rounded-2xl bg-blue-500/[0.02] border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-1.5">
-                      <Target className="size-3 text-blue-500/60" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-blue-500/60">The Hero</span>
+                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-blue-500/[0.03] to-transparent border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.05] hover:border-blue-500/20 shadow-lg shadow-black/20">
+                   <div className="flex items-center gap-2 mb-2">
+                      <div className="size-5 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <Target className="size-3 text-blue-500" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500/80">The Hero</span>
                    </div>
-                   <p className="text-[11px] text-slate-300 leading-relaxed font-medium">{positioning?.hero || "Not defined yet..."}</p>
+                   <p className="text-[12px] text-slate-300 leading-relaxed font-medium pl-1 italic">{positioning?.hero || "Not defined yet..."}</p>
                 </div>
 
                 {/* Mechanism */}
-                <div className="p-3 rounded-2xl bg-purple-500/[0.02] border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-1.5">
-                      <Brain className="size-3 text-purple-500/60" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-purple-500/60">The Mechanism</span>
+                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-purple-500/[0.03] to-transparent border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.05] hover:border-purple-500/20 shadow-lg shadow-black/20">
+                   <div className="flex items-center gap-2 mb-2">
+                      <div className="size-5 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <Brain className="size-3 text-purple-500" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-500/80">The Mechanism</span>
                    </div>
-                   <p className="text-[10px] text-white italic font-black leading-tight">{positioning?.mechanism || "Not defined yet..."}</p>
+                   <p className="text-[11px] text-white italic font-black leading-tight pl-1 drop-shadow-md">{positioning?.mechanism || "Not defined yet..."}</p>
                 </div>
               </div>
           </div>
@@ -134,9 +140,9 @@ export function NarrativeCanvas({
                   <div 
                     key={plan.id} 
                     onClick={() => setPreviewPlan(plan)}
-                    className="bg-white/5 border border-white/10 rounded-[1.5rem] p-3 flex flex-col gap-3 hover:bg-white/10 transition-all group cursor-pointer border-transparent hover:border-white/20"
+                    className="group relative bg-[#050505] border border-white/5 rounded-[2rem] overflow-hidden hover:border-white/20 transition-all duration-500 cursor-pointer shadow-xl hover:shadow-blue-500/5"
                   >
-                    <div className="aspect-video rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden relative">
+                    <div className="aspect-video relative overflow-hidden">
                       {plan.coverUrl ? (
                         <img src={plan.coverUrl} className="size-full object-cover group-hover:scale-110 transition-transform duration-700" alt={plan.title} />
                       ) : (

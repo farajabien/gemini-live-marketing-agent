@@ -28,7 +28,12 @@ export function SeriesCanvas({
   const completedEpisodes = series.episodes?.filter(e => e.status === 'complete').length || 0;
 
   return (
-    <div className="h-full flex flex-col bg-[#050505] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#050505] overflow-hidden relative">
+      {/* Subtle Aura for Series Intelligence */}
+      <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/10 blur-[120px] rounded-full animate-pulse" style={{ animationDuration: '8s' }} />
+      </div>
+
       {/* Dynamic Header */}
       <div className="px-6 py-4 border-b border-white/[0.03] bg-[#080808]/50 backdrop-blur-md">
         <div className="flex items-center justify-between mb-0">
@@ -109,12 +114,14 @@ export function SeriesCanvas({
 
 function FoundationCard({ title, content, icon: Icon, color }: any) {
   return (
-    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all group">
-      <div className="flex items-center gap-2.5 mb-2">
-        <Icon className={cn("size-4", color)} />
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-300 transition-colors">{title}</span>
+    <div className="p-4 rounded-[2rem] bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all group shadow-lg shadow-black/20">
+      <div className="flex items-center gap-2.5 mb-2.5">
+        <div className={cn("size-6 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors")}>
+          <Icon className={cn("size-3.5", color)} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 group-hover:text-amber-500 transition-colors">{title}</span>
       </div>
-      <p className="text-[11px] leading-relaxed text-slate-400 font-medium line-clamp-3 italic">
+      <p className="text-[11px] leading-relaxed text-slate-400 font-medium line-clamp-3 italic pl-1">
         "{content}"
       </p>
     </div>
@@ -129,12 +136,16 @@ function EpisodeCard({ episode, isActive, progress, onClick, onGenerate }: any) 
     <div 
       onClick={onClick}
       className={cn(
-        "group relative p-4 rounded-3xl border transition-all cursor-pointer overflow-hidden",
+        "group relative p-5 rounded-[2.5rem] border transition-all cursor-pointer overflow-hidden",
         isActive 
-          ? "bg-white/[0.05] border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.05)]" 
-          : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.03]"
+          ? "bg-gradient-to-br from-amber-500/[0.08] to-transparent border-amber-500/30 shadow-2xl shadow-amber-950/20" 
+          : "bg-[#080808] border-white/5 hover:border-white/10 hover:bg-white/[0.03]"
       )}
     >
+      {/* Active Indicator Glow */}
+      {isActive && (
+        <div className="absolute -top-12 -right-12 size-32 bg-amber-500/10 blur-3xl rounded-full" />
+      )}
       <div className="flex items-start gap-4 relative z-10">
         <div className={cn(
           "size-10 rounded-xl flex items-center justify-center text-xs font-black transition-colors shrink-0",

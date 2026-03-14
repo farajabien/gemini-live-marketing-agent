@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Brain, Sparkles, Activity, Loader2, MessageSquare, ChevronRight, X, ChevronUp, ChevronDown, CheckCircle2, ArrowRight, Play } from "lucide-react";
+import { Mic, Brain, Sparkles, Activity, Loader2, MessageSquare, ChevronRight, X, ChevronUp, ChevronDown, CheckCircle2, ArrowRight, Play, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCollection, useDocument } from "@/hooks/use-firestore";
@@ -346,8 +346,14 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
       inline && "max-h-[86vh]",
       className
     )}>
-      {/* Subtle Background Glow */}
-      <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" />
+      {/* Subtle Background Glow & Aura */}
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none transition-opacity duration-1000" />
+      {isConnected && (
+        <div className="absolute inset-0 pointer-events-none opacity-40 overflow-hidden">
+          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-blue-600/10 blur-[120px] rounded-full animate-pulse transition-all duration-1000" style={{ animationDuration: '4s' }} />
+          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-indigo-600/10 blur-[120px] rounded-full animate-pulse transition-all duration-1000" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+        </div>
+      )}
       
       {/* Compact Premium Header */}
       <div className="relative px-6 py-4 border-b border-white/[0.03] flex items-center justify-between">
@@ -376,8 +382,9 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
           {!isConnected && !isConnecting && (
             <Button 
               onClick={connect}
-              className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/40 animate-in fade-in zoom-in-95 duration-500"
+              className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-900/40 animate-in fade-in zoom-in-95 duration-700"
             >
+              <Zap className="size-3 mr-1.5 fill-current" />
               Wake Up
             </Button>
           )}

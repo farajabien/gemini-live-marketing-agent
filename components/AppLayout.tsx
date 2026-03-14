@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, Suspense, useMemo, useEffect } from "react";
@@ -11,58 +10,14 @@ import { GenerateScreen } from "@/components/screens/GenerateScreen";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { cn } from "@/lib/utils";
 import { useGenerateStore } from "@/hooks/use-generate-store";
-import { LOGO } from "@/lib/branding";
-import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 
 // shadcn UI & Layout
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useSidebar } from "@/components/ui/sidebar";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
-// icons
-import { 
-  LayoutDashboard, 
-  FolderPlus, 
-  Brain, 
-  FileEdit, 
-  CalendarDays, 
-  PlusCircle, 
-  Video, 
-  Palette,
-  Settings,
-  LogOut,
-  ChevronRight,
-  MoreVertical,
-  Layers,
-  Sparkles,
-  Mic,
-  Volume2,
-  Plus,
-  MessageSquare
-} from "lucide-react";
-import { initializeDraftNarrative } from "@/app/actions/marketing";
-import { toast } from "sonner";
-
-
-import type { FounderNarrative, Series, User, VideoPlan } from "@/lib/types";
+import type { FounderNarrative, Series } from "@/lib/types";
+import { GlobalHeader } from "@/components/layout/GlobalHeader";
+import { GlobalCommandPalette } from "@/components/layout/CommandPalette";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -73,11 +28,11 @@ interface AppLayoutProps {
   headerActions?: React.ReactNode;
 }
 
-import { GlobalHeader } from "@/components/layout/GlobalHeader";
+import { WarRoomSkeleton } from "@/components/ui/PremiumSkeleton";
 
 export function AppLayout({ children, narrativeId, seriesId, noPadding, headerTitle, headerActions }: AppLayoutProps) {
   return (
-    <Suspense fallback={<div className="flex h-screen bg-black" />}>
+    <Suspense fallback={<WarRoomSkeleton />}>
       <AppLayoutContent narrativeId={narrativeId} seriesId={seriesId} noPadding={noPadding} headerTitle={headerTitle} headerActions={headerActions}>
         {children}
       </AppLayoutContent>
@@ -86,9 +41,7 @@ export function AppLayout({ children, narrativeId, seriesId, noPadding, headerTi
 }
 
 function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTitle, headerActions }: AppLayoutProps) {
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { user, signOut } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
@@ -96,25 +49,15 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
   const { isOpen: isGenerateOpen, closeGenerator, params: generateParams } = useGenerateStore();
 
   const initialPlanId = searchParams.get("planId") || undefined;
-  
-  // Resolve context IDs from props or search params
   const resolvedNarrativeId = narrativeId || searchParams.get("narrativeId") || undefined;
   const resolvedSeriesId = seriesId || searchParams.get("seriesId") || undefined;
-
   const initialSeriesId = searchParams.get("seriesId") || resolvedSeriesId;
 
   useEffect(() => {
-    // Open generator if either tool=generate OR we have a planId
     if ((searchParams.get("tool") === "generate" || initialPlanId) && !isGenerateOpen) {
-      useGenerateStore.getState().openGenerator({ narrativeId, planId: initialPlanId, seriesId: initialSeriesId });
-      
-      if (searchParams.get("tool") === "generate") {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("tool");
-        window.history.replaceState({}, "", url.toString());
-      }
+      useGenerateStore.getState().openGenerator({ narrativeId: resolvedNarrativeId, planId: initialPlanId, seriesId: initialSeriesId });
     }
-  }, [searchParams, isGenerateOpen, narrativeId, initialPlanId]);
+  }, [searchParams, isGenerateOpen, resolvedNarrativeId, initialPlanId, initialSeriesId]);
 
   // Fetch current narrative if ID present
   const currentNarrativeQuery = useMemo(
@@ -156,7 +99,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
   const series = resolvedSeriesId ? allSeries.find((s) => s.id === resolvedSeriesId) : undefined;
 
   return (
-    <div className="min-h-svh bg-black text-white flex flex-col">
+    <div className="flex flex-col h-screen overflow-hidden bg-black selection:bg-red-500/30">
       <GlobalHeader
         user={user as any}
         signOut={signOut}
@@ -173,18 +116,28 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
         onOpenSecurity={() => setSecurityOpen(true)}
       />
 
-      {/* Main Viewport */}
-      <div className={cn(
-        "flex-1 overflow-auto transition-all duration-300",
-        noPadding ? "p-0" : "p-4 md:p-6"
+      <main className={cn(
+        "flex-1 overflow-hidden relative",
+        !noPadding && "p-6"
       )}>
-        <div className={cn(
-          "mx-auto w-full h-full",
-          noPadding ? "max-w-none" : "max-w-7xl"
-        )}>
-          {children}
-        </div>
-      </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={resolvedNarrativeId || resolvedSeriesId || 'root'}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            className="h-full"
+          >
+            <div className={cn(
+              "mx-auto w-full h-full",
+              noPadding ? "max-w-none" : "max-w-7xl"
+            )}>
+              {children}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </main>
 
       {/* Global Dialogs */}
       <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>
@@ -195,7 +148,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
               isModal={true}
               hideHeader={true}
               initialPlanId={initialPlanId}
-              activeNarrativeId={generateParams.narrativeId || narrativeId}
+              activeNarrativeId={generateParams.narrativeId || resolvedNarrativeId}
             />
           </div>
         </DialogContent>
@@ -210,6 +163,8 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
         isOpen={securityOpen}
         onClose={() => setSecurityOpen(false)}
       />
+      
+      <GlobalCommandPalette />
     </div>
   );
 }
