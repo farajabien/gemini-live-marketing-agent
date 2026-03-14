@@ -32,14 +32,14 @@ export function NarrativeCanvas({
   return (
     <div className="h-full flex flex-col bg-[#020205] border-l border-white/[0.03] overflow-hidden">
       {/* Header / Stats Strip */}
-      <div className="px-6 py-4 border-b border-white/[0.03] flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-           <div className="size-10 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center">
-             <Target className="size-5 text-slate-400" />
+      <div className="px-5 py-3 border-b border-white/[0.03] flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+           <div className="size-8 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center">
+             <Target className="size-4 text-slate-400" />
            </div>
            <div>
-             <h2 className="text-sm font-black text-white tracking-tight leading-none mb-1 uppercase">Narrative Canvas</h2>
-             <div className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Live Strategic State</div>
+             <h2 className="text-[11px] font-black text-white tracking-tight leading-none mb-0.5 uppercase">Narrative Canvas</h2>
+             <div className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Live Strategic State</div>
            </div>
         </div>
         
@@ -55,7 +55,7 @@ export function NarrativeCanvas({
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="p-6 space-y-8">
+        <div className="p-5 space-y-6">
           {/* Intelligence Matrix */}
           <div className="space-y-4">
              <div className="flex items-center justify-between">
@@ -74,34 +74,34 @@ export function NarrativeCanvas({
                 )}
              </div>
 
-             <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 gap-2">
                 {/* Villain */}
-                <div className="p-4 rounded-3xl bg-red-500/[0.02] border border-red-500/10 group/card transition-all hover:bg-red-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-2">
-                      <Activity className="size-3.5 text-red-500/60" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-red-500/60">The Villain</span>
+                <div className="p-3 rounded-2xl bg-red-500/[0.02] border border-red-500/10 group/card transition-all hover:bg-red-500/[0.04]">
+                   <div className="flex items-center gap-2 mb-1.5">
+                      <Activity className="size-3 text-red-500/60" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-red-500/60">The Villain</span>
                    </div>
-                   <p className="text-xs text-slate-300 leading-relaxed font-medium">{positioning?.villain || "Not defined yet..."}</p>
+                   <p className="text-[11px] text-slate-300 leading-relaxed font-medium">{positioning?.villain || "Not defined yet..."}</p>
                 </div>
 
                 {/* Hero */}
-                <div className="p-4 rounded-3xl bg-blue-500/[0.02] border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-2">
-                      <Target className="size-3.5 text-blue-500/60" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-blue-500/60">The Hero</span>
+                <div className="p-3 rounded-2xl bg-blue-500/[0.02] border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.04]">
+                   <div className="flex items-center gap-2 mb-1.5">
+                      <Target className="size-3 text-blue-500/60" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-blue-500/60">The Hero</span>
                    </div>
-                   <p className="text-xs text-slate-300 leading-relaxed font-medium">{positioning?.hero || "Not defined yet..."}</p>
+                   <p className="text-[11px] text-slate-300 leading-relaxed font-medium">{positioning?.hero || "Not defined yet..."}</p>
                 </div>
 
                 {/* Mechanism */}
-                <div className="p-4 rounded-3xl bg-purple-500/[0.02] border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.04]">
-                   <div className="flex items-center gap-2 mb-2">
-                      <Brain className="size-3.5 text-purple-500/60" />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-purple-500/60">The Mechanism</span>
+                <div className="p-3 rounded-2xl bg-purple-500/[0.02] border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.04]">
+                   <div className="flex items-center gap-2 mb-1.5">
+                      <Brain className="size-3 text-purple-500/60" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-purple-500/60">The Mechanism</span>
                    </div>
-                   <p className="text-xs text-white italic font-black leading-tight">{positioning?.mechanism || "Not defined yet..."}</p>
+                   <p className="text-[10px] text-white italic font-black leading-tight">{positioning?.mechanism || "Not defined yet..."}</p>
                 </div>
-             </div>
+              </div>
           </div>
 
           {/* Media Archive */}

@@ -14,6 +14,7 @@ interface DirectorChatProps {
   seriesId?: string;
   onClose?: () => void;
   inline?: boolean;
+  className?: string;
 }
 
 const COMMANDS = [
@@ -44,10 +45,24 @@ const COMMANDS = [
     description: "Configure market voice profile", 
     icon: Brain,
     color: "text-purple-400"
+  },
+  { 
+    id: "intel", 
+    label: "/intel", 
+    description: "Deep dive into narrative intelligence", 
+    icon: Activity,
+    color: "text-red-400"
+  },
+  { 
+    id: "audience", 
+    label: "/audience", 
+    description: "Analyze current target audience", 
+    icon: Sparkles,
+    color: "text-indigo-400"
   }
 ];
 
-export function DirectorChat({ narrativeId, seriesId, onClose, inline = false }: DirectorChatProps) {
+export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, className }: DirectorChatProps) {
   const { user, getFreshToken } = useAuth();
   const [lastInsight, setLastInsight] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -226,12 +241,25 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false }:
     const val = e.target.value;
     setInputText(val);
     
-    if (val.startsWith("/")) {
+    if (val.endsWith("/")) {
       setShowCommands(true);
-      setCommandQuery(val.slice(1));
+      setCommandQuery("");
       setSelectedIndex(0);
+    } else if (val.includes("/")) {
+      const parts = val.split("/");
+      const query = parts[parts.length - 1];
+      setShowCommands(true);
+      setCommandQuery(query);
     } else {
       setShowCommands(false);
+    }
+  };
+
+  const toggleCommands = () => {
+    setShowCommands(!showCommands);
+    if (!showCommands) {
+      setCommandQuery("");
+      setSelectedIndex(0);
     }
   };
 
@@ -310,7 +338,9 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false }:
   return (
     <div className={cn(
       "relative flex flex-col h-full overflow-hidden bg-[#020205]",
-      !inline && "rounded-[2rem] shadow-2xl shadow-blue-500/20 border border-white/5"
+      !inline && "rounded-[2rem] shadow-2xl shadow-blue-500/20 border border-white/5",
+      inline && "max-h-[86vh]",
+      className
     )}>
       {/* Subtle Background Glow */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" />
@@ -401,7 +431,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false }:
                   <h2 className="text-3xl font-black text-white italic tracking-tight leading-none">Strategic Onboarding.</h2>
                   <p className="text-sm text-slate-400 leading-relaxed font-medium">
                     I&apos;m your Director. We&apos;re going to build your brand brain organically through conversation. 
-                    No forms, no wizards—just strategy.
+                    
                   </p>
                   {!isConnected && !isConnecting && (
                     <Button 
@@ -664,13 +694,24 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false }:
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             disabled={!isConnected && !isConnecting}
-            placeholder={!isConnected ? "Wake up the Director to chat..." : "Type your direction..."}
+            placeholder={!isConnected ? "Wake up the Director to chat..." : "Type your direction or / for commands..."}
             className={cn(
-              "w-full bg-white/[0.04] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] rounded-2xl px-5 py-3.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all pr-24",
+              "w-full bg-white/[0.04] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] rounded-2xl px-5 py-3.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all pr-32",
               !isConnected && "cursor-not-allowed opacity-50"
             )}
           />
           <div className="absolute right-1.5 top-1.5 flex gap-1">
+            <Button 
+              onClick={toggleCommands}
+              variant="ghost"
+              disabled={!isConnected && !isConnecting}
+              className={cn(
+                "size-10 rounded-xl p-0 flex items-center justify-center transition-all",
+                showCommands ? "text-blue-400 bg-blue-500/10" : "text-slate-500 hover:text-white"
+              )}
+            >
+              <span className="text-base font-black">/</span>
+            </Button>
             <Button 
               onClick={toggleListening}
               variant="ghost"

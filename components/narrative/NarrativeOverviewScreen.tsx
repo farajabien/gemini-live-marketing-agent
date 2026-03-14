@@ -10,6 +10,7 @@ import { NarrativeCanvas } from "./NarrativeCanvas";
 import { updateNarrativeField, generateSmartTitleAction } from "@/app/actions/marketing";
 import { Brain, Activity, Sparkles, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AppLayout } from "@/components/AppLayout";
 import { MediaScreen } from "@/components/screens/MediaScreen";
 
 interface NarrativeOverviewScreenProps {
@@ -102,80 +103,74 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
     setIsEditingTitle(false);
   };
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden bg-black">
-      {/* Dynamic Header Strip */}
-      <div className="px-6 py-3 border-b border-white/[0.03] bg-black/40 backdrop-blur-md flex items-center justify-between shrink-0">
-         <div className="flex items-center gap-6">
-            <div className="flex flex-col">
-              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-500 mb-1">Active War Room</span>
-              {isEditingTitle ? (
-                <input
-                  type="text"
-                  autoFocus
-                  className="bg-white/5 border border-blue-500/30 rounded-lg px-2 py-0.5 text-sm font-black text-white outline-none"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  onBlur={handleSaveTitle}
-                  onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
-                />
-              ) : (
-                <h1 
-                  className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:text-blue-400 transition-colors"
-                  onClick={() => {
-                    setEditedTitle(narrative.title);
-                    setIsEditingTitle(true);
-                  }}
-                >
-                  {narrative.title}
-                </h1>
-              )}
-            </div>
-            
-            <div className="h-4 w-px bg-white/5 hidden sm:block" />
-            
-            <div className="hidden md:flex flex-col">
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-600">Story Hook</span>
-              <p className="text-[10px] text-slate-400 font-medium truncate max-w-[300px] italic">
-                {narrative.oneLiner || "Your strategic narrative foundation..."}
-              </p>
-            </div>
-         </div>
-
-         <div className="flex items-center gap-4">
-           {isMediaView ? (
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => router.push(`/narrative/${narrativeId}`)}
-               className="h-8 rounded-xl border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-widest text-white hover:bg-white/10 gap-2"
-             >
-               <ChevronLeft className="size-3" />
-               Return to Planning
-             </Button>
-           ) : (
-             <>
-               {narrative.audience && (
-                  <div className="hidden lg:flex flex-col items-end">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600">Targeting</span>
-                    <span className="text-[10px] text-blue-400/60 font-black truncate max-w-[200px] uppercase">{narrative.audience}</span>
-                  </div>
-               )}
-               <div className="h-8 w-px bg-white/5" />
-               <Button
-                 variant="ghost"
-                 size="sm"
-                 onClick={handleGenerateSmartTitle}
-                 disabled={isGeneratingTitle}
-                 className="h-8 rounded-xl bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white hover:bg-white/5 gap-2"
-               >
-                 {isGeneratingTitle ? <Activity className="size-3 animate-spin" /> : <Sparkles className="size-3 text-blue-500" />}
-                 Analysis
-               </Button>
-             </>
-           )}
-         </div>
+  const headerTitle = (
+    <div className="flex items-center gap-3">
+      <div className="size-6 rounded-lg bg-red-600/10 flex items-center justify-center border border-red-600/20">
+        <Brain className="size-3 text-red-500" />
       </div>
+      <div className="flex flex-col">
+        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500 leading-none mb-0.5">War Room</span>
+        {isEditingTitle ? (
+          <input
+            type="text"
+            autoFocus
+            className="bg-white/5 border border-red-500/30 rounded px-1.5 py-0 text-[11px] font-black text-white outline-none h-4"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={(e) => e.key === "Enter" && handleSaveTitle()}
+          />
+        ) : (
+          <button 
+            className="text-[11px] font-black text-white leading-none uppercase tracking-widest hover:text-red-500 transition-colors text-left"
+            onClick={() => {
+              setEditedTitle(narrative.title);
+              setIsEditingTitle(true);
+            }}
+          >
+            {narrative.title}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      {isMediaView ? (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => router.push(`/narrative/${narrativeId}`)}
+          className="h-7 px-3 rounded-xl border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-widest text-white hover:bg-white/10"
+        >
+          Planning
+        </Button>
+      ) : (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleGenerateSmartTitle}
+            disabled={isGeneratingTitle}
+            className="h-7 px-3 rounded-xl bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white hover:bg-white/5 gap-1.5"
+          >
+            {isGeneratingTitle ? <Activity className="size-3 animate-spin" /> : <Sparkles className="size-3 text-red-500" />}
+            Analysis
+          </Button>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <AppLayout 
+      narrativeId={narrativeId} 
+      noPadding 
+      headerTitle={headerTitle} 
+      headerActions={headerActions}
+    >
+      <div className="flex flex-col h-full overflow-hidden bg-black">
 
       {/* Main Split-Screen View */}
       {isMediaView ? (
@@ -183,7 +178,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
       ) : (
         <div className="flex-1 flex overflow-hidden">
           {/* Left Pane: Intelligence Execution (Director Chat) */}
-          <div className="flex-1 min-w-0 h-full">
+          <div className="w-full md:w-1/2 lg:w-2/5 xl:w-[450px] border-r border-white/[0.05] h-full">
             <DirectorChat 
               narrativeId={narrativeId} 
               inline={true} 
@@ -191,7 +186,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
           </div>
 
           {/* Right Pane: Narrative Visualization (Canvas) */}
-          <div className="w-[380px] lg:w-[450px] shrink-0 h-full border-l border-white/[0.03] hidden sm:block">
+          <div className="flex-1 overflow-hidden h-full hidden sm:block">
             <NarrativeCanvas 
               narrative={narrative} 
               videoPlans={videoPlans}
@@ -202,6 +197,7 @@ export function NarrativeOverviewScreen({ narrativeId }: NarrativeOverviewScreen
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppLayout>
   );
 }

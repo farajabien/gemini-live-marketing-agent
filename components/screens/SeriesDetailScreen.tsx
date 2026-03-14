@@ -1,5 +1,6 @@
 "use client";
 
+import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { tx } from "@/lib/firebase-tx";
@@ -299,57 +300,58 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     );
   }
 
-  return (
-    <div className="h-full bg-black flex flex-col overflow-hidden">
-      {/* War Room Header */}
-      <header className="h-16 px-6 border-b border-white/[0.03] flex items-center justify-between bg-black relative z-10 shrink-0">
-        <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-            <ArrowLeft className="size-4 text-slate-500" />
-          </Link>
-          <div className="h-6 w-px bg-white/10" />
-          <div className="flex items-center gap-3">
-             <div className="size-8 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                <Loader2 className="size-4 text-orange-500 animate-spin" />
-             </div>
-             <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 leading-none mb-1">War Room / Series</span>
-                <span className="text-sm font-black text-white leading-none italic">{seriesData.title}</span>
-             </div>
-          </div>
-        </div>
+  const headerTitle = (
+    <div className="flex items-center gap-3">
+      <div className="size-6 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+        <Film className="size-3 text-amber-500" />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500 leading-none mb-0.5">Series Strategy</span>
+        <span className="text-[11px] font-black text-white leading-none italic truncate max-w-[200px]">{seriesData.title}</span>
+      </div>
+    </div>
+  );
 
-        <div className="flex items-center gap-4">
-           {isMediaView ? (
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={() => router.push(`/series/${seriesId}`)}
-               className="h-9 px-4 rounded-full border-white/10 bg-white/5 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10"
-             >
-               Return to Planning
-             </Button>
-           ) : (
-             <>
-               {seriesData.episodes?.some((e: Episode) => e.status === 'generating' || e.status === 'failed') && (
-                 <Button 
-                   variant="outline" 
-                   size="sm" 
-                   onClick={() => setShowProductionOverlay(true)}
-                   className="h-9 px-4 rounded-full border-blue-500/20 bg-blue-500/5 text-blue-400 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500/10 animate-pulse"
-                 >
-                   Live Pulse
-                 </Button>
-               )}
-             </>
-           )}
-        </div>
-      </header>
-
+  const headerActions = (
+    <div className="flex items-center gap-2">
       {isMediaView ? (
-        <MediaScreen isIntegrated={true} overrideSeriesId={seriesId} />
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => router.push(`/series/${seriesId}`)}
+          className="h-7 px-3 rounded-xl border-white/10 bg-white/5 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/10"
+        >
+          Planning
+        </Button>
       ) : (
-        <main className="flex-1 flex overflow-hidden">
+        <>
+          {seriesData.episodes?.some((e: Episode) => e.status === 'generating' || e.status === 'failed') && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowProductionOverlay(true)}
+              className="h-7 px-3 rounded-xl border-blue-500/20 bg-blue-500/5 text-blue-400 text-[9px] font-black uppercase tracking-widest hover:bg-blue-500/10 animate-pulse"
+            >
+              Pulse
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <AppLayout 
+      seriesId={seriesId} 
+      noPadding 
+      headerTitle={headerTitle} 
+      headerActions={headerActions}
+    >
+      <div className="h-full bg-black flex flex-col overflow-hidden">
+        {isMediaView ? (
+          <MediaScreen isIntegrated={true} overrideSeriesId={seriesId} />
+        ) : (
+          <main className="flex-1 flex overflow-hidden">
           {/* LEFT: Director Chat */}
           <div className="w-full md:w-1/2 lg:w-2/5 xl:w-[450px] border-r border-white/[0.05] h-full">
             <DirectorChat narrativeId={seriesData.seriesNarrativeId || ""} seriesId={seriesId} inline={true} />
@@ -382,6 +384,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           </div>
         </main>
       )}
+      </div>
 
 
       {/* Production Overlay Modal */}
@@ -394,6 +397,6 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
           onDismiss={() => setShowProductionOverlay(false)}
         />
       )}
-    </div>
+    </AppLayout>
   );
 }

@@ -11,8 +11,8 @@ interface NarrativeLayoutProps {
 export default function NarrativeLayout({ children, params }: NarrativeLayoutProps) {
   const resolvedParams = use(params);
   return (
-    <AppLayout narrativeId={resolvedParams.id} noPadding>
+    <div className="h-full w-full">
       {children}
-    </AppLayout>
+    </div>
   );
 }

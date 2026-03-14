@@ -30,8 +30,8 @@ export function SeriesCanvas({
   return (
     <div className="h-full flex flex-col bg-[#050505] overflow-hidden">
       {/* Dynamic Header */}
-      <div className="px-8 py-6 border-b border-white/[0.03] bg-[#080808]/50 backdrop-blur-md">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-6 py-4 border-b border-white/[0.03] bg-[#080808]/50 backdrop-blur-md">
+        <div className="flex items-center justify-between mb-0">
           <div className="flex items-center gap-3">
              <div className="size-10 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                 <Film className="size-5 text-amber-500" />
@@ -50,12 +50,12 @@ export function SeriesCanvas({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-8 space-y-12 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 custom-scrollbar">
         {/* Series Foundation */}
         <section className="space-y-6">
-           <div className="flex items-center gap-4">
-              <Target className="size-4 text-amber-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Series Foundation</h3>
+          <div className="flex items-center gap-4 mb-4">
+              <Target className="size-3 text-amber-500" />
+              <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Series Foundation</h3>
               <div className="flex-1 h-px bg-white/[0.03]" />
            </div>
            
@@ -83,9 +83,9 @@ export function SeriesCanvas({
 
         {/* Episode Storyboard */}
         <section className="space-y-6">
-           <div className="flex items-center gap-4">
-              <Play className="size-4 text-blue-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Storyboard Beats</h3>
+           <div className="flex items-center gap-4 mb-4">
+              <Play className="size-3 text-blue-500" />
+              <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Storyboard Beats</h3>
               <div className="flex-1 h-px bg-white/[0.03]" />
            </div>
 
@@ -109,8 +109,8 @@ export function SeriesCanvas({
 
 function FoundationCard({ title, content, icon: Icon, color }: any) {
   return (
-    <div className="p-5 rounded-[1.5rem] bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all group">
-      <div className="flex items-center gap-3 mb-3">
+    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all group">
+      <div className="flex items-center gap-2.5 mb-2">
         <Icon className={cn("size-4", color)} />
         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-300 transition-colors">{title}</span>
       </div>
@@ -129,15 +129,15 @@ function EpisodeCard({ episode, isActive, progress, onClick, onGenerate }: any) 
     <div 
       onClick={onClick}
       className={cn(
-        "group relative p-6 rounded-[2rem] border transition-all cursor-pointer overflow-hidden",
+        "group relative p-4 rounded-3xl border transition-all cursor-pointer overflow-hidden",
         isActive 
           ? "bg-white/[0.05] border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.05)]" 
           : "bg-white/[0.02] border-white/5 hover:border-white/10 hover:bg-white/[0.03]"
       )}
     >
-      <div className="flex items-start gap-6 relative z-10">
+      <div className="flex items-start gap-4 relative z-10">
         <div className={cn(
-          "size-12 rounded-2xl flex items-center justify-center text-sm font-black transition-colors shrink-0",
+          "size-10 rounded-xl flex items-center justify-center text-xs font-black transition-colors shrink-0",
           isActive ? "bg-amber-500 text-black" : "bg-white/5 text-slate-600 group-hover:bg-white/10"
         )}>
           {episode.episodeNumber}

@@ -12,9 +12,7 @@ export default function SeriesLayout({ children, params }: SeriesLayoutProps) {
   const resolvedParams = use(params);
   return (
     <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <AppLayout seriesId={resolvedParams.id} noPadding>
-        {children}
-      </AppLayout>
+      {children}
     </Suspense>
   );
 }
