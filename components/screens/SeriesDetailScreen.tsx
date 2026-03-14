@@ -17,6 +17,7 @@ import { EpisodeDetailView } from "@/components/series/EpisodeDetailView";
 import { Loader2, ArrowLeft, Film } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { WarRoomLayout } from "@/components/layout/WarRoomLayout";
 
 interface SeriesDetailScreenProps {
   seriesId: string;
@@ -340,6 +341,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     </div>
   );
 
+
   return (
     <AppLayout 
       seriesId={seriesId} 
@@ -347,45 +349,39 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
       headerTitle={headerTitle} 
       headerActions={headerActions}
     >
-      <div className="h-full bg-black flex flex-col overflow-hidden">
-        {isMediaView ? (
-          <MediaScreen isIntegrated={true} overrideSeriesId={seriesId} />
-        ) : (
-          <main className="flex-1 flex overflow-hidden">
-          {/* LEFT: Director Chat */}
-          <div className="w-full md:w-1/2 lg:w-2/5 xl:w-[450px] border-r border-white/[0.05] h-full">
-            <DirectorChat narrativeId={seriesData.seriesNarrativeId || ""} seriesId={seriesId} inline={true} />
-          </div>
-
-          {/* RIGHT: Series Canvas / Episode Detail */}
-          <div className="flex-1 overflow-hidden h-full">
-            {urlEpisodeId && !selectedEpisode ? (
-              <div className="h-full flex flex-col items-center justify-center bg-[#050505] gap-4">
-                <Loader2 className="size-8 text-blue-500 animate-spin" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Retrieving Episode Blueprint...</p>
-              </div>
-            ) : selectedEpisode ? (
-              <EpisodeDetailView 
-                episode={selectedEpisode} 
-                onClose={() => router.push(`/series/${seriesId}`)} 
-              />
-            ) : (
-              <SeriesCanvas 
-                series={seriesData} 
-                narrative={narrative}
-                selectedEpisodeId={urlEpisodeId} 
-                onSelectEpisode={(id: string) => {
-                  router.push(`/series/${seriesId}?episodeId=${id}`, { scroll: false });
-                }}
-                episodeProgress={episodeProgress}
-                onGenerateEpisode={handleGenerateEpisode}
-              />
-            )}
-          </div>
-        </main>
+      {isMediaView ? (
+        <MediaScreen isIntegrated={true} overrideSeriesId={seriesId} />
+      ) : (
+        <WarRoomLayout
+          leftPane={<DirectorChat narrativeId={seriesData.seriesNarrativeId || ""} seriesId={seriesId} inline={true} />}
+          rightPane={
+            <div className="h-full">
+              {urlEpisodeId && !selectedEpisode ? (
+                <div className="h-full flex flex-col items-center justify-center bg-[#050505] gap-4">
+                  <Loader2 className="size-8 text-blue-500 animate-spin" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Retrieving Episode Blueprint...</p>
+                </div>
+              ) : selectedEpisode ? (
+                <EpisodeDetailView 
+                  episode={selectedEpisode} 
+                  onClose={() => router.push(`/series/${seriesId}`)} 
+                />
+              ) : (
+                <SeriesCanvas 
+                  series={seriesData} 
+                  narrative={narrative}
+                  selectedEpisodeId={urlEpisodeId} 
+                  onSelectEpisode={(id: string) => {
+                    router.push(`/series/${seriesId}?episodeId=${id}`, { scroll: false });
+                  }}
+                  episodeProgress={episodeProgress}
+                  onGenerateEpisode={handleGenerateEpisode}
+                />
+              )}
+            </div>
+          }
+        />
       )}
-      </div>
-
 
       {/* Production Overlay Modal */}
       {showProductionOverlay && (
