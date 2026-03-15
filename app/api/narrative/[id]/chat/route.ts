@@ -231,24 +231,35 @@ export async function POST(
                     const evolved = await evolveSeriesNarrative(currentInput, `User: ${userMessage}\nDirector: ${cleanText}`);
                     const strength = await scoreSeriesNarrativeStrength(evolved);
                     
-                    // DEEP EVOLUTION: If the brain is healthy (e.g., 6+ fields filled), trigger deep analysis
-                    const filledFields = Object.values(evolved).filter(v => v && v.length > 3).length;
+                    // Calculate the number of filled fields (health)
+                    const filledFields = Object.values(evolved).filter(v => v && typeof v === 'string' && v.length > 3).length;
                     let deepAnalysis = {};
+                    let synthesisMsg = "";
                     
                     if (filledFields >= 6) {
-                      console.log(`[Director Chat] Brain Healthy (${filledFields}/8). Triggering Deep Story Analysis...`);
+                      console.log(`[Director Chat] Series Brain Healthy (${filledFields}/8). Triggering Deep Story Analysis...`);
                       try {
                         const { analysis } = await analyzeStoryNarrative(evolved);
                         deepAnalysis = {
-                          ...analysis,
                           aiPositioning: {
                             villain: analysis.villain,
                             hero: analysis.hero,
                             mechanism: analysis.mechanism,
                             promise: analysis.logline,
                             stakes: analysis.characterDynamics
-                          }
+                          },
+                          characterDynamics: analysis.characterDynamics,
+                          plotBeats: analysis.plotBeats,
+                          worldRules: analysis.worldRules,
+                          visualMoat: analysis.visualMoat,
+                          title: analysis.title,
+                          logline: analysis.logline,
                         };
+                        
+                        // Check if this is the first time we reach THIS level of depth
+                        if (!narrative.aiPositioning?.villain || narrative.aiPositioning.villain === "Not defined yet...") {
+                           synthesisMsg = "I've synthesized your core story architecture. Your 'Villain' is now defined by the internal tension of " + (analysis.villain?.slice(0, 50)) + "... Check your Strategy Canvas.";
+                        }
                       } catch (err) {
                         console.error("[Deep Analysis Error]:", err);
                       }
@@ -262,6 +273,19 @@ export async function POST(
                         updatedAt: Date.now(),
                       })
                     ]);
+                    
+                    if (synthesisMsg) {
+                      const sysMsgId = generateId();
+                      await adminDb.transact([
+                        adminDb.tx[chatCollection][sysMsgId].set({
+                          role: "model",
+                          text: synthesisMsg,
+                          userId: "system",
+                          isSystemNotification: true,
+                          createdAt: Date.now() + 1000, 
+                        })
+                      ]);
+                    }
                   } else {
                     const { evolveNarrative, scoreNarrativeStrength } = await import("@/lib/marketing/narrative-intelligence");
                     const currentInput: NarrativeInput = {
@@ -284,13 +308,53 @@ export async function POST(
                     const evolved = await evolveNarrative(currentInput, insightWithMeta);
                     const strength = await scoreNarrativeStrength(evolved);
                     
+                    // DEEP EVOLUTION for Brand
+                    const filledFields = Object.values(evolved).filter(v => v && typeof v === 'string' && v.length > 3).length;
+                    let deepAnalysis = {};
+                    let synthesisMsg = "";
+                    
+                    if (filledFields >= 6) {
+                       console.log(`[Director Chat] Brand Brain Healthy (${filledFields}/8). Triggering Deep Refinement...`);
+                       const { analyzeNarrative } = await import("@/lib/marketing/narrative-intelligence");
+                       try {
+                         const result = await analyzeNarrative(evolved);
+                         deepAnalysis = {
+                           aiPositioning: result.positioning,
+                           angles: result.angles,
+                           positioningStatement: result.framework?.positioningStatement,
+                           coreMessage: result.framework?.coreMessage,
+                           brandVoice: result.framework?.brandVoice,
+                         };
+                         
+                         if (!narrative.aiPositioning?.villain || narrative.aiPositioning.villain === "Not defined yet...") {
+                            synthesisMsg = "Strategic core locked. I've crystallized your 'Villain' and 'Visual Moat'. Focus your next prompt on the first content pillar.";
+                         }
+                       } catch (err) {
+                         console.error("[Deep Analysis Error]:", err);
+                       }
+                    }
+
                     await adminDb.transact([
                       adminDb.tx.narratives[narrativeId].update({
                         ...evolved,
+                        ...deepAnalysis,
                         narrativeStrength: strength,
                         updatedAt: Date.now(),
                       })
                     ]);
+
+                    if (synthesisMsg) {
+                      const sysMsgId = generateId();
+                      await adminDb.transact([
+                        adminDb.tx[chatCollection][sysMsgId].set({
+                          role: "model",
+                          text: synthesisMsg,
+                          userId: "system",
+                          isSystemNotification: true,
+                          createdAt: Date.now() + 1000, 
+                        })
+                      ]);
+                    }
                   }
                   console.log("[Director Chat] Real-time Brain update persisted.");
                 } catch (e) {

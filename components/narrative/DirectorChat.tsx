@@ -237,11 +237,27 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
              </div>
            )}
 
-           {messages.map((m: UIMessage, i) => {
+           {messages.map((m: any, i) => {
              // Extract text content from parts in v6
              const textContent = m.parts 
               ? m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
-              : (m as any).content || "";
+              : (m as any).content || m.text || "";
+             
+             const isSystem = m.isSystemNotification || m.userId === 'system';
+
+             if (isSystem) {
+               return (
+                 <div key={m.id || i} className="flex flex-col space-y-3 w-full py-4 px-6 bg-gradient-to-r from-blue-600/10 to-transparent border-l-2 border-blue-500/50 animate-in fade-in slide-in-from-left-4">
+                   <div className="flex items-center gap-2">
+                     <Sparkles className="size-3 text-blue-400 animate-pulse" />
+                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-400">Strategic Insight</span>
+                   </div>
+                   <p className="text-[12px] font-medium text-slate-200 leading-relaxed italic">
+                     "{textContent}"
+                   </p>
+                 </div>
+               );
+             }
              
              return (
                <div key={m.id || i} className={cn("flex flex-col space-y-2 max-w-[90%] animate-in fade-in slide-in-from-bottom-2", m.role === 'user' ? "ml-auto items-end" : "mr-auto")}>
@@ -286,7 +302,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-[10px] font-black uppercase tracking-[0.2em] h-12 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.4)] border border-blue-400/20 gap-3 group"
           >
             <Sparkles className="size-4 animate-pulse fill-current" />
-            {seriesId ? "Initiate Multi-Episode Series Generation" : "Lock Strategy & Generate Video Blueprints"}
+            {seriesId ? "Bridge Vision to Multi-Episode Architecture" : "Bridge Head to Audience: Launch Production"}
             <ChevronRight className="size-4 group-hover:translate-x-1 transition-transform" />
           </Button>
         </div>

@@ -403,16 +403,16 @@ export async function regeneratePositioning(
       timestamp: Date.now(),
       changes: {
         positioning: {
-          old: narrative.positioning,
-          new: analysis.positioning,
+          old: narrative.aiPositioning || null,
+          new: analysis.positioning || null,
         },
         angles: {
-          old: narrative.angles,
-          new: analysis.angles,
+          old: narrative.angles || null,
+          new: analysis.angles || null,
         },
         narrativeStrength: {
-          old: narrative.narrativeStrength,
-          new: analysis.narrativeStrength,
+          old: narrative.narrativeStrength || null,
+          new: analysis.narrativeStrength || null,
         }
       },
       updatedBy: userId,
