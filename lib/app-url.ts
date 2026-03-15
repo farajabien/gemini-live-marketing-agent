@@ -1,10 +1,20 @@
 export function getAppUrl(): string {
-  // On the server, rely on NEXT_PUBLIC_APP_URL with a sensible fallback
-  if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // 1. Explicitly configured app URL (highest priority)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
   }
 
-  // In the browser, prefer the configured env but fall back to current origin
-  return process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+  // 2. Vercel deployment URL (useful for preview branches)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // 3. Browser-side fallback to current origin
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  // 4. Server-side fallback to localhost
+  return "http://localhost:3000";
 }
 

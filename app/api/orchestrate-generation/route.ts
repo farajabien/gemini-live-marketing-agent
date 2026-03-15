@@ -3,6 +3,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import type { Scene, VideoPlanWithOwner } from "@/lib/types";
 import { getErrorMessage } from "@/lib/types";
 
+import { getAppUrl } from "@/lib/app-url";
+
 export const maxDuration = 300; // 5 minutes for full pipeline including Veo polling
 
 /**
@@ -57,12 +59,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Orchestrate] Starting pipeline for plan ${planId} (${visualMode}, ${scenes.length} scenes)`);
 
-    // Build the base URL for internal API calls
-    // Prefer the public app URL when configured, otherwise fall back to the incoming request origin.
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.length > 0
-        ? process.env.NEXT_PUBLIC_APP_URL
-        : request.nextUrl.origin;
+    // Build the base URL for internal API calls using common utility
+    const baseUrl = getAppUrl();
 
     const headers = {
       "Content-Type": "application/json",
