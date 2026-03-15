@@ -3,6 +3,7 @@
 import { Brain, Activity, Target, Shield, Zap, Film, Play, CheckCircle2, Loader2, Sparkles, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Episode, SeriesWithEpisodes, SeriesNarrative } from "@/lib/types";
 import { MediaResultPreview } from "@/components/media/MediaResultPreview";
 
@@ -13,6 +14,7 @@ interface SeriesCanvasProps {
   onSelectEpisode: (id: string) => void;
   episodeProgress: Record<string, any>;
   onGenerateEpisode: (ep: Episode) => void;
+  onGenerateSeasonPlot: () => void;
 }
 
 export function SeriesCanvas({ 
@@ -21,7 +23,8 @@ export function SeriesCanvas({
   selectedEpisodeId, 
   onSelectEpisode, 
   episodeProgress,
-  onGenerateEpisode
+  onGenerateEpisode,
+  onGenerateSeasonPlot
 }: SeriesCanvasProps) {
   const sortedEpisodes = [...(series.episodes || [])].sort((a, b) => a.episodeNumber - b.episodeNumber);
   const selectedEpisode = sortedEpisodes.find(e => e.id === selectedEpisodeId) || sortedEpisodes[0];
@@ -91,10 +94,35 @@ export function SeriesCanvas({
            <div className="flex items-center gap-4 mb-4">
               <Play className="size-3 text-blue-500" />
               <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Storyboard Beats</h3>
-              <div className="flex-1 h-px bg-white/[0.03]" />
-           </div>
+            </div>
 
-           <div className="space-y-4">
+            {/* Generate Season Plot CTA */}
+            {(!series.megaPrompt || (series.megaPrompt && sortedEpisodes.length === 0)) && narrative?.logline && (
+              <div className="p-8 rounded-[3rem] bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 flex flex-col items-center text-center gap-6 animate-in fade-in zoom-in duration-700 mt-4 mb-8">
+                <div className="size-16 rounded-3xl bg-amber-500/20 flex items-center justify-center border border-amber-500/20 shadow-xl shadow-amber-500/10">
+                  <Sparkles className="size-8 text-amber-500" />
+                </div>
+                <div className="max-w-md">
+                   <h4 className="text-lg font-black italic uppercase tracking-tight text-white mb-2">
+                     {series.megaPrompt ? "Storyboards Missing" : "Architect the Master Plot"}
+                   </h4>
+                   <p className="text-[11px] font-medium text-slate-400 leading-relaxed uppercase tracking-widest text-balance">
+                     {series.megaPrompt 
+                        ? "The master arc is ready, but the storyboards need architecting. Let's populate your production beats."
+                        : "The story brain is healthy. We are ready to weave your hooks into a high-fidelity cinematic arc."}
+                   </p>
+                </div>
+                <Button 
+                  onClick={onGenerateSeasonPlot}
+                  className="bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-[0.2em] text-[10px] px-10 py-6 h-auto rounded-full shadow-2xl shadow-amber-500/20 gap-3 group"
+                >
+                  {series.megaPrompt ? "Re-Architect Storyboards" : "Generate Master Season Plot"}
+                  <ChevronRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
+            )}
+
+            <div className="space-y-4">
              {sortedEpisodes.map((ep) => (
                <EpisodeCard 
                  key={ep.id}
@@ -106,7 +134,36 @@ export function SeriesCanvas({
                />
              ))}
            </div>
-        </section>
+
+           {series.megaPrompt && sortedEpisodes.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-4 border border-dashed border-white/10 rounded-[2rem] bg-white/[0.02] mt-4">
+                <Loader2 className="size-6 text-blue-500 animate-spin" />
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                  Architecting Storyboards...
+                </p>
+              </div>
+            )}
+         </section>
+
+         {/* Master Plot Review section */}
+         {series.megaPrompt && (
+           <section className="mt-12 p-8 rounded-[3rem] bg-gradient-to-br from-blue-600/[0.04] to-transparent border border-white/[0.03] animate-in fade-in slide-in-from-bottom-4 duration-700">
+             <div className="flex items-center gap-4 mb-6">
+                <div className="size-10 rounded-2xl bg-blue-600/10 flex items-center justify-center border border-blue-500/20">
+                  <Film className="size-5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Master Season Arc</h3>
+                  <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest">Cinematic Strategy Guide</p>
+                </div>
+             </div>
+             <div className="bg-black/20 p-6 rounded-2xl border border-white/5">
+                <p className="text-[13px] leading-relaxed text-slate-300 italic whitespace-pre-wrap font-medium">
+                  {series.megaPrompt}
+                </p>
+             </div>
+           </section>
+         )}
       </div>
     </div>
   );

@@ -6,12 +6,13 @@ import { useSearchParams } from "next/navigation";
 import { firebaseDb as db } from "@/lib/firebase-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Search, Activity, Loader2, LayoutGrid, Layers, FolderHeart } from "lucide-react";
+import { Play, Search, Activity, Loader2, LayoutGrid, Layers, FolderHeart, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudioCard } from "@/components/dashboard/StudioCard";
 import { VideoPlan } from "@/lib/types";
+import { downloadPlanAssets } from "@/lib/download-utils";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "../ui/input";
@@ -39,6 +40,8 @@ export function MediaScreen({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState<Record<string, boolean>>({});
+  const { refreshToken } = useAuth();
 
   const query = useMemo(
     () => user ? {
@@ -82,33 +85,93 @@ export function MediaScreen({
   const allSeries = ((data as any)?.series || []) as any[];
   const allNarratives = ((data as any)?.narratives || []) as any[];
 
+  // Robust identification of parent series/narrative
+  const getParentInfo = (plan: VideoPlan): { sId: string; nId: string } => {
+    const sId = plan.seriesId || (plan as any).series;
+    const nId = plan.narrativeId;
+    
+    // If we have a series ID, prioritize it
+    if (sId && sId !== 'orphaned') return { sId: sId as string, nId: (nId || 'orphaned') as string };
+    
+    // If we have a narrative ID, check if it belongs to a series
+    if (nId) {
+      const parentSeries = allSeries.find(s => s.id === nId || s.seriesNarrativeId === nId);
+      if (parentSeries) return { sId: parentSeries.id as string, nId: nId as string };
+    }
+    
+    return { sId: (sId || 'orphaned') as string, nId: (nId || 'orphaned') as string };
+  };
+
   const filteredPlans = useMemo(() => {
     return allPlans.filter(p => {
+      // 1. Exclude active productions from main grid
       if (['pending', 'generating', 'generating_audio', 'rendering'].includes(p.status || '')) return false;
-      if (searchTerm && !p.title?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      
+      const { sId, nId } = getParentInfo(p);
+
+      // 2. Filter by Series ID if provided (Integrated Mode)
+      if (paramSeriesId && sId !== paramSeriesId) return false;
+      
+      // 3. Filter by Narrative ID if provided (Integrated Mode)
+      if (paramNarrativeId && nId !== paramNarrativeId) return false;
+
+      // 4. Search Filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesTitle = p.title?.toLowerCase().includes(term);
+        
+        // Also check parent titles
+        const seriesTitle = allSeries.find(s => s.id === sId)?.title?.toLowerCase();
+        const narrativeTitle = allNarratives.find(n => n.id === nId)?.title?.toLowerCase();
+        
+        if (!matchesTitle && !seriesTitle?.includes(term) && !narrativeTitle?.includes(term)) return false;
+      }
+
       return true;
     });
-  }, [allPlans, searchTerm]);
+  }, [allPlans, searchTerm, paramSeriesId, paramNarrativeId, allSeries, allNarratives]);
 
   const groupedBySeries = useMemo(() => {
     const groups: Record<string, VideoPlan[]> = {};
     filteredPlans.forEach(plan => {
-      const sId = plan.seriesId || 'orphaned';
+      const { sId } = getParentInfo(plan);
       if (!groups[sId]) groups[sId] = [];
       groups[sId].push(plan);
     });
     return groups;
-  }, [filteredPlans]);
+  }, [filteredPlans, allSeries]);
 
   const groupedByProject = useMemo(() => {
     const groups: Record<string, VideoPlan[]> = {};
     filteredPlans.forEach(plan => {
-      const nId = plan.narrativeId || 'orphaned';
+      const { nId } = getParentInfo(plan);
       if (!groups[nId]) groups[nId] = [];
       groups[nId].push(plan);
     });
     return groups;
-  }, [filteredPlans]);
+  }, [filteredPlans, allSeries]);
+
+  const handleDownloadAll = async (seriesId: string, plans: VideoPlan[]) => {
+    if (isDownloadingAll[seriesId]) return;
+    
+    setIsDownloadingAll(prev => ({ ...prev, [seriesId]: true }));
+    try {
+      const completedPlans = plans.filter(p => p.status === 'completed' && p.videoUrl);
+      
+      for (let i = 0; i < completedPlans.length; i++) {
+        const plan = completedPlans[i];
+        // Sequential download with small delay to avoid browser blocking
+        await downloadPlanAssets(plan, null, refreshToken);
+        if (i < completedPlans.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+    } catch (err) {
+      console.error("Bulk download failed:", err);
+    } finally {
+      setIsDownloadingAll(prev => ({ ...prev, [seriesId]: false }));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -230,13 +293,33 @@ export function MediaScreen({
                                </div>
                                <h2 className="text-2xl font-black italic uppercase tracking-tighter">{series.title}</h2>
                              </div>
-                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-550 pl-1">{plans.length} EPISODES GENERATED</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-550 pl-1">{plans.length} EPISODES GENERATED</p>
                            </div>
-                           <Link href={`/series/${sId}`}>
-                             <Button variant="outline" className="h-10 border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-white/10">
-                               Open Series Console
+                           <div className="flex items-center gap-3">
+                             <Button 
+                               onClick={() => handleDownloadAll(sId, plans)}
+                               disabled={isDownloadingAll[sId] || plans.filter(p => p.status === 'completed').length === 0}
+                               variant="outline" 
+                               className="h-10 border-blue-500/20 bg-blue-500/5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500/10 text-blue-400 gap-2"
+                             >
+                               {isDownloadingAll[sId] ? (
+                                 <>
+                                   <Loader2 className="size-3.5 animate-spin" />
+                                   Downloading...
+                                 </>
+                               ) : (
+                                 <>
+                                   <Download className="size-3.5" />
+                                   Download All Episodes
+                                 </>
+                               )}
                              </Button>
-                           </Link>
+                             <Link href={`/series/${sId}`}>
+                               <Button variant="outline" className="h-10 border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-white/10">
+                                 Open Series Console
+                               </Button>
+                             </Link>
+                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                           {plans.map((plan) => (

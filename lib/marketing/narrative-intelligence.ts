@@ -879,11 +879,11 @@ OUTPUT JSON ONLY:
   }
 }
 
-export async function generateSeriesSeasonPlot(input: SeriesNarrativeInput, episodeCount: number = 3): Promise<string> {
+export async function generateSeriesSeasonPlot(input: SeriesNarrativeInput, episodeCount: number = 3): Promise<{ seriesTitle: string, megaPrompt: string, episodes: Array<{ title: string, script: string, episodeNumber: number }> }> {
   const prompt = `
-You are a Lead Showrunner and Screenwriter. Your task is to generate a compelling ${episodeCount}-episode "Series Mega-Prompt" based on a Story Architecture.
+You are a Lead Showrunner and Screenwriter. Your task is to generate a compelling ${episodeCount}-episode "Series Architecture" based on a Story Foundation.
 
-STORY ARCHITECTURE:
+STORY FOUNDATION:
 - Genre: ${input.genre}
 - World: ${input.worldSetting}
 - Conflict: ${input.conflictType}
@@ -893,33 +893,113 @@ STORY ARCHITECTURE:
 - Visual Style: ${input.visualStyle}
 
 TASK:
-Generate a structured narrative arc for a mini-series of EXACTLY ${episodeCount} episodes.
-The output should be a "Mega-Prompt" that describes the series premise and gives a specific 2-3 sentence summary for EACH episode.
+1. Generate an overarching "Mega-Prompt" (premise & style guide) for the series.
+2. Generate specific metadata for EXACTLY ${episodeCount} episodes.
+3. Each episode needs a title and a "Beat-Script" (2-3 sentences of what specifically happens).
 
-STRUCTURE YOUR RESPONSE LIKE THIS:
-Create a ${episodeCount}-episode series about [Premise].
-
-${Array.from({ length: episodeCount }).map((_, i) => `Episode ${i + 1}: [Specific plot events happen here...]`).join('\n')}
-
-Style: [Keep it consistent with visual style]
-Tone: [Keep it consistent with tone]
+OUTPUT JSON ONLY:
+{
+  "seriesTitle": "A high-impact, catchy 3-5 word title for the series",
+  "megaPrompt": "The high-level series premise and production guide...",
+  "episodes": [
+    {
+      "title": "Episode 1 Title",
+      "script": "Beat/Premise for Episode 1...",
+      "episodeNumber": 1
+    },
+    ...
+  ]
+}
 
 RULES:
 - Be creative. Don't be generic.
 - Ensure there is clear progression between episodes.
-- Episode descriptions must be action-oriented (what we see and hear).
-- The total response should be between 300 and 800 words.
-
-Return ONLY the text of the mega-prompt. No intro/outro.
+- Episode descriptions must be action-oriented.
+- megaPrompt should be 200-500 words.
 `;
 
   const { text } = await generateText(
     prompt,
-    "You are a creative showrunner. Write a compelling series plot.",
+    "You are a creative showrunner. Write a compelling series plot. Output JSON only.",
     "gemini-1.5-pro",
     0.8
   );
 
-  return text.trim();
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    return JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    console.error("Failed to parse series season plot:", text);
+    throw new Error("Failed to generate structured season plot");
+  }
 }
+
+export async function evolveSeriesNarrative(
+  current: SeriesNarrativeInput,
+  insight: string
+): Promise<SeriesNarrativeInput> {
+  const prompt = `
+You are a master series architect and "story brain". Your job is to EVOLVE a series narrative (story architecture) based on new insights discovered during a creative brainstorming session.
+
+CURRENT STORY ARCHITECTURE:
+- Genre: ${current.genre}
+- World Setting: ${current.worldSetting}
+- Conflict Type: ${current.conflictType}
+- Protagonist Archetype: ${current.protagonistArchetype}
+- Central Theme: ${current.centralTheme}
+- Narrative Tone: ${current.narrativeTone}
+- Visual Style: ${current.visualStyle}
+- Episode Hooks: ${current.episodeHooks}
+
+NEW INSIGHT / CREATIVE DISCOVERY:
+"${insight}"
+
+TASK:
+Refine the story architecture fields. 
+1. Incorporate the new insight to make the world, characters, or conflict more compelling and specific.
+2. Do not delete established core facts, but sharpen them. 
+3. If the insight suggests a better "World Rule" or "Visual Style" detail, bake it into the descriptions.
+4. Keep the text punchy, creative, and evocative.
+
+OUTPUT JSON ONLY (SeriesNarrativeInput structure):
+{
+  "genre": "...",
+  "worldSetting": "...",
+  "conflictType": "...",
+  "protagonistArchetype": "...",
+  "centralTheme": "...",
+  "narrativeTone": "...",
+  "visualStyle": "...",
+  "episodeHooks": "..."
+}
+`;
+
+  const { text: response } = await generateText(
+    prompt,
+    "You are a series architect. Distill insights to evolve the story brain. Output JSON only.",
+    "gemini-1.5-pro",
+    0.6
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const result = JSON.parse(jsonMatch[0]);
+    return {
+      genre: result.genre || current.genre,
+      worldSetting: result.worldSetting || current.worldSetting,
+      conflictType: result.conflictType || current.conflictType,
+      protagonistArchetype: result.protagonistArchetype || current.protagonistArchetype,
+      centralTheme: result.centralTheme || current.centralTheme,
+      narrativeTone: result.narrativeTone || current.narrativeTone,
+      visualStyle: result.visualStyle || current.visualStyle,
+      episodeHooks: result.episodeHooks || current.episodeHooks,
+    };
+  } catch (e) {
+    console.error("Failed to evolve series narrative:", response);
+    return current; // Fallback to current
+  }
+}
+
 

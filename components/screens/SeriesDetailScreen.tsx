@@ -12,9 +12,10 @@ import type { SeriesWithEpisodes, Episode } from "@/lib/types";
 import { DirectorChat } from "@/components/narrative/DirectorChat";
 import { SeriesCanvas } from "@/components/series/SeriesCanvas";
 import { toast } from "sonner";
+import { updateSeriesField, generateSeasonPlotAction } from "@/app/actions/marketing";
 import { MediaScreen } from "@/components/screens/MediaScreen";
 import { EpisodeDetailView } from "@/components/series/EpisodeDetailView";
-import { Loader2, ArrowLeft, Film } from "lucide-react";
+import { Loader2, ArrowLeft, Film, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { WarRoomLayout } from "@/components/layout/WarRoomLayout";
@@ -31,6 +32,8 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(urlEpisodeId);
   const [episodeProgress, setEpisodeProgress] = useState<Record<string, EpisodeProgress>>({});
   const [showProductionOverlay, setShowProductionOverlay] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState("");
   const isMediaView = searchParams.get("type") === "media";
 
   // Sync with URL
@@ -277,6 +280,37 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     }
   };
 
+  const handleTitleClick = () => {
+    setTempTitle(seriesData?.title || "");
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleSubmit = async () => {
+    if (!tempTitle.trim() || tempTitle === seriesData?.title) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    if (!user?.id) return;
+
+    try {
+      const promise = updateSeriesField(seriesId, 'title', tempTitle, user.id);
+      setIsEditingTitle(false);
+      
+      toast.promise(promise, {
+        loading: 'Saving title...',
+        success: 'Series title updated.',
+        error: 'Failed to update title.'
+      });
+    } catch (err) {
+      console.error("Failed to submit title:", err);
+    }
+  };
+
+  const handleTitleCancel = () => {
+    setIsEditingTitle(false);
+  };
+
   if (isInitialLoading || isSeriesLoading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
@@ -301,42 +335,72 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
     );
   }
 
+  const handleGenerateSeasonPlot = async () => {
+    if (!seriesNarrativeId) return;
+    const promise = generateSeasonPlotAction(seriesNarrativeId, seriesData?.episodeCount || 3);
+    toast.promise(promise, {
+      loading: "Generating Master Season Plot...",
+      success: "Season Plot synchronized with Production Console.",
+      error: "Failed to generate season plot."
+    });
+    try {
+      await promise;
+    } catch (e) {}
+  };
+
   const headerTitle = (
     <div className="flex items-center gap-3">
       <div className="size-6 rounded-lg bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
         <Film className="size-3 text-amber-500" />
       </div>
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-0 flex-1">
         <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500 leading-none mb-0.5">Series Strategy</span>
-        <span className="text-[11px] font-black text-white leading-none italic truncate max-w-[200px]">{seriesData.title}</span>
+        {isEditingTitle ? (
+          <input
+            autoFocus
+            type="text"
+            value={tempTitle}
+            onChange={(e) => setTempTitle(e.target.value)}
+            onBlur={handleTitleSubmit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleTitleSubmit();
+              if (e.key === 'Escape') handleTitleCancel();
+            }}
+            className="bg-white/5 border border-blue-500/50 rounded px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider outline-none w-full max-w-[300px]"
+          />
+        ) : (
+          <span 
+            onClick={handleTitleClick}
+            className="text-[11px] font-black text-white leading-none italic truncate max-w-[200px] cursor-pointer hover:text-blue-400 transition-colors group flex items-center gap-2"
+          >
+            {seriesData.title}
+            <span className="opacity-0 group-hover:opacity-100 material-symbols-outlined text-[10px]">edit</span>
+          </span>
+        )}
       </div>
     </div>
   );
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      {isMediaView ? (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={() => router.push(`/series/${seriesId}${isMediaView ? '' : '?type=media'}`)}
+        className="h-7 px-3 rounded-xl border-white/10 bg-white/5 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/10 gap-1.5"
+      >
+        <LayoutGrid className="size-3 text-blue-500" />
+        {isMediaView ? "Planning" : "Assets"}
+      </Button>
+      {!isMediaView && seriesData.episodes?.some((e: Episode) => e.status === 'generating' || e.status === 'failed') && (
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => router.push(`/series/${seriesId}`)}
-          className="h-7 px-3 rounded-xl border-white/10 bg-white/5 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/10"
+          onClick={() => setShowProductionOverlay(true)}
+          className="h-7 px-3 rounded-xl border-blue-500/20 bg-blue-500/5 text-blue-400 text-[9px] font-black uppercase tracking-widest hover:bg-blue-500/10 animate-pulse"
         >
-          Planning
+          Pulse
         </Button>
-      ) : (
-        <>
-          {seriesData.episodes?.some((e: Episode) => e.status === 'generating' || e.status === 'failed') && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowProductionOverlay(true)}
-              className="h-7 px-3 rounded-xl border-blue-500/20 bg-blue-500/5 text-blue-400 text-[9px] font-black uppercase tracking-widest hover:bg-blue-500/10 animate-pulse"
-            >
-              Pulse
-            </Button>
-          )}
-        </>
       )}
     </div>
   );
@@ -376,6 +440,7 @@ export function SeriesDetailScreen({ seriesId }: SeriesDetailScreenProps) {
                   }}
                   episodeProgress={episodeProgress}
                   onGenerateEpisode={handleGenerateEpisode}
+                  onGenerateSeasonPlot={handleGenerateSeasonPlot}
                 />
               )}
             </div>

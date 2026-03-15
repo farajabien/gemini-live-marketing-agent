@@ -11,6 +11,7 @@ import { useGenerateStore } from "@/hooks/use-generate-store";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { MessageBlueprint } from "./chat/MessageBlueprint";
+import { generateSeasonPlotAction } from "@/app/actions/marketing";
 
 interface DirectorChatProps {
   narrativeId: string;
@@ -21,7 +22,7 @@ interface DirectorChatProps {
 }
 
 export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, className }: DirectorChatProps) {
-  const { user, getFreshToken } = useAuth();
+  const { user, refreshToken } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const [isConnected, setIsConnected] = useState(false);
@@ -34,9 +35,10 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
 
 
   // Firestore Data
-  const { data: narrative } = useDocument('narratives', narrativeId);
+  const collectionName = seriesId ? 'seriesNarratives' : 'narratives';
+  const { data: narrative } = useDocument(collectionName, narrativeId);
   const { data: persistentMessages, isLoading: isLoadingHistory } = useCollection(
-    `narratives/${narrativeId}/chat_messages`,
+    `${collectionName}/${narrativeId}/chat_messages`,
     { orderBy: [{ field: 'createdAt', direction: 'asc' }] }
   );
 
@@ -49,6 +51,9 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
     id: narrativeId,
     transport: new DefaultChatTransport({
       api: `/api/narrative/${narrativeId}/chat`,
+      headers: {
+        Authorization: `Bearer ${refreshToken}`,
+      },
     }),
     onData: (data: any) => {
       if ((data as any).type === 'thinking') {
@@ -125,7 +130,8 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
 
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading && isConnected) {
+    if (input.trim() && !isLoading) {
+      if (!isConnected) setIsConnected(true);
       const currentInput = input;
       setInput("");
       try {
@@ -139,6 +145,28 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
 
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
+  };
+
+  const brainHealth = useMemo(() => {
+    if (!narrative) return 0;
+    const fields = ['genre', 'worldSetting', 'conflictType', 'protagonistArchetype', 'centralTheme', 'narrativeTone', 'visualStyle', 'episodeHooks'];
+    const filled = fields.filter(f => narrative[f] && (narrative[f] as string).length > 5).length;
+    return (filled / fields.length) * 100;
+  }, [narrative]);
+
+  const canGeneratePlot = (brainHealth >= 30 || narrative?.logline) && !narrative?.megaPrompt && seriesId;
+
+  const handleGenerateSeasonPlot = async () => {
+    if (!narrativeId) return;
+    const promise = generateSeasonPlotAction(narrativeId, 3);
+    toast.promise(promise, {
+      loading: "Architecting Master Season Plot...",
+      success: "Season Plot synchronized with Production Console.",
+      error: "Failed to generate season plot."
+    });
+    try {
+      await promise;
+    } catch (e) {}
   };
 
   return (
@@ -236,13 +264,12 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
           <input 
             value={input}
             onChange={onInputChange}
-            disabled={!isConnected}
-            placeholder={isConnected ? "Direct the intelligence..." : "Wake up to start session..."}
+            placeholder="Direct the intelligence..."
             className="w-full bg-white/[0.04] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] rounded-2xl px-6 py-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all pr-12"
           />
           <button 
             type="submit"
-            disabled={!input.trim() || isLoading || !isConnected}
+            disabled={!input.trim() || isLoading}
             className="absolute right-2 top-2 size-10 rounded-xl bg-blue-600 flex items-center justify-center text-white disabled:opacity-20 transition-all hover:scale-105"
           >
             <ChevronRight className="size-5" />
@@ -255,10 +282,21 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
               <PlayCircle className="size-3" />
               Generate Angle
             </button>
-            <button type="button" className="hover:text-amber-500 transition-colors flex items-center gap-2">
-              <Brain className="size-3" />
-              Extraction Profile
-            </button>
+            {canGeneratePlot ? (
+              <button 
+                type="button" 
+                onClick={handleGenerateSeasonPlot}
+                className="text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-2 animate-pulse bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 shadow-lg shadow-amber-500/10"
+              >
+                <Sparkles className="size-3 fill-current" />
+                <span className="text-[10px] font-black italic">Generate Master Plot</span>
+              </button>
+            ) : (
+              <button type="button" className="hover:text-amber-500 transition-colors flex items-center gap-2">
+                <Brain className="size-3" />
+                Extraction Profile
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 opacity-10">
              <Activity className="size-3" />

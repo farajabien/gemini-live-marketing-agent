@@ -7,7 +7,7 @@ import { useState } from "react";
 import { LOGO } from "@/lib/branding";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { initializeDraftNarrative } from "@/app/actions/marketing";
+import { initializeDraftNarrative, initializeDraftSeriesAction } from "@/app/actions/marketing";
 import { toast } from "sonner";
 
 // shadcn UI
@@ -158,26 +158,49 @@ export function GlobalHeader({
                   </CommandGroup>
 
                   <CommandGroup className="border-t border-white/5 mt-1 pt-1">
-                    <CommandItem
-                      value="new-narrative"
-                      onSelect={async () => {
-                        if (isCreatingGlobal) return;
-                        setIsCreatingGlobal(true);
-                        setSwitcherOpen(false);
-                        try {
-                          const { narrativeId: nid } = await initializeDraftNarrative(user?.id || "");
-                          router.push(`/narrative/${nid}`);
-                        } catch (e) {
-                          toast.error("Failed to start project");
-                        } finally {
-                          setIsCreatingGlobal(false);
-                        }
-                      }}
-                      className="flex items-center gap-3 cursor-pointer py-3 px-4 text-red-500 font-black uppercase tracking-[0.2em] text-[10px] focus:bg-red-600/10 rounded-lg mx-1"
-                    >
-                      <PlusCircle className="size-4" />
-                      <span>{isCreatingGlobal ? "Initializing..." : "New Narrative"}</span>
-                    </CommandItem>
+                    <div className="grid grid-cols-2 gap-2 p-1">
+                      <CommandItem
+                        value="new-narrative"
+                        onSelect={async () => {
+                          if (isCreatingGlobal) return;
+                          setIsCreatingGlobal(true);
+                          setSwitcherOpen(false);
+                          try {
+                            const { narrativeId: nid } = await initializeDraftNarrative(user?.id || "");
+                            router.push(`/narrative/${nid}`);
+                          } catch (e) {
+                            toast.error("Failed to start project");
+                          } finally {
+                            setIsCreatingGlobal(false);
+                          }
+                        }}
+                        className="flex items-center gap-3 cursor-pointer py-3 px-4 text-red-500 font-black uppercase tracking-widest text-[9px] focus:bg-red-600/10 rounded-xl"
+                      >
+                        <PlusCircle className="size-4" />
+                        <span>{isCreatingGlobal ? "..." : "New Project"}</span>
+                      </CommandItem>
+
+                      <CommandItem
+                        value="new-series"
+                        onSelect={async () => {
+                          if (isCreatingGlobal) return;
+                          setIsCreatingGlobal(true);
+                          setSwitcherOpen(false);
+                          try {
+                            const { seriesId } = await initializeDraftSeriesAction(user?.id || "");
+                            router.push(`/series/${seriesId}`);
+                          } catch (e) {
+                            toast.error("Failed to start series");
+                          } finally {
+                            setIsCreatingGlobal(false);
+                          }
+                        }}
+                        className="flex items-center gap-3 cursor-pointer py-3 px-4 text-amber-500 font-black uppercase tracking-widest text-[9px] focus:bg-amber-600/10 rounded-xl"
+                      >
+                        <PlusCircle className="size-4" />
+                        <span>{isCreatingGlobal ? "..." : "New Series"}</span>
+                      </CommandItem>
+                    </div>
                   </CommandGroup>
                 </CommandList>
               </Command>

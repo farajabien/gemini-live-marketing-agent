@@ -668,6 +668,41 @@ export async function createSeriesNarrative(
   }
 }
 
+/**
+ * Update a specific field in a series narrative
+ */
+export async function updateSeriesField(
+  seriesId: string,
+  field: string,
+  value: string,
+  userId: string
+): Promise<void> {
+  try {
+    // 1. Fetch current series to track version history (optional but good for consistency)
+    const data = await adminDb.query({
+      seriesNarratives: { $: { where: { id: seriesId } } }
+    });
+
+    const series = (data as any).seriesNarratives?.[0];
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    // 2. Transact update
+    await adminDb.transact([
+      adminDb.tx.seriesNarratives[seriesId].update({
+        [field]: value,
+        updatedAt: Date.now(),
+      })
+    ]);
+
+    console.log(`✅ ${field} updated for series ${seriesId}`);
+  } catch (error: any) {
+    console.error(`Failed to update ${field} for series ${seriesId}:`, error);
+    throw error;
+  }
+}
+
 export async function refineSeriesNarrativeAction(
   seriesNarrativeId: string,
   feedback: string,
@@ -1066,10 +1101,112 @@ export async function generateSeasonPlotAction(seriesNarrativeId: string, episod
       episodeHooks: narrative.episodeHooks,
     };
 
-    return await generateSeriesSeasonPlot(input, episodeCount);
+    const { megaPrompt, episodes, seriesTitle } = await generateSeriesSeasonPlot(input, episodeCount);
+
+    // PERSIST: Find the series pointing to this narrative and update its megaPrompt
+    const seriesResults = await adminDb.query({
+      series: { $: { where: { seriesNarrativeId: seriesNarrativeId } } }
+    });
+    const s = (seriesResults as any).series?.[0];
+    
+    const updates: any[] = [
+      adminDb.tx.seriesNarratives[seriesNarrativeId].update({
+        megaPrompt: megaPrompt,
+        episodeCount: episodeCount,
+        updatedAt: Date.now(),
+      })
+    ];
+
+    if (s) {
+      // CLEAR: Find and delete existing episodes to avoid duplicates or stale data
+      const existingEpisodes = await adminDb.query({
+        episodes: { $: { where: { seriesId: s.id } } }
+      });
+      (existingEpisodes.episodes || []).forEach((ep: any) => {
+        updates.push(adminDb.tx.episodes[ep.id].delete());
+      });
+
+      updates.push(
+        adminDb.tx.series[s.id].update({
+          title: seriesTitle || s.title, // UPDATE: Better contextual title
+          megaPrompt: megaPrompt,
+          episodeCount: episodeCount,
+          status: "complete",
+          updatedAt: Date.now(),
+        })
+      );
+
+      // Create Episode Documents
+      episodes.forEach((epData) => {
+        const epId = id();
+        updates.push(
+          adminDb.tx.episodes[epId].set({
+            seriesId: s.id,
+            userId: s.userId, // INHERIT: Critical for security rules
+            episodeNumber: epData.episodeNumber,
+            title: epData.title,
+            script: epData.script,
+            status: "script_ready",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          })
+        );
+      });
+    }
+
+    await adminDb.transact(updates);
+
+    return megaPrompt;
   } catch (error: any) {
-    console.error("Failed to generate season plot:", error);
+    console.error("Failed to generate and persist season plot:", error);
     throw new Error(error.message || "Failed to generate season plot");
+  }
+}
+
+/**
+ * Quick-start action for series creation.
+ * Creates a minimal series and seriesNarrative record and returns the ID for immediate redirect.
+ */
+export async function initializeDraftSeriesAction(ownerId: string): Promise<{ seriesId: string }> {
+  try {
+    const seriesId = id();
+    const seriesNarrativeId = id();
+    const timestamp = Date.now();
+
+    await adminDb.transact([
+      // Create Series
+      adminDb.tx.series[seriesId].set({
+        userId: ownerId,
+        title: "Untitled Series",
+        status: "draft",
+        megaPrompt: "",
+        episodeCount: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        seriesNarrativeId,
+      }).link({ owner: ownerId }),
+
+      // Create Series Narrative (Story Architecture)
+      adminDb.tx.seriesNarratives[seriesNarrativeId].set({
+        userId: ownerId,
+        title: "Untitled Series Architecture",
+        genre: "",
+        worldSetting: "",
+        conflictType: "",
+        protagonistArchetype: "",
+        centralTheme: "",
+        narrativeTone: "",
+        visualStyle: "",
+        episodeHooks: "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }).link({ owner: ownerId }),
+    ]);
+
+    return { seriesId };
+  } catch (error: any) {
+    console.error("[Action] Failed to initialize draft series:", error);
+    throw new Error("Failed to initialize series");
   }
 }
 
@@ -1089,11 +1226,33 @@ export async function getDirectorPromptAction(type: 'narrative' | 'series', id: 
     if (!narrative) return "You are a Brand Brainstorming Director. Help the user clarify their strategy.";
 
     const context = type === 'narrative' 
-      ? `Brand: ${narrative.title}. Audience: ${narrative.audience}. Core Message: ${narrative.coreMessage}.`
-      : `Series: ${narrative.title}. Logline: ${narrative.logline}. Theme: ${narrative.centralTheme}.`;
+      ? `Brand: ${narrative.title || 'Untitled'}. Audience: ${narrative.audience || 'Unknown'}. Core Message: ${narrative.coreMessage || 'TBD'}.`
+      : `Series: ${narrative.title || 'Untitled'}. Logline: ${narrative.logline || 'TBD'}. Theme: ${narrative.centralTheme || 'TBD'}.`;
+
+    const fields = type === 'narrative' 
+      ? ['audience', 'currentState', 'problem', 'costOfInaction', 'solution', 'afterState', 'identityShift']
+      : ['genre', 'worldSetting', 'conflictType', 'protagonistArchetype', 'centralTheme', 'narrativeTone', 'visualStyle', 'episodeHooks'];
+      
+    const missingFields = fields.filter(f => !narrative[f] || (narrative[f] as string).length < 5);
+    const isDraft = missingFields.length > 3; // Arbitrary threshold for "Drafting" versus "Refining"
+
+    const canGeneratePlot = type === 'series' && !isDraft && !!narrative.logline;
 
     return `You are the Brainstorming Director for a high-end marketing agency. 
-Your goal is to talk with the user and help them refine their ${type}.
+Your goal is to talk with the user and help them ${isDraft ? 'DESIGN' : 'REFINE'} their ${type}.
+
+${isDraft ? `PHASE: BRAIN EXTRACTION. 
+The ${type} is currently a blank slate. You must lead the user through a high-fidelity brainstorming session. 
+Your goal is to extract enough information to fill these missing pillars: ${missingFields.join(', ')}.
+DO NOT ask for them all at once. Start with the most foundational questions (Who is it for? What is the visceral problem?).` : 
+canGeneratePlot ? `PHASE: CINEMATIC SEASON PLOTTING.
+The story foundation is solid. Help the user weave the episode hooks into a Master Season Plot.
+Explain that once they are happy with the arc, they should click the "Generate Master Plot" button in your quick-actions bar.
+Explain that this will generate the "Mega-Prompt" that drives all cinematic production.
+Suggest specific twists or emotional peaks for the ${narrative.title || 'series'}, acting as a creative showrunner.` :
+`PHASE: STRATEGIC REFINEMENT.
+The core pillars are mostly established. Help the user sharpen the angles and prepare for production.`}
+
 Current Context: ${context}
 
 Be encouraging, critical but constructive, and always try to find the "villain" and "hero" in every story. 

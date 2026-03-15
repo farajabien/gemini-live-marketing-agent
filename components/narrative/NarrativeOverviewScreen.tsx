@@ -7,7 +7,7 @@ import { AuthScreen } from "@/components/screens/AuthScreen";
 import { DirectorChat } from "./DirectorChat";
 import { NarrativeCanvas } from "./NarrativeCanvas";
 import { updateNarrativeField, generateSmartTitleAction } from "@/app/actions/marketing";
-import { Activity, Sparkles } from "lucide-react";
+import { Activity, Sparkles, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
 import { MediaScreen } from "@/components/screens/MediaScreen";
@@ -160,6 +160,15 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
            >
              {isGeneratingTitle ? <Activity className="size-3 animate-spin" /> : <Sparkles className="size-3 text-red-500" />}
              Analysis
+           </Button>
+           <Button
+             variant="ghost"
+             size="sm"
+             onClick={() => router.push(`/narrative/${narrativeId}${isMediaView ? '' : '?type=media'}`)}
+             className="h-7 px-3 rounded-xl bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white hover:bg-white/5 gap-1.5"
+           >
+             <LayoutGrid className="size-3 text-blue-500" />
+             {isMediaView ? "Strategic" : "Assets"}
            </Button>
            <div className="h-4 w-px bg-white/10 mx-1" />
            <button 

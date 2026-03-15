@@ -12,12 +12,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StudioCard } from "@/components/dashboard/StudioCard";
-import { initializeDraftNarrative } from "@/app/actions/marketing";
+import { initializeDraftNarrative, initializeDraftSeriesAction } from "@/app/actions/marketing";
 import { toast } from "sonner";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { ContentCard } from "@/components/narrative/ContentCard";
 import { useGenerateStore } from "@/hooks/use-generate-store";
 import type { VideoPlan, Series, FounderNarrative, ContentPiece, ContentStatus } from "@/lib/types";
+import { Plus } from "lucide-react";
 
 export function DashboardScreen() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export function DashboardScreen() {
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
   const [isCreatingInDashboard, setIsCreatingInDashboard] = useState(false);
+  const [isCreatingSeries, setIsCreatingSeries] = useState(false);
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -200,101 +202,158 @@ export function DashboardScreen() {
           {/* Main Tabs */}
           <Tabs defaultValue="brand" className="w-full">
             <TabsList className="bg-white/5 border border-white/10 mb-6 h-12 p-1.5 rounded-2xl gap-2">
-            <TabsTrigger
-              value="brand"
-              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
-            >
-              <span className="material-symbols-outlined text-lg mr-2">token</span>
-              Projects
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-red-500/10 text-red-500 border-none px-2">{allNarratives.length}</Badge>
-            </TabsTrigger>
+              <TabsTrigger
+                value="brand"
+                className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
+              >
+                <span className="material-symbols-outlined text-lg mr-2">token</span>
+                Projects
+                <Badge variant="secondary" className="ml-2 text-[9px] bg-red-500/10 text-red-500 border-none px-2">{allNarratives.length}</Badge>
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="series"
-              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
-            >
-              <span className="material-symbols-outlined text-lg mr-2">auto_stories</span>
-              Series
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-blue-500/10 text-blue-500 border-none px-2">{allSeries.length}</Badge>
-            </TabsTrigger>
+              <TabsTrigger
+                value="series"
+                className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
+              >
+                <span className="material-symbols-outlined text-lg mr-2">auto_stories</span>
+                Series
+                <Badge variant="secondary" className="ml-2 text-[9px] bg-blue-500/10 text-blue-500 border-none px-2">{allSeries.length}</Badge>
+              </TabsTrigger>
 
-            <TabsTrigger
-              value="media"
-              className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
-            >
-              <span className="material-symbols-outlined text-lg mr-2">play_circle</span>
-              Media Library
-              <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length}</Badge>
-            </TabsTrigger>
+              <TabsTrigger
+                value="media"
+                className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"
+              >
+                <span className="material-symbols-outlined text-lg mr-2">play_circle</span>
+                Media Library
+                <Badge variant="secondary" className="ml-2 text-[9px] bg-purple-500/10 text-purple-500 border-none px-2">{allPlans.length}</Badge>
+              </TabsTrigger>
             </TabsList>
 
-            {/* 1. BRAND TAB */}
             <TabsContent value="brand" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            {allNarratives.length === 0 ? (
-              <EmptyState
-                icon="token"
-                title="Define your brand positioning"
-                description="Answer 10 questions about your startup. Get AI content that sounds like you."
-                action={
-                  <Button
-                    onClick={async () => {
-                      setIsCreatingInDashboard(true);
-                      try {
-                        const { narrativeId } = await initializeDraftNarrative(user.id);
-                        router.push(`/narrative/${narrativeId}`);
-                      } catch (e) {
-                        toast.error("Failed to start strategy");
-                      } finally {
-                        setIsCreatingInDashboard(false);
-                      }
-                    }}
-                    disabled={isCreatingInDashboard}
-                    className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20 rounded-full px-8 h-11"
-                  >
-                    {isCreatingInDashboard ? "Creating..." : "Create Strategy"}
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {allNarratives.map((narrative) => (
-                  <StudioCard
-                    key={narrative.id}
-                    variant="project"
-                    data={narrative}
-                  />
-                ))}
-              </div>
-            )}
+              {allNarratives.length === 0 ? (
+                <EmptyState
+                  icon="token"
+                  title="Define your brand positioning"
+                  description="Drop into the War Room. Talk to the Director to extract your core brand pillars."
+                  action={
+                    <Button
+                      onClick={async () => {
+                        setIsCreatingInDashboard(true);
+                        try {
+                          const { narrativeId } = await initializeDraftNarrative(user.id);
+                          router.push(`/narrative/${narrativeId}`);
+                        } catch (e) {
+                          toast.error("Failed to start strategy");
+                        } finally {
+                          setIsCreatingInDashboard(false);
+                        }
+                      }}
+                      disabled={isCreatingInDashboard}
+                      className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-red-500/20 rounded-full px-8 h-11"
+                    >
+                      {isCreatingInDashboard ? "Creating..." : "Create Strategy"}
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <>
+                    <button
+                      onClick={async () => {
+                        setIsCreatingInDashboard(true);
+                        try {
+                          const { narrativeId } = await initializeDraftNarrative(user.id);
+                          router.push(`/narrative/${narrativeId}`);
+                        } catch (e) {
+                          toast.error("Failed to start strategy");
+                        } finally {
+                          setIsCreatingInDashboard(false);
+                        }
+                      }}
+                      disabled={isCreatingInDashboard}
+                      className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-white/5 bg-white/[0.02] p-8 transition-all hover:bg-white/5 hover:border-red-600/50 group h-full min-h-[200px]"
+                    >
+                      <div className="size-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-red-600/20 group-hover:text-red-500 transition-colors">
+                        <Plus className="size-6 text-white/20 group-hover:text-red-500" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white">New Strategy</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-1">Engineer a brand</p>
+                      </div>
+                    </button>
+                    {allNarratives.map((narrative) => (
+                      <StudioCard
+                        key={narrative.id}
+                        variant="project"
+                        data={narrative}
+                      />
+                    ))}
+                  </>
+                </div>
+              )}
             </TabsContent>
 
-            {/* 2. SERIES TAB */}
             <TabsContent value="series" className="animate-in fade-in slide-in-from-bottom-4 duration-500 outline-none">
-            {allSeries.length === 0 ? (
-              <EmptyState
-                icon="auto_stories"
-                title="Your storylines start here"
-                description="Create episodic content series with a consistent persona and visual identity."
-                action={
-                  <Button
-                    onClick={() => router.push("/series")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/20 rounded-full px-8 h-11"
-                  >
-                    Go to Series Hub
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {allSeries.map((s) => (
-                  <StudioCard
-                    key={s.id}
-                    variant="series"
-                    data={s}
-                  />
-                ))}
-              </div>
-            )}
+              {allSeries.length === 0 ? (
+                <EmptyState
+                  icon="auto_stories"
+                  title="Your storylines start here"
+                  description="Talk to the Director to engineer your episodic content series from scratch."
+                  action={
+                    <Button
+                      onClick={async () => {
+                        setIsCreatingSeries(true);
+                        try {
+                          const { seriesId } = await initializeDraftSeriesAction(user.id);
+                          router.push(`/series/${seriesId}`);
+                        } catch (e) {
+                          toast.error("Failed to start series");
+                          setIsCreatingSeries(false);
+                        }
+                      }}
+                      disabled={isCreatingSeries}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-500/20 rounded-full px-8 h-11"
+                    >
+                      {isCreatingSeries ? "Creating..." : "Create Series"}
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <>
+                    <button
+                      onClick={async () => {
+                        setIsCreatingSeries(true);
+                        try {
+                          const { seriesId } = await initializeDraftSeriesAction(user.id);
+                          router.push(`/series/${seriesId}`);
+                        } catch (e) {
+                          toast.error("Failed to start series");
+                          setIsCreatingSeries(false);
+                        }
+                      }}
+                      disabled={isCreatingSeries}
+                      className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-white/5 bg-white/[0.02] p-8 transition-all hover:bg-white/5 hover:border-blue-600/50 group h-full min-h-[200px]"
+                    >
+                      <div className="size-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-blue-600/20 group-hover:text-blue-500 transition-colors">
+                        <Plus className="size-6 text-white/20 group-hover:text-blue-500" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white">New Series</p>
+                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-1">Design a storyline</p>
+                      </div>
+                    </button>
+                    {allSeries.map((s) => (
+                      <StudioCard
+                        key={s.id}
+                        variant="series"
+                        data={s}
+                      />
+                    ))}
+                  </>
+                </div>
+              )}
             </TabsContent>
 
             {/* 3. MEDIA TAB */}
