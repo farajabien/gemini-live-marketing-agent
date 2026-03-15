@@ -12,6 +12,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { MessageBlueprint } from "./chat/MessageBlueprint";
 import { generateSeasonPlotAction } from "@/app/actions/marketing";
+import { StrategicPulse } from "./StrategicPulse";
 
 interface DirectorChatProps {
   narrativeId: string;
@@ -149,6 +150,10 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
 
   const brainHealth = useMemo(() => {
     if (!narrative) return 0;
+    const scores = narrative.narrativeStrength;
+    if (scores?.overallScore !== undefined) return scores.overallScore;
+    
+    // Fallback logic
     const fields = ['genre', 'worldSetting', 'conflictType', 'protagonistArchetype', 'centralTheme', 'narrativeTone', 'visualStyle', 'episodeHooks'];
     const filled = fields.filter(f => narrative[f] && (narrative[f] as string).length > 5).length;
     return (filled / fields.length) * 100;
@@ -201,6 +206,13 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
           </Button>
         )}
       </div>
+
+      {/* Strategic Pulse Overlay / Header Section */}
+      {isConnected && (
+        <div className="px-6 py-4 bg-secondary/20 border-b border-border/50 animate-in fade-in slide-in-from-top-4">
+          <StrategicPulse narrative={narrative} />
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar relative px-6 py-8">

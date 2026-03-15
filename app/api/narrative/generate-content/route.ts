@@ -15,7 +15,9 @@ const GENERATE_CONTENT_PROMPT = (
   format: string = "linkedin-post",
   batchSize: number = 3,
   preferredAngle?: string,
-  existingContent: Array<{ hook: string; title: string }> = []
+  existingContent: Array<{ hook: string; title: string }> = [],
+  patterns: any[] = [],
+  seeds: any[] = []
 ) => {
   const formatDescriptions: Record<string, string> = {
     "linkedin-post": "LinkedIn posts (150-300 words, punchy, scannable, line breaks).",
@@ -47,6 +49,12 @@ ${narrative.problemStatement}
 ## Available Narrative Angles:
 ${narrative.narrativeAngles.map((a, i) => `${i + 1}. ${a}`).join("\n")}
 
+## Strategic Content Seeds:
+${seeds.length > 0 ? seeds.map((s, i) => `${i + 1}. ${s.topic} (${s.pillar}) - ${s.angle}`).join("\n") : "None yet. Generate based on narrative angles."}
+
+## Proven Viral Patterns Library:
+${patterns.length > 0 ? patterns.map((p, i) => `${i + 1}. ${p.name}: ${p.structure.join(" -> ")} (Score: ${p.successScore})`).join("\n") : "Standard TikTok High-Velocity Format."}
+
 ---
 
 ${angleFocus}
@@ -57,6 +65,11 @@ Generate ${batchSize} DIFFERENT content pieces in the "${format}" format. Each p
 3. Match the founder voice: ${narrative.founderVoice}
 4. End naturally — no forced CTAs unless contextual
 5. Feel like a real founder sharing genuine insight, NOT marketing
+
+## Phase 3 & 4: Blueprints & Viral Patterns
+CRITICAL: For each piece, generate a **VIDEO BLUEPRINT** and a **SCRIPT**.
+- Use the **Proven Viral Patterns** provided above to structure the script.
+- Combine the **Content Seed** with a **Viral Pattern** and a **Hook Pattern** (Contrarian, Mistake, Hidden Truth).
 
 ${existingContent.length > 0 ? `
 ## IMPORTANT: Avoid Repeating Past Content
@@ -84,10 +97,21 @@ Return ONLY valid JSON:
 {
   "pieces": [
     {
-      "title": "Short descriptive title for internal reference",
-      "hook": "The opening line that stops the scroll",
-      "body": "The full content text including the hook. For threads, use 'Tweet 1: ... Tweet 2: ...' format within the body.",
-      "angle": "Which narrative angle this uses",
+      "title": "Short descriptive title",
+      "hook": "The opening line",
+      "blueprint": {
+        "topic": "...",
+        "hook": "...",
+        "format": "TikTok Video",
+        "pacing": "Fast cut start",
+        "visualStyle": "Dark mode / high contrast",
+        "patternInterrupt": "...",
+        "curiosityLoops": ["...", "..."],
+        "callToAction": "...",
+        "expectedEmotion": "..."
+      },
+      "body": "The full script with visual cues in brackets [Visual: ...]",
+      "angle": "...",
       "format": "${format}"
     }
   ]
@@ -216,7 +240,9 @@ export async function POST(request: NextRequest) {
               format,
               count,
               preferredAngle,
-              existingContent
+              existingContent,
+              narrative.patternLibrary || [],
+              narrative.seeds || []
             ),
             "You are a JSON generator. Respond with ONLY valid JSON.",
             "gemini-2.0-flash",
@@ -232,6 +258,7 @@ export async function POST(request: NextRequest) {
         let pieces: Array<{
           title: string;
           hook: string;
+          blueprint?: any;
           body: string;
           angle: string;
           format: string;
@@ -268,6 +295,7 @@ export async function POST(request: NextRequest) {
               title: piece.title,
               body: piece.body,
               hook: piece.hook,
+              blueprint: piece.blueprint || null,
               angle: piece.angle,
               format: (piece.format || format) as any,
               status: "suggested",

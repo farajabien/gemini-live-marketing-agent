@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { StrengthGauge } from "./StrengthGauge";
-import { LayoutGrid, Target, Sparkles, Activity, Brain, FileText, Play, PlusCircle } from "lucide-react";
+import { LayoutGrid, Target, Sparkles, Activity, Brain, FileText, Play, PlusCircle, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
-import { VideoPlan } from "@/lib/types";
+import { VideoPlan, ViralPattern, ContentSeed } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PatternLibrary } from "./PatternLibrary";
 
 interface NarrativeCanvasProps {
   narrative: any;
@@ -15,6 +16,7 @@ interface NarrativeCanvasProps {
   isGeneratingTitle?: boolean;
   onGenerateSmartTitle?: () => void;
   onUpdateField?: (field: string, value: string) => void;
+  onSelectPattern?: (pattern: ViralPattern) => void;
 }
 
 export function NarrativeCanvas({ 
@@ -22,7 +24,8 @@ export function NarrativeCanvas({
   videoPlans, 
   isGeneratingTitle, 
   onGenerateSmartTitle,
-  onUpdateField
+  onUpdateField,
+  onSelectPattern
 }: NarrativeCanvasProps) {
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
   const [pulseField, setPulseField] = useState<string | null>(null);
@@ -148,6 +151,49 @@ export function NarrativeCanvas({
                    <p className="text-[11px] text-foreground italic font-black leading-tight pl-1 drop-shadow-md">{positioning?.mechanism || "Not defined yet..."}</p>
                 </div>
               </div>
+          </div>
+
+          {/* Viral Pattern Engine */}
+          <div className="pt-4 border-t border-border/50">
+            <PatternLibrary 
+              patterns={narrative?.patternLibrary || []} 
+              onSelect={onSelectPattern || (() => {})} 
+              activeId={narrative?.activePatternId}
+            />
+          </div>
+
+          {/* Content Seeds */}
+          <div className="space-y-4 pt-4 border-t border-border/50">
+            <div className="flex items-center justify-between px-2">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground/80 leading-none mb-1">Content Seeds</h3>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Strategic Generation Anchors</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2">
+              {(narrative?.seeds || []).length === 0 ? (
+                <div className="p-6 rounded-[2rem] bg-secondary/10 border border-dashed border-border flex flex-col items-center text-center">
+                  <Sparkles className="size-4 text-muted-foreground/30 mb-2" />
+                  <p className="text-[9px] font-medium text-muted-foreground italic">Seeds emerge from strategy sessions...</p>
+                </div>
+              ) : (
+                (narrative?.seeds as ContentSeed[]).map(seed => (
+                  <div key={seed.id} className="p-3 rounded-2xl bg-secondary/30 border border-border/50 flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
+                      <div>
+                        <p className="text-[10px] font-black text-foreground uppercase tracking-wider">{seed.topic}</p>
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase">{seed.pillar}</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight className="size-3" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           {/* Media Archive */}

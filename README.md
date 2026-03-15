@@ -260,7 +260,7 @@ Currently, the local rendering approach is optimized for cost-effectiveness whil
 
 ### 1. Clone & Install
 ```bash
-git clone <repo-url>
+git clone https://github.com/farajabien/gemini-live-marketing-agent
 cd gemini-live-marketing-agent
 pnpm install
 ```
@@ -289,10 +289,13 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n
 # Google Gemini API
 GEMINI_API_KEY=your_gemini_api_key_here
 
-# PayPal Configuration
+# PayPal Configuration (for Pro and Pro Max subscriptions)
 PAYPAL_CLIENT_ID=your_paypal_client_id_here
 PAYPAL_CLIENT_SECRET=your_paypal_client_secret_here
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=your_paypal_client_id_here
+
+# Hackathon Access Code (for instant Pro Max upgrade)
+NEXT_PUBLIC_HACKATHON_ACCESS_CODE=your_access_code_here
 ```
 
 **Note:** Remotion requires Chrome/Chromium to be installed on your system for video generation.
@@ -351,7 +354,54 @@ curl http://localhost:3000/api/admin/create-test-user \
 7. **Generate final video**: Should use clip concatenation pipeline
 8. **Download & verify**: Video should have smooth motion (no static images)
 
-...existing code...
+## 🧪 Reproducible Testing Guide for Judges
+
+To verify the "IdeaToVideo" Creator OS and its production pipeline:
+
+### 1. Environment Setup
+Ensure your `.env.local` contains valid **Vertex AI** and **Firebase** credentials as specified in the "Environment Variables" section.
+
+### 2. Fast-Track Testing (Admin Endpoint)
+We provide an admin endpoint to bypass the subscription flow for judging:
+```bash
+# Create a 'Pro Max' test account to access Veo and high-res visuals
+curl -X POST http://localhost:3000/api/admin/create-test-user \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: your_admin_secret" \
+  -d '{
+    "email": "judge@hackathon.com",
+    "planId": "pro_max",
+    "displayName": "Hackathon Judge"
+  }'
+
+# ALTERNATIVE: Use the Hackathon Access Code
+# 1. Sign in normally.
+# 2. Click on your Profile (Top Right).
+# 3. Enter the NEXT_PUBLIC_HACKATHON_ACCESS_CODE in the 'Hackathon Access' field.
+# 4. Your account is instantly upgraded to Pro Max.
+```
+
+### 3. Step-by-Step Verification Flow
+1. **Strategic Extraction**: Launch the app and complete the 8-step Narrative Wizard. Verify that Gemini extracts a "Villain," "Hero," and "Strategic Pulse" metrics.
+2. **War Room Intelligence**: Open the "War Room" for your new project. Send a message to the Director Chat (e.g., "I want to talk about the hidden cost of manual video editing"). Verify that **Viral Patterns** and **Content Seeds** appear in the sidebars in real-time.
+3. **Blueprint Generation**: Click a "Content Seed" and select "Generate Video Blueprint."
+4. **Production Studio**: Click "Initiate Video Production." Observe the 4-stage pipeline:
+   - Stage 1: **Visuals** (Gemini 3 Pro + Veo)
+   - Stage 2: **Audio** (Gemini TTS)
+   - Stage 3: **Orchestration** (Firebase state management)
+   - Stage 4: **Render** (Remotion/FFmpeg)
+5. **Learning Loop**: After generation, check the `Video Memory` library to see if the system has scored the pattern based on the blueprint depth.
+
+---
+
+## ☁️ Google Cloud Integration Proof
+
+As required for the **Gemini Live Agent Challenge**, here are the primary files demonstrating high-fidelity use of Google Cloud and Vertex AI:
+
+1.  **Multi-Model Orchestration**: [lib/ai/gemini-client.ts](file:///Users/farajabien/Desktop/ahh work/personal/gemini-live-marketing-agent/lib/ai/gemini-client.ts) — Shows dynamic mapping between Gemini 1.5 Pro and Gemini 2.0 Flash.
+2.  **Visual Studio (Imagen/Veo)**: [app/api/generate-visuals/route.ts](file:///Users/farajabien/Desktop/ahh work/personal/gemini-live-marketing-agent/app/api/generate-visuals/route.ts) — Direct integration with `gemini-3-pro-image-preview` and `veo-3.1-generate-preview`.
+3.  **Speech Engine**: [app/api/generate-audio/route.ts](file:///Users/farajabien/Desktop/ahh work/personal/gemini-live-marketing-agent/app/api/generate-audio/route.ts) — Implementation of Gemini TTS for studio-grade voiceovers.
+4.  **Strategic Evolution**: [lib/marketing/narrative-intelligence.ts](file:///Users/farajabien/Desktop/ahh work/personal/gemini-live-marketing-agent/lib/marketing/narrative-intelligence.ts) — Complex prompt engineering for real-time strategy extraction.
 
 ## 📄 Documentation
 

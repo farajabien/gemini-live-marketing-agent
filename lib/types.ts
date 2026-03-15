@@ -354,83 +354,121 @@ export type NarrativeStatus = "wizard" | "active" | "archived";
 export type ContentFormat = "linkedin-post" | "x-post" | "thread" | "short-video" | "long-video" | "carousel" | "tiktok-video" | "tiktok-carousel" | "blog-post" | "youtube-long" | "youtube-short" | "instagram-reel";
 export type ContentStatus = "suggested" | "approved" | "rejected" | "edited" | "published";
 
+// === TikTok Intelligence Graph (Total Capture) ===
+export interface ViralityPrimitives {
+  hooks?: string[];
+  patternInterrupts?: string[];
+  debateTriggers?: string[];
+  curiosityMechanisms?: string[];
+  relatabilityMoments?: string[];
+}
+
+export interface ContentFormatTemplate {
+  name: string;
+  duration: string;
+  structure: string[];
+  pacingPattern?: string;
+  visualStyle?: string;
+  emotionalArc?: string;
+}
+
+export interface AudiencePsychology {
+  painPoints?: string[];
+  identityTriggers?: string[];
+  egoThreats?: string[];
+  aspirations?: string[];
+  tribalLanguage?: string[];
+}
+
+export interface ProductionRules {
+  hookConstraints?: string;
+  pacingRules?: string;
+  visualDNA?: string;
+  subtitleStyle?: string;
+}
+
+// === Viral Pattern Engine ===
+export interface ViralPattern {
+  id: string;
+  name: string;
+  hookType: string;
+  structure: string[];
+  emotionArc: string;
+  pacingPattern: string;
+  successScore: number;
+  tags: string[];
+}
+
+export interface ContentSeed {
+  id: string;
+  topic: string;
+  pillar: string;
+  angle: string;
+  status: "active" | "archived";
+}
+
+export interface VideoBlueprint {
+  topic: string;
+  hook: string;
+  format: string;
+  pacing: string;
+  visualStyle: string;
+  patternInterrupt: string;
+  curiosityLoops: string[];
+  callToAction: string;
+  expectedEmotion: string;
+}
+
 export interface FounderNarrative {
   id: string;
   title: string;
+  userId: string;
 
-  // === New Wizard Fields (Narrative Intelligence) ===
+  // === Layer 1: Narrative Layer ===
   audience?: string;
-  currentState?: string;
   problem?: string;
-  costOfInaction?: string;
   solution?: string;
-  afterState?: string;
-  identityShift?: string;
   voice?: string;
-
-  // === AI-Extracted Fields ===
-  positioning?: {
-    villain: string;
-    hero: string;
-    stakes: string;
-    promise: string;
-    mechanism: string;
-    contrast: { before: string; after: string };
-  };
-  angles?: {
-    painAngles?: string[];
-    costAngles?: string[];
-    mechanismAngles?: string[];
-    identityAngles?: string[];
-    outcomeAngles?: string[];
-  };
-  narrativeStrength?: {
-    specificityScore: number;
-    emotionalClarity: number;
-    tensionStrength: number;
-    contrastScore: number;
-    overallScore: number;
-  };
   
-  // Framework Synthesis (UI)
-  positioningStatement?: string;
-  coreMessage?: string;
-  brandVoice?: string;
-  contentPillars?: ContentPillar[];
-  contentHistory?: Array<{
-    timestamp: number;
-    angle: string;
-    format: string;
-    hook: string;
-    title: string;
+  identityAnchor?: {
+    mission: string;
+    conflict: string;
+    villain: string;
+    avatar: string;
+    transformation: string;
+    promise: string;
+  };
+
+  // === Layer 2: Virality & Patterns ===
+  virality?: ViralityPrimitives;
+  patternLibrary?: ViralPattern[];
+  seeds?: ContentSeed[];
+
+  // === Layer 3: Format Layer ===
+  formats?: ContentFormatTemplate[];
+
+  // === Layer 4: Audience Psychology ===
+  psychology?: AudiencePsychology;
+
+  // === Layer 5: Production & Feedback ===
+  productionRules?: ProductionRules;
+  performanceMemory?: Array<{
+    videoId: string;
+    views: number;
+    completionRate: number;
+    retentionCurveUrl?: string;
+    learnings: string[];
   }>;
 
-  versions?: Array<{
-    timestamp: number;
-    narrative: NarrativeInput;
-    pillars: Array<{ title: string; description: string; angles: string[] }>;
-    feedback?: string;
-  }>;
-
-  // === Legacy Wizard Fields (backward compatibility) ===
-  theMoment?: string;
-  thePain?: string;
-  failedSolutions?: string;
-  yourBelief?: string;
-  yourApproach?: string;
-  idealUser?: string;
-  desiredChange?: string;
-  founderVoice?: FounderVoice;
-
-  // === Legacy AI-synthesized Fields ===
-  synthesizedNarrative?: string;
-  narrativeAngles?: string[];
-  oneLiner?: string;
-  problemStatement?: string;
-
-  // Metadata
+  // Metadata & Strength
   status: NarrativeStatus;
-  currentWizardStep?: number;
+  narrativeStrength?: {
+    overallScore: number;
+    narrativeScore: number;
+    formatScore: number;
+    behaviorScore: number;
+    evolutionScore: number;
+  };
   createdAt: number;
   updatedAt: number;
 }

@@ -129,28 +129,49 @@ export async function POST(
 
           // B. Generate Final Response Streaming
           const systemPrompt = `
-            You are the Brainstorming Director for a high-end marketing agency. Spar with the user to build their ${isSeries ? 'Series Story Architecture' : 'Brand Narrative Brain'}.
-            
-            CONTEXT:
-            Title: ${narrative.title || 'Untitled'}
-            Type: ${isSeries ? 'Episodic Series' : 'Brand Strategy'}
-            ${!isSeries ? `Health: ${narrative.narrativeStrength?.overallScore || 0}%` : ''}
-            
-            WAR ROOM NOTES:
-            ${internalThought}
-            
-            MISSION: 
-            Your primary goal is to EVOLVE the ${isSeries ? 'Story Architecture' : 'Brand Brain'}.
-            Every word the user says is an opportunity to extract deeper strategic pillars.
-            
-            ${isSeries ? `STORY ARCHITECTURE GOALS:
-            Extract and refine: Genre, World Setting, Conflict Type, Protagonist Archetype, Central Theme, Visual Style, and Episode Hooks.
-            If these are empty, you are in EXTRACTION MODE. Ask curious, deep questions about the world and characters.` : `BRAND BRAIN GOALS:
-            Extract and refine: Audience, Problem, Solution, Stakes, Identity Shift.
-            If health < 80%, suggest strategic pivots or ask clarifying questions to sharpen the positioning.`}
-            
-            FORMAT: Respond as if you are speaking. Use markdown for emphasis. Be critical but constructive.
-            Special: Wrap structured metadata (suggestions, blueprint) in a JSON block at the END of your response.
+            You are the **Director Intelligence**, the central orchestrator of a "Creator Operating System" designed for TikTok virality.
+            Your mission is to reach **"Total Capture"**—a state where the Brand's Narrative, Visual Formats, and Audience Psychology are 100% mapped.
+
+            **THE FOUR STRATEGIC LAYERS:**
+            1. **Narrative Layer (Identity Anchor)**: Mission, Villain (belief/system being challenged), and Transformation.
+            2. **Format Layer (The Engine)**: Repeatable video structures, pacing patterns, and hook libraries.
+            3. **Behavior Layer (Psychology)**: Pain points, ego threats, and tribal language.
+            4. **Evolution Layer (Learning)**: Self-correction based on previous performance memory.
+
+            **EXTRACTION PROTOCOL:**
+            - Every user interaction is an opportunity to mine primitives for these layers.
+            - If "Total Capture" is low (visible via scores), you must be more inquisitive and provocative.
+            - Challenge the user. Identify the "Villain" (e.g., in SaaS, the "Builder Trap" or "No-Code Delusion").
+
+            **RESPONSE STYLE:**
+            - Be a high-end agency director. Critical, high-velocity, and strategic.
+            - Use markdown for emphasis.
+            - Think in "Hooks" and "Pattern Interrupts."
+
+            **BLUEPRINT & METADATA:**
+            At the end of every response, provide updated strategic metadata in a JSON block.
+            \`\`\`json
+            {
+              "scores": {
+                "narrative": 0-100,
+                "format": 0-100,
+                "behavior": 0-100,
+                "evolution": 0-100,
+                "overall": 0-100
+              },
+              "extractedPatterns": [
+                { "name": "...", "hookType": "...", "structure": ["..."], "emotionArc": "...", "tags": ["..."] }
+              ],
+              "extractedSeeds": [
+                { "topic": "...", "pillar": "...", "angle": "..." }
+              ],
+              "extracted": {
+                "hooks": ["..."],
+                "villain": "...",
+                "format_suggestion": "..."
+              }
+            }
+            \`\`\`
           `.trim();
 
           const result = streamText({
@@ -165,13 +186,16 @@ export async function POST(
               let suggestions = [];
 
               try {
-                 const jsonMatch = text.match(/\{[\s\S]*\}$/);
-                 if (jsonMatch) {
-                   const meta = JSON.parse(jsonMatch[0]);
-                   blueprint = meta.blueprint || {};
-                   suggestions = meta.suggestions || [];
-                   cleanText = text.replace(jsonMatch[0], '').trim();
-                 }
+                const jsonMatch = text.match(/\{[\s\S]*\}$/);
+                if (jsonMatch) {
+                  const meta = JSON.parse(jsonMatch[0]);
+                  blueprint = meta.blueprint || {};
+                  suggestions = meta.suggestions || [];
+                  cleanText = text.replace(jsonMatch[0], '').trim();
+                  
+                  // Attach extractions for evolution
+                  (lastMessage as any).meta = meta;
+                }
               } catch (e) {}
 
               // Persist Model Message
@@ -238,9 +262,15 @@ export async function POST(
                       afterState: narrative.afterState || "",
                       identityShift: narrative.identityShift || "",
                       voice: narrative.voice || "calm",
+                      patternLibrary: narrative.patternLibrary || [],
+                      seeds: narrative.seeds || [],
                     };
                     
-                    const evolved = await evolveNarrative(currentInput, `User: ${userMessage}\nDirector: ${cleanText}`);
+                    // Incorporate meta-extractions directly into the evolution context
+                    const metaExtra = (lastMessage as any).meta || {};
+                    const insightWithMeta = `User: ${userMessage}\nDirector: ${cleanText}\nMetadata Extraction: ${JSON.stringify(metaExtra)}`;
+
+                    const evolved = await evolveNarrative(currentInput, insightWithMeta);
                     const strength = await scoreNarrativeStrength(evolved);
                     
                     await adminDb.transact([

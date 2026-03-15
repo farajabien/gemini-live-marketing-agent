@@ -2,6 +2,8 @@ import { generateText } from "@/lib/ai/gemini-client";
 
 // === Types ===
 
+import { ViralPattern, ContentSeed } from "@/lib/types";
+
 export interface NarrativeInput {
   audience: string;
   currentState: string;
@@ -11,6 +13,8 @@ export interface NarrativeInput {
   afterState: string;
   identityShift: string;
   voice: string;
+  patternLibrary?: ViralPattern[];
+  seeds?: ContentSeed[];
 }
 
 export interface SeriesNarrativeInput {
@@ -51,11 +55,18 @@ export interface ContentAngles {
 
 
 export interface NarrativeStrength {
-  specificityScore: number; // 0-100: How specific is the audience/problem?
-  emotionalClarity: number; // 0-100: How clear is the emotional pain/relief?
-  tensionStrength: number; // 0-100: How strong is the before/after contrast?
-  contrastScore: number; // 0-100: How vivid is the transformation?
-  overallScore: number; // 0-100: Weighted average
+  specificityScore: number; 
+  emotionalClarity: number; 
+  tensionStrength: number; 
+  contrastScore: number; 
+  
+  // Total Capture Layers
+  narrativeScore: number;
+  formatScore: number;
+  behaviorScore: number;
+  evolutionScore: number;
+  
+  overallScore: number; 
   cost: number;
 }
 
@@ -267,7 +278,11 @@ OUTPUT JSON ONLY:
   "emotionalClarity": 78,
   "tensionStrength": 82,
   "contrastScore": 90,
-  "overallScore": 83
+  "narrativeScore": 80,
+  "formatScore": 40,
+  "behaviorScore": 30,
+  "evolutionScore": 10,
+  "overallScore": 60
 }
 
 Be honest. Score based on the actual inputs provided.
@@ -290,10 +305,10 @@ Be honest. Score based on the actual inputs provided.
     // Calculate overall score if not provided
     if (!scores.overallScore) {
       scores.overallScore = Math.round(
-        scores.specificityScore * 0.3 +
-        scores.emotionalClarity * 0.25 +
-        scores.tensionStrength * 0.25 +
-        scores.contrastScore * 0.2
+        (scores.narrativeScore * 0.4 +
+        scores.formatScore * 0.2 +
+        scores.behaviorScore * 0.2 +
+        scores.evolutionScore * 0.2)
       );
     }
 
@@ -757,44 +772,48 @@ Refine the core narrative fields.
 3. If the insight reveals a better way to frame the problem or solution, update those fields.
 4. Keep the text punchy and strategic.
 
-OUTPUT JSON ONLY (NarrativeInput structure):
+OUTPUT JSON ONLY (Expanded Structure):
 {
   "audience": "...",
-  "currentState": "...",
+  "identityAnchor": { "mission": "...", "villain": "...", "transformation": "...", "promise": "..." },
   "problem": "...",
-  "costOfInaction": "...",
   "solution": "...",
-  "afterstate": "...",
-  "identityShift": "...",
   "voice": "..."
 }
 `;
 
   const { text: response } = await generateText(
     prompt,
-    "You are a narrative strategist. Distill insights to evolve the brand brain. Output JSON only.",
-    "gemini-1.5-pro",
+    "You are a narrative strategist. Output JSON only.",
+    "gemini-2.0-flash",
     0.5
   );
 
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found");
-    // Ensure we handle potential field naming slight variations from AI
     const result = JSON.parse(jsonMatch[0]);
+
+    // Extracting patterns and seeds if they exist in the insight (which might be the full conversation)
+    let patterns = current.patternLibrary || [];
+    let seeds = current.seeds || [];
+
+    if (result.extractedPatterns) {
+      patterns = [...patterns, ...result.extractedPatterns];
+    }
+    if (result.extractedSeeds) {
+      seeds = [...seeds, ...result.extractedSeeds];
+    }
+
     return {
-      audience: result.audience || current.audience,
-      currentState: result.currentState || current.currentState,
-      problem: result.problem || current.problem,
-      costOfInaction: result.costOfInaction || current.costOfInaction,
-      solution: result.solution || current.solution,
-      afterState: result.afterState || result.afterstate || current.afterState,
-      identityShift: result.identityShift || current.identityShift,
-      voice: result.voice || current.voice,
+      ...current,
+      ...result,
+      patternLibrary: patterns,
+      seeds: seeds
     };
   } catch (e) {
     console.error("Failed to evolve narrative:", response);
-    return current; // Fallback to current
+    return current;
   }
 }
 
@@ -999,6 +1018,67 @@ OUTPUT JSON ONLY (SeriesNarrativeInput structure):
   } catch (e) {
     console.error("Failed to evolve series narrative:", response);
     return current; // Fallback to current
+  }
+}
+
+export async function extractViralPatterns(conversation: string): Promise<ViralPattern[]> {
+  const prompt = `
+    Analyze this conversation and extract "Viral Patterns"—winning structural blueprints for content.
+    Look for: Hook styles, structural arcs, and emotional triggers that seem to resonate.
+
+    CONVERSATION:
+    "${conversation}"
+
+    OUTPUT JSON ONLY (Array of ViralPattern):
+    [
+      {
+        "id": "generated-id",
+        "name": "The Brutal Truth",
+        "hookType": "Contrarian Authority",
+        "structure": ["Hook", "Common Belief", "Contradiction", "Framework"],
+        "emotionArc": "Shock to Insight",
+        "pacingPattern": "Fast cut start, slower middle",
+        "successScore": 0.85,
+        "tags": ["contrarian", "saas", "truth"]
+      }
+    ]
+  `;
+
+  const { text: response } = await generateText(prompt, "You are a virality analyst.", "gemini-2.0-flash", 0.7);
+  try {
+    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function extractContentSeeds(conversation: string): Promise<ContentSeed[]> {
+  const prompt = `
+    Analyze this conversation and extract "Content Seeds"—strategic anchors for future content clusters.
+    Each seed should be a specific topic or angle that came up during brainstorming.
+
+    CONVERSATION:
+    "${conversation}"
+
+    OUTPUT JSON ONLY (Array of ContentSeed):
+    [
+      {
+        "id": "generated-id",
+        "topic": "The Builder Trap",
+        "pillar": "Developer Traps",
+        "angle": "Why we build before validating",
+        "status": "active"
+      }
+    ]
+  `;
+
+  const { text: response } = await generateText(prompt, "You are a content strategist.", "gemini-2.0-flash", 0.7);
+  try {
+    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+  } catch (e) {
+    return [];
   }
 }
 
