@@ -58,15 +58,15 @@ export function NarrativeCanvas({
   }, [positioning, strength?.overallScore, pulseField]);
 
   return (
-    <div className="h-full flex flex-col bg-[#020205] border-l border-white/[0.03] overflow-hidden">
+    <div className="h-full flex flex-col bg-background border-l border-border overflow-hidden">
       {/* Header / Stats Strip */}
-      <div className="px-5 py-3 border-b border-white/[0.03] flex items-center justify-between shrink-0">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
            <div className="size-8 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center">
              <Target className="size-4 text-slate-400" />
            </div>
            <div>
-             <h2 className="text-[11px] font-black text-white tracking-tight leading-none mb-0.5 uppercase">Narrative Canvas</h2>
+             <h2 className="text-[11px] font-black text-foreground tracking-tight leading-none mb-0.5 uppercase">Narrative Canvas</h2>
              <div className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Live Strategic State</div>
            </div>
         </div>
@@ -145,7 +145,7 @@ export function NarrativeCanvas({
                       </div>
                       <span className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-500/80">The Mechanism</span>
                    </div>
-                   <p className="text-[11px] text-white italic font-black leading-tight pl-1 drop-shadow-md">{positioning?.mechanism || "Not defined yet..."}</p>
+                   <p className="text-[11px] text-foreground italic font-black leading-tight pl-1 drop-shadow-md">{positioning?.mechanism || "Not defined yet..."}</p>
                 </div>
               </div>
           </div>
@@ -155,7 +155,7 @@ export function NarrativeCanvas({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <LayoutGrid className="size-4 text-slate-500" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Media Archive</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">Media Archive</h3>
               </div>
               <Badge variant="outline" className="border-white/10 text-slate-500 px-2 py-0.5 rounded-full text-[8px] font-bold">
                 {videoPlans.length} Assets
@@ -202,7 +202,7 @@ export function NarrativeCanvas({
                       </div>
                     </div>
                     <div className="px-1">
-                      <div className="text-[10px] font-black text-white truncate uppercase tracking-widest italic mb-0.5">{plan.title || "Untitled Video"}</div>
+                      <div className="text-[10px] font-black text-foreground truncate uppercase tracking-widest italic mb-0.5">{plan.title || "Untitled Video"}</div>
                       <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">
                         {new Date(plan.createdAt).toLocaleDateString()}
                       </div>

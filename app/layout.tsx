@@ -21,6 +21,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { PayPalProvider } from "@/components/PayPalProvider";
 import { GenerationStatusToast } from "@/components/GenerationStatusToast";
 import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export default function RootLayout({
   children,
@@ -28,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       </head>
@@ -36,20 +37,26 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <div className="min-h-screen bg-background text-foreground flex flex-col">
-          <AuthProvider>
-            <PayPalProvider>
-              {children}
-            </PayPalProvider>
-            <GenerationStatusToast />
-          </AuthProvider>
-          <Toaster 
-            position="top-right" 
-            richColors 
-            closeButton
-            theme="dark"
-          />
-        </div>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="min-h-screen bg-background text-foreground flex flex-col">
+            <AuthProvider>
+              <PayPalProvider>
+                {children}
+              </PayPalProvider>
+              <GenerationStatusToast />
+            </AuthProvider>
+            <Toaster 
+              position="top-right" 
+              richColors 
+              closeButton
+            />
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );

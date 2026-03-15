@@ -171,7 +171,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
 
   return (
     <div className={cn(
-      "relative flex flex-col h-full overflow-hidden bg-[#020205] border-l border-white/5",
+      "relative flex flex-col h-full overflow-hidden bg-background border-l border-border",
       className
     )}>
       {/* Premium Header */}
@@ -181,7 +181,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
             <Brain className={cn("size-5", isConnected ? "text-blue-400" : "text-slate-700")} />
           </div>
           <div>
-            <h2 className="text-sm font-black text-white tracking-tight uppercase italic leading-none mb-0.5">Director Intelligence</h2>
+            <h2 className="text-sm font-black text-foreground tracking-tight uppercase italic leading-none mb-0.5">Director Intelligence</h2>
             <div className="flex items-center gap-1.5 leading-none">
               <div className={cn("size-1.5 rounded-full", isConnected ? "bg-green-500 animate-pulse" : "bg-red-500")} />
               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">{isConnected ? "Live Strategy" : "Standby"}</span>
@@ -228,7 +228,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-1">{m.role === 'user' ? 'Strategy Lead' : 'Director'}</span>
                  <div className={cn(
                    "px-5 py-3.5 rounded-[1.5rem] text-[13px] leading-relaxed",
-                   m.role === 'user' ? "bg-blue-600 text-white rounded-tr-none" : "bg-white/[0.04] border border-white/5 text-slate-200 rounded-tl-none"
+                   m.role === 'user' ? "bg-blue-600 text-white rounded-tr-none" : "bg-secondary/40 border border-border text-foreground/80 rounded-tl-none"
                  )}>
                    {textContent.split('```json')[0].trim()}
                  </div>
@@ -259,13 +259,13 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
       </div>
 
       {/* Input Bar */}
-      <div className="p-6 bg-gradient-to-t from-black to-transparent space-y-4">
+      <div className="p-6 bg-gradient-to-t from-background to-transparent space-y-4">
         <form onSubmit={onFormSubmit} className="relative">
           <input 
             value={input}
             onChange={onInputChange}
             placeholder="Direct the intelligence..."
-            className="w-full bg-white/[0.04] border border-white/5 focus:border-blue-500/40 focus:bg-white/[0.06] rounded-2xl px-6 py-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all pr-12"
+            className="w-full bg-secondary/50 border border-border focus:border-blue-500/40 focus:bg-secondary rounded-2xl px-6 py-4 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all pr-12"
           />
           <button 
             type="submit"

@@ -74,9 +74,9 @@ export function DashboardScreen() {
 
   if (isInitialLoading) {
     return (
-      <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex flex-col items-center justify-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-        <p className="text-sm text-slate-500 animate-pulse">Checking your account...</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">Checking your account...</p>
       </div>
     );
   }
@@ -85,9 +85,9 @@ export function DashboardScreen() {
 
   if (isPlansLoading) {
     return (
-      <div className="min-h-screen bg-[#f6f6f8] dark:bg-[#080911] flex items-center justify-center flex-col gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-        <p className="text-sm text-slate-500 animate-pulse">Loading your studio...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center flex-col gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading your studio...</p>
       </div>
     );
   }
@@ -162,15 +162,15 @@ export function DashboardScreen() {
     description: string;
     action?: React.ReactNode;
   }) => (
-    <Card className="bg-white/50 dark:bg-white/5 border-dashed border-slate-200 dark:border-white/10">
+    <Card className="bg-card border-dashed border-border transition-colors">
       <CardContent className="flex flex-col items-center justify-center py-20">
-        <div className="h-20 w-20 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-6">
-          <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600">
+        <div className="h-20 w-20 bg-secondary rounded-full flex items-center justify-center mb-6">
+          <span className="material-symbols-outlined text-3xl text-muted-foreground">
             {icon}
           </span>
         </div>
-        <h3 className="text-xl font-black mb-2">{title}</h3>
-        <p className="text-slate-500 text-sm max-w-xs mb-8 font-medium text-center">
+        <h3 className="text-xl font-black mb-2 text-foreground">{title}</h3>
+        <p className="text-muted-foreground text-sm max-w-xs mb-8 font-medium text-center">
           {description}
         </p>
         {action}
@@ -179,7 +179,7 @@ export function DashboardScreen() {
   );
 
   return (
-    <div className="w-full font-sans text-white">
+    <div className="w-full font-sans text-foreground">
       <div className="w-full">
         <div className="w-full px-4 sm:px-6 py-6 lg:py-8 space-y-6">
           {/* Project / Narrative selector — shown once the user has more than one project */}
@@ -201,7 +201,7 @@ export function DashboardScreen() {
 
           {/* Main Tabs */}
           <Tabs defaultValue="brand" className="w-full">
-            <TabsList className="bg-white/5 border border-white/10 mb-6 h-12 p-1.5 rounded-2xl gap-2">
+            <TabsList className="bg-secondary/50 border border-border mb-6 h-12 p-1.5 rounded-2xl gap-2">
               <TabsTrigger
                 value="brand"
                 className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/40 font-black uppercase tracking-widest text-[10px] rounded-xl px-8 h-full transition-all"

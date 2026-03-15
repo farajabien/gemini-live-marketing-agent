@@ -9,6 +9,7 @@ import { SecureAccountDialog } from "./SecureAccountDialog";
 import { AuthChoiceDialog } from "./AuthChoiceDialog";
 import { LOGO } from "@/lib/branding";
 import Image from "next/image";
+import { ThemeToggle } from "./layout/ThemeToggle";
 
 interface HeaderProps {
     transparent?: boolean;
@@ -34,7 +35,7 @@ export function Header({ transparent }: HeaderProps) {
 
     return (
         <>
-            <nav className={`fixed top-0 z-50 w-full border-b border-white/10 transition-colors ${transparent ? 'bg-[var(--nav-bg)]/60 backdrop-blur-md' : 'bg-[var(--nav-bg)]'}`}>
+            <nav className={`fixed top-0 z-50 w-full border-b border-border transition-colors ${transparent ? 'bg-background/60 backdrop-blur-md' : 'bg-background'}`}>
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
                     <Link href="/" className="flex items-center gap-3 active:scale-95 transition-transform shrink-0">
                         <Image 
@@ -167,6 +168,7 @@ export function Header({ transparent }: HeaderProps) {
                                 >
                                     Login
                                 </button>
+                                <ThemeToggle />
                                 <Link
                                     href="/narrative/new"
                                     className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20"

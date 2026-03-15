@@ -99,7 +99,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
   const series = resolvedSeriesId ? allSeries.find((s) => s.id === resolvedSeriesId) : undefined;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-black selection:bg-red-500/30">
+    <div className="flex flex-col h-screen overflow-hidden bg-background selection:bg-red-500/30">
       <GlobalHeader
         user={user as any}
         signOut={signOut}
@@ -141,7 +141,7 @@ function AppLayoutContent({ children, narrativeId, seriesId, noPadding, headerTi
 
       {/* Global Dialogs */}
       <Dialog open={isGenerateOpen} onOpenChange={(open) => !open && closeGenerator()}>
-        <DialogContent className="w-[95vw] sm:max-w-5xl xl:max-w-7xl h-[85vh] p-0 overflow-hidden bg-[#050505] border-white/10 flex flex-col items-center justify-center sm:rounded-[3rem]">
+        <DialogContent className="w-[95vw] sm:max-w-5xl xl:max-w-7xl h-[85vh] p-0 overflow-hidden bg-background border-white/10 flex flex-col items-center justify-center sm:rounded-[3rem]">
           <DialogTitle className="sr-only">Content Generator</DialogTitle>
           <div className="w-full h-full overflow-y-auto">
             <GenerateScreen

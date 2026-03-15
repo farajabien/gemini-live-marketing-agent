@@ -42,7 +42,7 @@ export function LandingPageContent() {
   }, [isAuthenticated, latestSeries, latestNarrative, hero.cta]);
 
   return (
-    <div className="min-h-screen bg-black font-sans selection:bg-red-500/30 text-slate-100">
+    <div className="min-h-screen bg-background font-sans selection:bg-red-500/30 text-foreground">
       <main>
         <Header transparent />
 
@@ -96,7 +96,7 @@ export function LandingPageContent() {
         </section>
 
         {/* Problem Section */}
-        <section className="py-32 border-y border-white/5 bg-black relative overflow-hidden">
+        <section className="py-32 border-y border-border bg-background relative overflow-hidden">
           <div className="absolute top-0 right-0 size-[400px] bg-red-600/5 rounded-full blur-[100px] pointer-events-none" />
           <div className="mx-auto max-w-5xl px-4 text-center relative z-10">
             <h2 className="text-4xl md:text-5xl font-black text-white mb-16 leading-tight max-w-3xl mx-auto">
@@ -108,7 +108,7 @@ export function LandingPageContent() {
                     <div className="size-14 rounded-2xl bg-red-500/10 flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">
                       {point.emoji}
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-3">{point.title}</h3>
+                    <h3 className="text-xl font-bold text-foreground mb-3">{point.title}</h3>
                     <p className="text-[#929bc9] text-base leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">
                       {point.text}
                     </p>
@@ -145,7 +145,7 @@ export function LandingPageContent() {
                     <p className="text-xl text-white font-black italic tracking-wide lowercase">&quot;{solution.formula.replace('Multi-Episode Series', 'Cinematic Anthology')}&quot;</p>
                 </div>
              </div>
-             <div className="flex-1 w-full max-w-md bg-[#101322] rounded-[2.5rem] border border-white/5 p-4 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden scale-105 group relative">
+             <div className="flex-1 w-full max-w-md bg-card rounded-[2.5rem] border border-border p-4 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden scale-105 group relative">
                 <div className="absolute top-8 right-8 z-20 animate-bounce">
                   <div className="bg-red-600 text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full shadow-xl">High-Fidelity Output</div>
                 </div>
@@ -281,7 +281,7 @@ export function LandingPageContent() {
         </section>
       </main>
 
-      <footer className="py-16 border-t border-white/5 bg-black">
+      <footer className="py-16 border-t border-border bg-background">
         <div className="mx-auto max-w-7xl px-4 flex flex-col items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
                <Image src="/logos/ideatovideo-full-logo.png" alt="Logo" width={100} height={100} className="h-auto w-full"/>

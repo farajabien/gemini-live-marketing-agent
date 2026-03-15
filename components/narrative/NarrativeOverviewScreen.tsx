@@ -46,8 +46,8 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
 
   if (isAuthLoading || isLoadingNarrative) {
     return (
-      <div className="flex items-center justify-center h-full bg-black">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+      <div className="flex items-center justify-center h-full bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
       </div>
     );
   }
@@ -56,9 +56,9 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
 
   if (!narrative) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-black">
-        <h1 className="text-2xl font-black mb-2 text-white text-center italic uppercase leading-tight tracking-[0.2em] opacity-30">Narrative Not Found</h1>
-        <Button onClick={() => router.push('/dashboard')} variant="ghost" className="text-blue-500 font-bold hover:bg-blue-500/10 uppercase tracking-widest text-[10px]">
+      <div className="flex flex-col items-center justify-center h-full bg-background text-foreground">
+        <h1 className="text-2xl font-black mb-2 text-center italic uppercase leading-tight tracking-[0.2em] opacity-30">Narrative Not Found</h1>
+        <Button onClick={() => router.push('/dashboard')} variant="ghost" className="text-red-500 font-bold hover:bg-red-500/10 uppercase tracking-widest text-[10px]">
           Return to Hub
         </Button>
       </div>

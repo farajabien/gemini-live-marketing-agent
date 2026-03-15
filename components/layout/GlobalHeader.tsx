@@ -9,6 +9,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { initializeDraftNarrative, initializeDraftSeriesAction } from "@/app/actions/marketing";
 import { toast } from "sonner";
+import { ThemeToggle } from "./ThemeToggle";
 
 // shadcn UI
 import { Separator } from "@/components/ui/separator";
@@ -78,7 +79,7 @@ export function GlobalHeader({
   const [isCreatingGlobal, setIsCreatingGlobal] = useState(false);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/5 bg-black/60 backdrop-blur-xl sticky top-0 z-50 px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/60 backdrop-blur-xl sticky top-0 z-50 px-4">
       <div className="flex items-center gap-4 flex-1 min-w-0">
         {/* Logo & Project Switcher */}
         <div className="flex items-center gap-3 shrink-0">
@@ -111,7 +112,7 @@ export function GlobalHeader({
                 <ChevronRight className="size-3 text-white/20 group-hover:text-white/60 transition-colors" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[280px] p-0 bg-[#0a0a0a] border-white/10 shadow-2xl rounded-2xl overflow-hidden" align="start">
+            <PopoverContent className="w-[280px] p-0 bg-background border-border shadow-2xl rounded-2xl overflow-hidden" align="start">
               <Command className="bg-transparent">
                 <CommandInput placeholder="Search projects & series..." className="h-10 border-none focus:ring-0" />
                 <CommandList className="max-h-[400px]">
@@ -267,8 +268,7 @@ export function GlobalHeader({
             Resume
           </button>
         )}
-
-        <div className="h-4 w-px bg-white/10" />
+        <ThemeToggle />
 
         {/* User Profile Dropdown */}
         <DropdownMenu>
@@ -282,7 +282,7 @@ export function GlobalHeader({
               <MoreVertical className="size-3 text-slate-600 group-hover:text-white transition-colors" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-[#0a0a0a] border-white/10 shadow-2xl rounded-2xl p-2 mt-2" side="bottom" align="end" sideOffset={8}>
+          <DropdownMenuContent className="w-56 bg-background border-border shadow-2xl rounded-2xl p-2 mt-2" side="bottom" align="end" sideOffset={8}>
             <div className="px-3 py-2 mb-2 border-b border-white/5">
                <p className="text-[8px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">Signed in as</p>
                <p className="text-xs font-bold text-white truncate">{user?.email}</p>
