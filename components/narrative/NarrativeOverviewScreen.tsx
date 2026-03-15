@@ -27,6 +27,8 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState("");
   const isMediaView = searchParams.get("type") === "media";
 
   const { data: narrative, isLoading: isLoadingNarrative } = useDocument('narratives', narrativeId);
@@ -85,6 +87,32 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
     }
   };
 
+  const handleTitleClick = () => {
+    setTempTitle(narrative?.title || "");
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleSubmit = async () => {
+    if (!tempTitle.trim() || tempTitle === narrative?.title) {
+      setIsEditingTitle(false);
+      return;
+    }
+    
+    // Optimistic update
+    const promise = handleUpdateField('title', tempTitle);
+    setIsEditingTitle(false);
+    
+    toast.promise(promise, {
+      loading: 'Saving title...',
+      success: 'Title updated.',
+      error: 'Failed to update title.'
+    });
+  };
+
+  const handleTitleCancel = () => {
+    setIsEditingTitle(false);
+  };
+
   return (
     <AppLayout 
       narrativeId={narrativeId} 
@@ -94,10 +122,31 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
            <div className="size-6 rounded bg-red-600/20 text-red-500 flex items-center justify-center text-[10px] font-black uppercase">
               {narrative?.title?.charAt(0)}
            </div>
-           <div className="flex flex-col">
-              <span className="text-[10px] font-black text-white uppercase tracking-wider truncate max-w-[200px]">{narrative?.title}</span>
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Active War Room</span>
-           </div>
+            <div className="flex flex-col min-w-0 flex-1">
+               {isEditingTitle ? (
+                 <input
+                   autoFocus
+                   type="text"
+                   value={tempTitle}
+                   onChange={(e) => setTempTitle(e.target.value)}
+                   onBlur={handleTitleSubmit}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') handleTitleSubmit();
+                     if (e.key === 'Escape') handleTitleCancel();
+                   }}
+                   className="bg-white/5 border border-blue-500/50 rounded px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider outline-none w-full max-w-[300px]"
+                 />
+               ) : (
+                 <span 
+                   onClick={handleTitleClick}
+                   className="text-[10px] font-black text-white uppercase tracking-wider truncate max-w-[200px] cursor-pointer hover:text-blue-400 transition-colors group flex items-center gap-2"
+                 >
+                   {narrative?.title}
+                   <span className="opacity-0 group-hover:opacity-100 material-symbols-outlined text-[10px]">edit</span>
+                 </span>
+               )}
+               <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Active War Room</span>
+            </div>
         </div>
       }
       headerActions={

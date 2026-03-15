@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { StrengthGauge } from "./StrengthGauge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutGrid, Target, Sparkles, Activity, Brain, FileText, CheckCircle2, Play, PlusCircle } from "lucide-react";
+import { LayoutGrid, Target, Sparkles, Activity, Brain, FileText, Play, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PreviewDialog } from "@/components/dashboard/PreviewDialog";
 import { VideoPlan } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface NarrativeCanvasProps {
   narrative: any;
@@ -22,12 +22,40 @@ export function NarrativeCanvas({
   videoPlans, 
   isGeneratingTitle, 
   onGenerateSmartTitle,
-  onUpdateField 
+  onUpdateField
 }: NarrativeCanvasProps) {
   const [previewPlan, setPreviewPlan] = useState<VideoPlan | null>(null);
+  const [pulseField, setPulseField] = useState<string | null>(null);
   
   const positioning = narrative?.aiPositioning;
   const strength = narrative?.narrativeStrength;
+
+  // Track changes for visual pulsing
+  const prevPositioningRef = useRef(positioning);
+  const prevStrengthRef = useRef(strength?.overallScore);
+
+  useEffect(() => {
+    if (!positioning) return;
+    
+    // Check which field changed
+    if (positioning.villain !== prevPositioningRef.current?.villain) {
+      setPulseField('villain');
+    } else if (positioning.hero !== prevPositioningRef.current?.hero) {
+      setPulseField('hero');
+    } else if (positioning.mechanism !== prevPositioningRef.current?.mechanism) {
+      setPulseField('mechanism');
+    } else if (strength?.overallScore !== prevStrengthRef.current) {
+        setPulseField('strength');
+        prevStrengthRef.current = strength?.overallScore;
+    }
+
+    if (pulseField) {
+      const timer = setTimeout(() => setPulseField(null), 3000);
+      return () => clearTimeout(timer);
+    }
+    
+    prevPositioningRef.current = positioning;
+  }, [positioning, strength?.overallScore, pulseField]);
 
   return (
     <div className="h-full flex flex-col bg-[#020205] border-l border-white/[0.03] overflow-hidden">
@@ -44,7 +72,10 @@ export function NarrativeCanvas({
         </div>
         
         {strength && (
-          <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] rounded-2xl px-3 py-1.5 transition-all hover:bg-white/[0.05]">
+          <div className={cn(
+            "flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] rounded-2xl px-3 py-1.5 transition-all hover:bg-white/[0.05]",
+            pulseField === 'strength' && "ring-2 ring-blue-500/50 bg-blue-500/10 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+          )}>
             <StrengthGauge score={strength.overallScore} size="xs" />
             <div className="flex flex-col">
               <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Health</span>
@@ -76,7 +107,10 @@ export function NarrativeCanvas({
 
               <div className="grid grid-cols-1 gap-2">
                 {/* Villain */}
-                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-red-500/[0.03] to-transparent border border-red-500/10 group/card transition-all hover:bg-red-500/[0.05] hover:border-red-500/20 shadow-lg shadow-black/20">
+                <div className={cn(
+                  "p-4 rounded-[2rem] bg-gradient-to-br from-red-500/[0.03] to-transparent border border-red-500/10 group/card transition-all hover:bg-red-500/[0.05] hover:border-red-500/20 shadow-lg shadow-black/20",
+                  pulseField === 'villain' && "ring-2 ring-red-500/50 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse"
+                )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-red-500/10 flex items-center justify-center">
                         <Activity className="size-3 text-red-500" />
@@ -87,7 +121,10 @@ export function NarrativeCanvas({
                 </div>
 
                 {/* Hero */}
-                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-blue-500/[0.03] to-transparent border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.05] hover:border-blue-500/20 shadow-lg shadow-black/20">
+                <div className={cn(
+                  "p-4 rounded-[2rem] bg-gradient-to-br from-blue-500/[0.03] to-transparent border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.05] hover:border-blue-500/20 shadow-lg shadow-black/20",
+                  pulseField === 'hero' && "ring-2 ring-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] animate-pulse"
+                )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-blue-500/10 flex items-center justify-center">
                         <Target className="size-3 text-blue-500" />
@@ -98,7 +135,10 @@ export function NarrativeCanvas({
                 </div>
 
                 {/* Mechanism */}
-                <div className="p-4 rounded-[2rem] bg-gradient-to-br from-purple-500/[0.03] to-transparent border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.05] hover:border-purple-500/20 shadow-lg shadow-black/20">
+                <div className={cn(
+                   "p-4 rounded-[2rem] bg-gradient-to-br from-purple-500/[0.03] to-transparent border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.05] hover:border-purple-500/20 shadow-lg shadow-black/20",
+                   pulseField === 'mechanism' && "ring-2 ring-purple-500/50 bg-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse"
+                )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-purple-500/10 flex items-center justify-center">
                         <Brain className="size-3 text-purple-500" />

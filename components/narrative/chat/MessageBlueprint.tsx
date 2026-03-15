@@ -1,76 +1,81 @@
 "use client";
 
-import * as React from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Activity, ChevronUp, ChevronDown, Play } from "lucide-react";
+import { Activity, ChevronUp, ChevronDown, Play, Info } from "lucide-react";
 
 interface MessageBlueprintProps {
   message: any;
-  messageIndex: number;
-  showThoughts: boolean;
-  onToggleThoughts: () => void;
   onProduceVideo: (script: string) => void;
 }
 
 export function MessageBlueprint({ 
   message: m, 
-  messageIndex: i, 
-  showThoughts, 
-  onToggleThoughts,
   onProduceVideo
 }: MessageBlueprintProps) {
+  const [showThoughts, setShowThoughts] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
   if (!m.warRoomDialogue && !m.thoughtProcess && !m.blueprint) return null;
 
+  const blueprint = m.blueprint || {};
+  const hasBlueprint = Object.keys(blueprint).length > 0;
+
   return (
-    <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-500 w-full max-w-full overflow-hidden">
-        {m.blueprint && Object.keys(m.blueprint).length > 0 && (
-          <div className="grid grid-cols-2 gap-2 w-full max-w-full">
-              {Object.entries(m.blueprint).map(([key, value]: [string, any], idx) => (
-                <div key={idx} className="px-3 py-2.5 bg-white/[0.03] border border-white/[0.05] rounded-2xl flex flex-col gap-1 transition-all hover:bg-white/[0.05] hover:border-blue-500/20 group/card min-w-0 overflow-hidden text-left">
-                  <span className="text-[7px] font-black uppercase tracking-widest text-slate-500 group-hover/card:text-blue-400 transition-colors truncate">
-                      {key.replace(/_/g, ' ')}
-                  </span>
-                  <p className="text-[10px] text-slate-300 leading-tight font-medium break-words">
-                      {value}
-                  </p>
-                </div>
-              ))}
+    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-500 w-full max-w-full overflow-hidden">
+        {hasBlueprint && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
+              {Object.entries(blueprint).map(([key, value]: [string, any], idx) => {
+                // Ignore script in the grid, it gets its own card
+                if (key === 'script' || key === 'video_script') return null;
+                
+                return (
+                  <div key={idx} className="px-4 py-3 bg-white/[0.03] border border-white/[0.05] rounded-[1.2rem] flex flex-col gap-1 transition-all hover:bg-white/[0.06] hover:border-blue-500/20 group/card">
+                    <span className="text-[7px] font-black uppercase tracking-[0.2em] text-slate-500 group-hover/card:text-blue-400 transition-colors">
+                        {key.replace(/_/g, ' ')}
+                    </span>
+                    <p className="text-[11px] text-slate-300 leading-tight font-medium">
+                        {value}
+                    </p>
+                  </div>
+                );
+              })}
               
-              <div className="col-span-2 flex items-center justify-between gap-2 mt-1 w-full overflow-hidden">
+              <div className="col-span-1 sm:col-span-2 flex items-center justify-between py-1">
                 <button 
-                  onClick={onToggleThoughts}
-                  className="text-[8px] font-black uppercase tracking-widest text-blue-500/60 hover:text-blue-400 transition-colors py-2 px-3 flex items-center gap-2 min-w-0"
+                  onClick={() => setShowThoughts(!showThoughts)}
+                  className="text-[9px] font-black uppercase tracking-widest text-blue-500/80 hover:text-blue-400 transition-colors flex items-center gap-2"
                 >
-                  {showThoughts ? <ChevronUp className="size-3 shrink-0" /> : <ChevronDown className="size-3 shrink-0" />}
-                  <span className="truncate">{showThoughts ? "Hide Deep Analysis" : "Inspect Deep Analysis"}</span>
+                  {showThoughts ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                  {showThoughts ? "Hide Strategic Reasoning" : "Inspect Strategic Reasoning"}
                 </button>
 
                 <button 
-                  onClick={() => {
-                    const el = document.getElementById(`raw-data-${i}`);
-                    if (el) el.classList.toggle('hidden');
-                  }}
-                  className="text-[8px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors py-2 px-3 shrink-0"
+                  onClick={() => setShowRaw(!showRaw)}
+                  className="text-[9px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors"
                 >
-                  Raw Protocol
+                  {showRaw ? "Hide Protocol" : "View Protocol"}
                 </button>
               </div>
 
-              <div id={`raw-data-${i}`} className="col-span-2 hidden animate-in zoom-in-95 duration-200 mt-2 w-full max-w-full overflow-hidden">
-                <pre className="p-4 bg-black/60 rounded-2xl font-mono text-[9px] text-blue-400/70 overflow-x-auto border border-blue-500/10 shadow-2xl whitespace-pre-wrap break-all">
-                    {JSON.stringify(m, null, 2)}
-                </pre>
-              </div>
+              {showRaw && (
+                <div className="col-span-1 sm:col-span-2 animate-in zoom-in-95 duration-200">
+                  <pre className="p-4 bg-black/40 rounded-2xl font-mono text-[9px] text-blue-400/50 overflow-x-auto border border-white/5 whitespace-pre-wrap">
+                      {JSON.stringify(m, null, 2)}
+                  </pre>
+                </div>
+              )}
 
-              {(m.blueprint?.script || m.blueprint?.video_script) && (
-                <div className="col-span-2 mt-2 animate-in fade-in slide-in-from-left-4 duration-500">
+              {(blueprint.script || blueprint.video_script) && (
+                <div className="col-span-1 sm:col-span-2 mt-2 group/action relative">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-20 group-hover/action:opacity-40 transition duration-1000 group-hover/action:duration-200" />
                     <Button 
-                      onClick={() => onProduceVideo(m.blueprint.script || m.blueprint.video_script)}
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 shadow-xl shadow-blue-900/40"
+                      onClick={() => onProduceVideo(blueprint.script || blueprint.video_script)}
+                      className="relative w-full bg-[#050505] border border-blue-500/30 hover:border-blue-500/60 text-white h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] gap-3 shadow-2xl transition-all"
                     >
-                      <Play className="size-4 fill-current" />
-                      Produce This Video Now
+                      <Play className="size-4 fill-blue-500 text-blue-500" />
+                      Initialize Video Production
                     </Button>
                 </div>
               )}
@@ -78,21 +83,23 @@ export function MessageBlueprint({
         )}
 
         {m.warRoomDialogue && showThoughts && (
-          <div className="px-5 py-4 bg-blue-500/10 border border-blue-500/20 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-500 w-full overflow-hidden text-left">
-              <div className="flex items-center gap-3 mb-3 opacity-80">
-                <Activity className="size-4 text-blue-400" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Strategy War Room Debate</span>
+          <div className="px-6 py-5 bg-blue-600/5 border border-blue-500/10 rounded-[2rem] animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center gap-3 mb-4 opacity-80">
+                <div className="size-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                   <Activity className="size-3.5 text-blue-400" />
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-300">Strategy Internal Debate</span>
               </div>
-              <div className="font-mono text-[11px] text-slate-300 leading-relaxed space-y-3 whitespace-pre-wrap break-words w-full overflow-hidden">
-                {m.warRoomDialogue.split('\n').map((line: string, idx: number) => {
+              <div className="font-mono text-[11px] text-slate-400 leading-relaxed space-y-4">
+                {m.warRoomDialogue.split('\n').filter(Boolean).map((line: string, idx: number) => {
                   const isDisruptor = line.toLowerCase().includes('disruptor');
                   const isArchitect = line.toLowerCase().includes('architect');
                   
                   return (
                     <div key={idx} className={cn(
-                      "pl-4 border-l-4 transition-all duration-300 w-full break-words break-all text-left",
-                      isDisruptor ? "border-red-500/40 text-red-100/70" : 
-                      isArchitect ? "border-emerald-500/40 text-emerald-100/70" : 
+                      "pl-4 border-l-2 transition-all duration-300",
+                      isDisruptor ? "border-red-500/30 text-red-200/60" : 
+                      isArchitect ? "border-emerald-500/30 text-emerald-200/60" : 
                       "border-white/10 opacity-60"
                     )}>
                       {line.replace(/\*\*/g, '')}

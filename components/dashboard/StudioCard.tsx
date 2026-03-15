@@ -96,10 +96,12 @@ export function StudioCard({ variant, data, onPreview }: StudioCardProps) {
     <Card
       onClick={() => variant === "media" && onPreview?.(data)}
       className={cn(
-        "group relative rounded-2xl overflow-hidden border border-white/5 bg-slate-900/40 hover:bg-slate-900/60 hover:shadow-2xl transition-all duration-500 hover:-translate-y-1.5 cursor-pointer flex flex-col",
+        "group relative rounded-[2rem] overflow-hidden border border-white/5 bg-[#050505]/60 backdrop-blur-md hover:bg-[#080808]/80 hover:border-white/20 hover:shadow-[0_0_40px_rgba(0,0,0,0.5)] transition-all duration-500 hover:-translate-y-1.5 cursor-pointer flex flex-col",
         variant === "project" && "h-fit"
       )}
     >
+      {/* Background Aura Pulse on Hover */}
+      <div className="absolute inset-0 bg-blue-500/[0.03] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
       {/* Thumbnail / Header Area */}
       {variant !== "project" ? (
         <div className="aspect-[4/5] w-full bg-slate-800/50 relative overflow-hidden">
@@ -138,9 +140,9 @@ export function StudioCard({ variant, data, onPreview }: StudioCardProps) {
 
           {variant === "media" && data.postedAt && (
             <div className="absolute bottom-3 left-3">
-              <Badge className="bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-500/20 gap-1">
-                <CheckCircle2 className="size-3" />
-                Posted
+              <Badge className="bg-emerald-500/10 backdrop-blur-md text-emerald-500 border border-emerald-500/20 shadow-lg gap-1.5 px-3 rounded-full text-[8px] font-black uppercase tracking-widest">
+                <CheckCircle2 className="size-2.5" />
+                Archived
               </Badge>
             </div>
           )}
@@ -175,9 +177,16 @@ export function StudioCard({ variant, data, onPreview }: StudioCardProps) {
           <CardTitle title={data.title} />
         )}
         
-        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-3">
-          {timeAgo}
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+            {timeAgo}
+          </p>
+          {variant === "media" && data.seriesId && (
+            <Badge variant="outline" className="h-5 border-amber-500/20 bg-amber-500/5 text-amber-500 text-[8px] font-black uppercase px-2 rounded-full">
+              Series Asset
+            </Badge>
+          )}
+        </div>
 
         {variant === "project" && data.oneLiner && (
           <p className="text-xs text-slate-400 font-medium line-clamp-2 leading-relaxed mb-4">
