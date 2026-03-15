@@ -106,7 +106,7 @@ export function NarrativeEngineScreen({ narrativeId }: NarrativeEngineScreenProp
   if (!user) return <AuthScreen />;
 
   const narrative = (data as any)?.narratives?.[0] as
-    | (FounderNarrative & { pillars?: ContentPillar[], contentPieces?: any[] })
+    FounderNarrative
     | undefined;
 
   if (!narrative) {

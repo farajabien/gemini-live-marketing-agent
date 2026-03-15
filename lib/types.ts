@@ -445,6 +445,11 @@ export interface FounderNarrative {
   problem?: string;
   solution?: string;
   voice?: string;
+
+  // Legacy fields for backward compatibility
+  thePain?: string;
+  yourApproach?: string;
+  founderVoice?: string;
   
   identityAnchor?: {
     mission: string;
@@ -458,6 +463,7 @@ export interface FounderNarrative {
   // === Layer 2: Virality & Patterns ===
   virality?: ViralityPrimitives;
   patternLibrary?: ViralPattern[];
+  activePatternId?: string;
   seeds?: ContentSeed[];
 
   // === Layer 3: Format Layer ===
@@ -474,6 +480,38 @@ export interface FounderNarrative {
     completionRate: number;
     retentionCurveUrl?: string;
     learnings: string[];
+  }>;
+
+  // Intelligence & Progress
+  aiPositioning?: {
+    villain: string;
+    hero: string;
+    mechanism: string;
+    promise: string;
+    stakes: string;
+    contrast?: {
+      before: string;
+      after: string;
+    };
+  };
+  angles?: {
+    painAngles?: string[];
+    costAngles?: string[];
+    mechanismAngles?: string[];
+    identityAngles?: string[];
+    outcomeAngles?: string[];
+  };
+  narrativeAngles?: string[];
+  synthesizedNarrative?: any;
+
+  versions?: Array<{
+    timestamp: number;
+    changes: {
+      positioning?: { old: any; new: any };
+      angles?: { old: any; new: any };
+      narrativeStrength?: { old: any; new: any };
+    };
+    updatedBy?: string;
   }>;
 
   // Metadata & Strength

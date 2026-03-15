@@ -379,9 +379,9 @@ export function GenerateScreen({ initialPlanId, isModal = false, onClose, hideHe
          setStatusText("Loading narrative context...");
          console.log("Using narrative context for positioning...");
 
-         const narrativeProblem = activeNarrative.thePain || "";
-         const narrativeSolution = activeNarrative.yourApproach || "";
-         const narrativeVoice = activeNarrative.founderVoice || "neutral";
+         const narrativeProblem = activeNarrative.problem || "";
+         const narrativeSolution = activeNarrative.solution || "";
+         const narrativeVoice = activeNarrative.voice || "neutral";
 
          // TEMPORARY FIX: Skip AI positioning generation (it's timing out and blocking video generation)
          // TODO: Add timeout + graceful fallback later

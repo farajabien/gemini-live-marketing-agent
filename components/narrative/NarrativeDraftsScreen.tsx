@@ -212,7 +212,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
   // Auto-trigger generation when navigating from engine screen
   useEffect(() => {
     if (autoGenerate && !isGenerating && data && refreshToken) {
-      const narrative = (data as any)?.narratives?.[0];
+      const narrative = (data as any)?.narratives?.[0] as FounderNarrative | undefined;
       const hasStrategy = narrative?.synthesizedNarrative || narrative?.aiPositioning;
       if (hasStrategy) {
         handleGenerateContent();
@@ -497,7 +497,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
                   </SelectContent>
                 </Select>
 
-                {(narrative.narrativeAngles || (narrative as any).angles) && (
+                {(narrative.narrativeAngles || narrative.angles) && (
                   <AngleSelectorPopover 
                     narrative={narrative}
                     value={preferredAngle}
@@ -508,7 +508,7 @@ export function NarrativeDraftsScreen({ narrativeId }: NarrativeDraftsScreenProp
 
               <Button
                 onClick={handleGenerateContent}
-                disabled={isGenerating || (!narrative.synthesizedNarrative && !(narrative as any).aiPositioning)}
+                disabled={isGenerating || (!narrative.synthesizedNarrative && !narrative.aiPositioning)}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-black uppercase tracking-widest text-xs h-10 px-6 rounded-xl shadow-lg hover:shadow-xl"
               >
                 {isGenerating ? (
