@@ -1,12 +1,12 @@
-# 🎬 IdeaToVideo — The Narrative Intelligence Platform
+# 🎬 IdeaToVideo — The Cinematic Narrative Intelligence Platform
 
-**Turn your brand narrative into an AI-powered content engine that learns what works and gets smarter over time.**
+**Turn your brand soul into an unstoppable AI-powered cinematic engine that learns, evolves, and dominates.**
 
-IdeaToVideo is not a video editor. It's a **Dynamic Narrative Intelligence System** that:
-1. **Captures your brand positioning** through an 8-step strategic wizard
-2. **Generates content aligned to your narrative** with AI-powered tagging
-3. **Evolves with you**: Every generation and refinement session distills new insights back into your "Brand Brain."
-4. **Tracks what matters**: Remembers every hook and angle generated to ensure diversity and strategic growth.
+IdeaToVideo is a **High-Fidelity Narrative Intelligence System** that:
+1. **Extracts your brand DNA** through an 8-step strategic "interrogation".
+2. **Architects Multi-Episode Cinematic Series** with cohesive story arcs and production storyboards.
+3. **Evolves with you**: Every generation distilled into your persistent "Brand Brain" for smarter future content.
+4. **Context-Aware Branding**: Automatically titles and styles your projects based on the extracted narrative soul.
 
 ## 🎯 The Core Job
 

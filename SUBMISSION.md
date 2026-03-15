@@ -7,10 +7,11 @@ IdeaToVideo is a **Narrative Intelligence Platform** that transforms brand posit
 - **Category:** Marketing Intelligence & Content Generation
 - **Tech:** Google Gemini API, Google Veo 3.1 (video), Firebase, Next.js 16
 - **Key Features:**
-  - Strategic narrative capture with AI analysis
-  - Content angle generation (25+ angles per narrative)
-  - Auto-tagging of generated content
-  - Performance tracking (24h/7d metrics)
+  - Strategic narrative capture with AI-powered "Extraction Interrogation"
+  - Multi-Episode Cinematic Series Architecture (3-5 episode arcs)
+  - Master Season Plot & Production Storyboard generation
+  - Context-Aware Branding (Dynamic project naming & styling)
+  - Agentic Production War Room with manual render triggers
   - AI-powered video generation with FFmpeg rendering
 
 ## Architecture

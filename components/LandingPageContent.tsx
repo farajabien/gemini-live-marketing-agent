@@ -48,39 +48,46 @@ export function LandingPageContent() {
 
         {/* Hero Section */}
         <section className="relative overflow-hidden pt-32 pb-20 lg:pt-48 lg:pb-32">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] bg-red-600/10 rounded-full blur-[120px] -z-10 opacity-30"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[800px] bg-red-600/10 rounded-full blur-[160px] -z-10 opacity-40 animate-pulse" />
+          <div className="absolute top-0 left-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none -z-10" />
           
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="flex flex-col items-center text-center">
-              <div className="mb-8 inline-flex items-center rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-red-500 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-red-500 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <Sparkles className="size-3" />
                 {hero.badge}
               </div>
-              <div className="max-w-4xl space-y-6">
-                <h1 className="text-4xl font-black leading-tight tracking-tight text-white sm:text-7xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both">
-                  {hero.title}
+              <div className="max-w-4xl space-y-8">
+                <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-white sm:text-8xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200 fill-mode-both italic uppercase">
+                  {hero.title.split('.').map((part, i) => (
+                    <span key={i} className={i === 0 ? "text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-red-500" : ""}>
+                      {part}{i === 0 && hero.title.includes('.') ? '.' : ''}
+                    </span>
+                  ))}
                 </h1>
-                <p className="mx-auto max-w-xl text-lg text-[#9cb3ff] leading-relaxed animate-in fade-in slide-in-from-bottom-6 duration-700 delay-500 fill-mode-both">
+                <p className="mx-auto max-w-2xl text-lg text-slate-400 font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-500 fill-mode-both">
                   {hero.subtitle}
                 </p>
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-400 font-medium mt-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
-                  <span>Powered by</span>
-                  <div className="bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
-                    <Image src="/logos/gemini.png" alt="Google Gemini" width={120} height={30} className="h-5 w-auto" />
+                <div className="flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-4 animate-in fade-in duration-1000 delay-700 fill-mode-both">
+                  <span>Engineered with</span>
+                  <div className="bg-white/5 px-4 py-2 rounded-2xl backdrop-blur-md border border-white/10 flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-white">Gemini 2.0 Flash</span>
                   </div>
                 </div>
-                <div className="flex flex-col w-full sm:flex-row gap-4 justify-center pt-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-1000 fill-mode-both">
+                <div className="flex flex-col w-full sm:flex-row gap-6 justify-center pt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-1000 fill-mode-both">
                   <Link
                     href={launchPath}
-                    className="inline-flex h-14 items-center gap-2 px-10 rounded-xl bg-red-600 text-lg font-black text-white shadow-xl shadow-red-500/25 transition-all hover:scale-105 active:scale-95 hover:bg-red-500 group"
+                    className="inline-flex h-16 items-center gap-3 px-12 rounded-2xl bg-red-600 text-sm font-black uppercase tracking-[0.2em] text-white shadow-2xl shadow-red-500/30 transition-all hover:scale-105 active:scale-95 hover:bg-red-500 group"
                   >
                     {ctaLabel}
                     <ChevronRight className="size-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                   <Link
                     href="#how-it-works"
-                    className="inline-flex h-14 items-center justify-center rounded-xl bg-white/5 border border-white/10 px-10 text-lg font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
+                    className="inline-flex h-16 items-center justify-center rounded-2xl bg-white/5 border border-white/10 px-12 text-sm font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-white/10 hover:border-white/20 backdrop-blur-sm"
                   >
-                    See the System
+                    System Specs
                   </Link>
                 </div>
               </div>
@@ -135,10 +142,13 @@ export function LandingPageContent() {
                     ))}
                 </div>
                 <div className="p-6 rounded-2xl bg-gradient-to-r from-red-600/10 to-transparent border-l-4 border-red-600">
-                    <p className="text-xl text-white font-black italic tracking-wide">&quot;{solution.formula}&quot;</p>
+                    <p className="text-xl text-white font-black italic tracking-wide lowercase">&quot;{solution.formula.replace('Multi-Episode Series', 'Cinematic Anthology')}&quot;</p>
                 </div>
              </div>
-             <div className="flex-1 w-full max-w-md bg-[#101322] rounded-[2.5rem] border border-white/5 p-4 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden scale-105">
+             <div className="flex-1 w-full max-w-md bg-[#101322] rounded-[2.5rem] border border-white/5 p-4 shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] overflow-hidden scale-105 group relative">
+                <div className="absolute top-8 right-8 z-20 animate-bounce">
+                  <div className="bg-red-600 text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full shadow-xl">High-Fidelity Output</div>
+                </div>
                 <div className="aspect-[9/16] bg-slate-900 rounded-[1.8rem] relative flex items-center justify-center overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-t from-red-600/20 to-transparent pointer-events-none"></div>
                   <span className="material-symbols-outlined text-red-500/20 text-8xl">play_circle</span>

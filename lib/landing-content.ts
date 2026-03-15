@@ -1,9 +1,9 @@
 export const LANDING_CONTENT = {
   hero: {
-    badge: "New: Multi-Episode Series & AI Demo Narrator",
-    title: "Operationalize Your Positioning with AI.",
-    subtitle: "IdeaToVideo is the only marketing engine that extracts your core business narrative and turns it into a daily stream of high-converting videos, carousels, and stories—automatically.",
-    cta: "Start Your Marketing Engine"
+    badge: "New: Multi-Episode Cinematic Series",
+    title: "Cinematic Narrative Intelligence for Unstoppable Authority.",
+    subtitle: "IdeaToVideo is the high-fidelity marketing engine that extracts your core business narrative and transforms it into a daily stream of cinematic series, strategic carousels, and narrated demos—automatically.",
+    cta: "Ignite Your Brand Brain"
   },
   problem: {
     title: "Founders are the bottleneck of their own marketing.",
