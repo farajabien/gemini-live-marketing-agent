@@ -282,6 +282,7 @@ export interface SeriesNarrative {
   narrativeTone: string;
   visualStyle: string;
   episodeHooks: string;
+  logline?: string;
   
   characterDynamics?: any;
   plotBeats?: string[];
