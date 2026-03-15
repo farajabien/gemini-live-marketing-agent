@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AuthScreen } from "@/components/screens/AuthScreen";
 import { DirectorChat } from "./DirectorChat";
 import { NarrativeCanvas } from "./NarrativeCanvas";
-import { updateNarrativeField, generateSmartTitleAction } from "@/app/actions/marketing";
+import { updateNarrativeField, regenerateIntelligenceAction } from "@/app/actions/marketing";
 import { Activity, Sparkles, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/AppLayout";
@@ -65,14 +65,16 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
     );
   }
 
-  const handleGenerateSmartTitle = async () => {
+  const handleOptimizeStrategy = async () => {
     setIsGeneratingTitle(true);
     try {
-      await generateSmartTitleAction(narrativeId, user.id);
-      toast.success("Strategic title distilled.");
+      // Determine type based on fields
+      const type = narrative?.genre ? 'series' : 'narrative';
+      await regenerateIntelligenceAction(narrativeId, user.id, type);
+      toast.success("Strategic intelligence synchronized.");
     } catch (error) {
-      console.error("Failed to generate smart title:", error);
-      toast.error("Failed to distill title.");
+      console.error("Failed to optimize strategy:", error);
+      toast.error("Optimization failed.");
     } finally {
       setIsGeneratingTitle(false);
     }
@@ -154,12 +156,12 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
            <Button
              variant="ghost"
              size="sm"
-             onClick={handleGenerateSmartTitle}
+             onClick={handleOptimizeStrategy}
              disabled={isGeneratingTitle}
              className="h-7 px-3 rounded-xl bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-white hover:bg-white/5 gap-1.5"
            >
              {isGeneratingTitle ? <Activity className="size-3 animate-spin" /> : <Sparkles className="size-3 text-red-500" />}
-             Analysis
+             Optimize
            </Button>
            <Button
              variant="ghost"
@@ -191,7 +193,7 @@ export function NarrativeOverviewScreen({ narrativeId: propId }: NarrativeOvervi
               narrative={narrative} 
               videoPlans={videoPlans || []}
               isGeneratingTitle={isGeneratingTitle}
-              onGenerateSmartTitle={handleGenerateSmartTitle}
+              onGenerateSmartTitle={handleOptimizeStrategy}
               onUpdateField={handleUpdateField}
             />
           }

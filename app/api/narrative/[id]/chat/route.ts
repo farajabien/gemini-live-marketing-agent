@@ -121,7 +121,7 @@ export async function POST(
           const { text: internalThought } = await generateText(
             thinkingPrompt,
             "You are a strategic reasoning engine.",
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             0.8
           );
 
@@ -215,7 +215,7 @@ export async function POST(
               (async () => {
                 try {
                   if (isSeries) {
-                    const { analyzeStoryNarrative, evolveSeriesNarrative } = await import("@/lib/marketing/narrative-intelligence");
+                    const { analyzeStoryNarrative, evolveSeriesNarrative, scoreSeriesNarrativeStrength } = await import("@/lib/marketing/narrative-intelligence");
                     
                     const currentInput: SeriesNarrativeInput = {
                       genre: narrative.genre || "",
@@ -229,6 +229,7 @@ export async function POST(
                     };
                     
                     const evolved = await evolveSeriesNarrative(currentInput, `User: ${userMessage}\nDirector: ${cleanText}`);
+                    const strength = await scoreSeriesNarrativeStrength(evolved);
                     
                     // DEEP EVOLUTION: If the brain is healthy (e.g., 6+ fields filled), trigger deep analysis
                     const filledFields = Object.values(evolved).filter(v => v && v.length > 3).length;
@@ -238,7 +239,16 @@ export async function POST(
                       console.log(`[Director Chat] Brain Healthy (${filledFields}/8). Triggering Deep Story Analysis...`);
                       try {
                         const { analysis } = await analyzeStoryNarrative(evolved);
-                        deepAnalysis = analysis;
+                        deepAnalysis = {
+                          ...analysis,
+                          aiPositioning: {
+                            villain: analysis.villain,
+                            hero: analysis.hero,
+                            mechanism: analysis.mechanism,
+                            promise: analysis.logline,
+                            stakes: analysis.characterDynamics
+                          }
+                        };
                       } catch (err) {
                         console.error("[Deep Analysis Error]:", err);
                       }
@@ -248,6 +258,7 @@ export async function POST(
                       adminDb.tx.seriesNarratives[narrativeId].update({
                         ...evolved,
                         ...deepAnalysis,
+                        narrativeStrength: strength,
                         updatedAt: Date.now(),
                       })
                     ]);

@@ -112,7 +112,7 @@ export function NarrativeCanvas({
                 {/* Villain */}
                 <div className={cn(
                   "p-4 rounded-[2rem] bg-gradient-to-br from-red-500/[0.03] to-transparent border border-red-500/10 group/card transition-all hover:bg-red-500/[0.05] hover:border-red-500/20 shadow-lg shadow-black/20",
-                  pulseField === 'villain' && "ring-2 ring-red-500/50 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse"
+                  (pulseField === 'villain' || isGeneratingTitle) && "ring-2 ring-red-500/50 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse"
                 )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -126,7 +126,7 @@ export function NarrativeCanvas({
                 {/* Hero */}
                 <div className={cn(
                   "p-4 rounded-[2rem] bg-gradient-to-br from-blue-500/[0.03] to-transparent border border-blue-500/10 group/card transition-all hover:bg-blue-500/[0.05] hover:border-blue-500/20 shadow-lg shadow-black/20",
-                  pulseField === 'hero' && "ring-2 ring-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] animate-pulse"
+                  (pulseField === 'hero' || isGeneratingTitle) && "ring-2 ring-blue-500/50 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] animate-pulse"
                 )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -140,7 +140,7 @@ export function NarrativeCanvas({
                 {/* Mechanism */}
                 <div className={cn(
                    "p-4 rounded-[2rem] bg-gradient-to-br from-purple-500/[0.03] to-transparent border border-purple-500/10 group/card transition-all hover:bg-purple-500/[0.05] hover:border-purple-500/20 shadow-lg shadow-black/20",
-                   pulseField === 'mechanism' && "ring-2 ring-purple-500/50 bg-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse"
+                   (pulseField === 'mechanism' || isGeneratingTitle) && "ring-2 ring-purple-500/50 bg-purple-500/10 shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-pulse"
                 )}>
                    <div className="flex items-center gap-2 mb-2">
                       <div className="size-5 rounded-lg bg-purple-500/10 flex items-center justify-center">

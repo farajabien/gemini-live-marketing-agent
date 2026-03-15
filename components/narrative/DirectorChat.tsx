@@ -11,7 +11,8 @@ import { useGenerateStore } from "@/hooks/use-generate-store";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { MessageBlueprint } from "./chat/MessageBlueprint";
-import { generateSeasonPlotAction } from "@/app/actions/marketing";
+import { useRouter } from "next/navigation";
+import { generateSeasonPlotAction, regeneratePositioning } from "@/app/actions/marketing";
 import { StrategicPulse } from "./StrategicPulse";
 
 interface DirectorChatProps {
@@ -25,8 +26,9 @@ interface DirectorChatProps {
 export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, className }: DirectorChatProps) {
   const { user, refreshToken } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -120,14 +122,7 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
     }
   }, [messages, isLoading, thinkingSteps]);
 
-  const connect = () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setIsConnected(true);
-      setIsConnecting(false);
-      toast.success("Director connected!");
-    }, 1000);
-  };
+  // Standby connection logic removed for 'Always Awake' flow
 
   const onFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,13 +146,15 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
   const brainHealth = useMemo(() => {
     if (!narrative) return 0;
     const scores = narrative.narrativeStrength;
-    if (scores?.overallScore !== undefined) return scores.overallScore;
+    if (scores?.overallScore !== undefined && scores.overallScore > 0) return scores.overallScore;
     
-    // Fallback logic
-    const fields = ['genre', 'worldSetting', 'conflictType', 'protagonistArchetype', 'centralTheme', 'narrativeTone', 'visualStyle', 'episodeHooks'];
+    // Fallback logic for bootstrapping
+    const fields = seriesId 
+      ? ['genre', 'worldSetting', 'conflictType', 'protagonistArchetype', 'centralTheme', 'narrativeTone', 'visualStyle', 'episodeHooks']
+      : ['audience', 'problem', 'solution', 'voice', 'afterState', 'identityShift'];
     const filled = fields.filter(f => narrative[f] && (narrative[f] as string).length > 5).length;
-    return (filled / fields.length) * 100;
-  }, [narrative]);
+    return Math.round((filled / fields.length) * 100);
+  }, [narrative, seriesId]);
 
   const canGeneratePlot = (brainHealth >= 30 || narrative?.logline) && !narrative?.megaPrompt && seriesId;
 
@@ -166,13 +163,31 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
     const promise = generateSeasonPlotAction(narrativeId, 3);
     toast.promise(promise, {
       loading: "Architecting Master Season Plot...",
-      success: "Season Plot synchronized with Production Console.",
+      success: "Season Plot synchronized. Redirecting...",
       error: "Failed to generate season plot."
+    });
+    try {
+      await promise;
+      if (seriesId) {
+        // Find the series and redirect to it (this logic usually happens in the action return but we'll assume standard path)
+        // router.push(`/series/${seriesId}`);
+      }
+    } catch (e) {}
+  };
+
+  const handleSynthesizeNarrative = async () => {
+    const promise = regeneratePositioning(narrativeId, user?.id || 'guest');
+    toast.promise(promise, {
+      loading: "Synthesizing Strategic Blueprint...",
+      success: "Blueprint locked. Analyzing assets...",
+      error: "Synthesis failed."
     });
     try {
       await promise;
     } catch (e) {}
   };
+
+  const isGoalReached = brainHealth >= 70;
 
   return (
     <div className={cn(
@@ -194,17 +209,10 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
           </div>
         </div>
 
-        {!isConnected ? (
-          <Button onClick={connect} disabled={isConnecting} className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4 h-8 text-[9px] font-black uppercase gap-2">
-            {isConnecting ? <Loader2 className="size-3 animate-spin" /> : <Zap className="size-3 fill-current" />}
-            Wake Up
-          </Button>
-        ) : (
-          <Button onClick={() => setShowSummary(!showSummary)} variant="ghost" className={cn("h-8 rounded-xl text-[9px] font-black uppercase transition-all gap-1.5", showSummary ? "bg-blue-500/10 text-blue-400" : "text-slate-500")}>
-            <Activity className="size-4" />
-            Strategic Pulse
-          </Button>
-        )}
+        <Button onClick={() => setShowSummary(!showSummary)} variant="ghost" className={cn("h-8 rounded-xl text-[9px] font-black uppercase transition-all gap-1.5", showSummary ? "bg-blue-500/10 text-blue-400" : "text-slate-500")}>
+          <Activity className="size-4" />
+          Strategic Pulse
+        </Button>
       </div>
 
       {/* Strategic Pulse Overlay / Header Section */}
@@ -269,6 +277,20 @@ export function DirectorChat({ narrativeId, seriesId, onClose, inline = false, c
               )}
         </div>
       </div>
+
+      {/* Synthesis CTA (Guided Flow) */}
+      {isGoalReached && !isLoading && (
+        <div className="px-6 py-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Button 
+            onClick={seriesId ? handleGenerateSeasonPlot : handleSynthesizeNarrative}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-[10px] font-black uppercase tracking-[0.2em] h-12 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.4)] border border-blue-400/20 gap-3 group"
+          >
+            <Sparkles className="size-4 animate-pulse fill-current" />
+            {seriesId ? "Initiate Multi-Episode Series Generation" : "Lock Strategy & Generate Video Blueprints"}
+            <ChevronRight className="size-4 group-hover:translate-x-1 transition-transform" />
+          </Button>
+        </div>
+      )}
 
       {/* Input Bar */}
       <div className="p-6 bg-gradient-to-t from-background to-transparent space-y-4">

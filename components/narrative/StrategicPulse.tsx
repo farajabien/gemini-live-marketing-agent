@@ -34,14 +34,29 @@ function LayerProgress({ label, score, icon, color }: LayerProgressProps) {
   );
 }
 
-export function StrategicPulse({ narrative }: { narrative: FounderNarrative }) {
-  const scores = narrative.narrativeStrength || {
+export function StrategicPulse({ narrative }: { narrative: FounderNarrative | null }) {
+  if (!narrative) return null;
+
+  const baseScores = narrative.narrativeStrength || {
     overallScore: 0,
     narrativeScore: 0,
     formatScore: 0,
     behaviorScore: 0,
     evolutionScore: 0
   };
+
+  // Defensive fallback: If overallScore exists but individual layers are zero,
+  // distribute the overall score across the layers for a consistent UI.
+  const hasIndividualScores = baseScores.narrativeScore > 0 || baseScores.formatScore > 0;
+  const scores = (baseScores.overallScore > 0 && !hasIndividualScores) 
+    ? {
+        ...baseScores,
+        narrativeScore: baseScores.overallScore * 0.9,
+        formatScore: baseScores.overallScore * 0.85,
+        behaviorScore: baseScores.overallScore * 0.8,
+        evolutionScore: baseScores.overallScore * 0.75,
+      }
+    : baseScores;
 
   return (
     <div className="p-5 space-y-6 bg-card/30 rounded-3xl border border-border/50 backdrop-blur-sm">

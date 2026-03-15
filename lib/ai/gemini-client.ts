@@ -11,13 +11,13 @@ export interface GenerationResult {
 
 /**
  * Common AI generation interface using Gemini on Vertex AI.
- * Maps GPT-4o calls to gemini-1.5-pro or 2.0-flash for optimal speed and cost.
+ * Maps GPT-4o calls to gemini-1.5-pro or 1.5-flash for optimal speed and cost.
  * This satisfies hackathon requirements for Google Cloud integration.
  */
 export async function generateText(
   prompt: string,
   systemPrompt?: string,
-  model: string = "gemini-2.0-flash", // Default to 2.0 Flash
+  model: string = "gemini-1.5-flash", // Default to 2.0 Flash
   temperature: number = 0.7,
   isJson: boolean = false
 ): Promise<GenerationResult> {
@@ -25,7 +25,7 @@ export async function generateText(
   // Map models to Vertex equivalents
   // Using 2.0 Flash by default for speed, 1.5 Pro for complex reasoning
   const providerModel = model.includes("pro") ? googleVertex : googleVertexFlash;
-  const modelToUse = model.includes("pro") ? "gemini-1.5-pro" : "gemini-2.0-flash-001";
+  const modelToUse = model.includes("pro") ? "gemini-2.5-pro" : "gemini-2.5-flash";
   
   return withRetry(async () => {
     const { text, usage } = await aiGenerateText({

@@ -3,7 +3,7 @@
 import { adminDb, generateId as id } from "@/lib/firebase-admin";
 import { generateBrandPositioning, generateContentPillars, PositioningInput } from "@/lib/marketing/positioning";
 import { generateDraftFromAngle, DraftGenerationInput } from "@/lib/marketing/generator";
-import { analyzeNarrative, analyzeStoryNarrative, refineStoryNarrative, refineBrandNarrative, refineContentPillar, refineFullStrategy, evolveNarrative, generateSmartTitle, extractSeriesWizardDataFromBrainDump, generateSeriesSeasonPlot, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
+import { analyzeNarrative, analyzeStoryNarrative, scoreSeriesNarrativeStrength, refineStoryNarrative, refineBrandNarrative, refineContentPillar, refineFullStrategy, evolveNarrative, generateSmartTitle, extractSeriesWizardDataFromBrainDump, generateSeriesSeasonPlot, type NarrativeInput, type SeriesNarrativeInput } from "@/lib/marketing/narrative-intelligence";
 
 // Legacy type for backward compatibility
 export async function createBrandNarrative(
@@ -328,7 +328,7 @@ export async function updateNarrativeField(
       throw new Error("Narrative not found");
     }
 
-    const oldValue = (narrative as any)[field];
+    const oldValue = (narrative as any)[field] ?? null;
 
     // Build version history entry
     const versions = narrative.versions || [];
@@ -340,7 +340,7 @@ export async function updateNarrativeField(
           new: value,
         }
       },
-      updatedBy: "user", // In a real app, you'd pass userId here
+      updatedBy: "user", 
     };
 
     // Keep only last 10 versions
@@ -458,6 +458,97 @@ export async function regeneratePositioning(
   } catch (error) {
     console.error("Failed to regenerate positioning:", error);
     throw new Error("Failed to regenerate positioning");
+  }
+}
+
+export async function regenerateIntelligenceAction(
+  narrativeId: string,
+  userId: string,
+  type: 'narrative' | 'series' = 'narrative'
+): Promise<any> {
+  console.log(`[Action] Regenerating intelligence for ${type}: ${narrativeId}`);
+  
+  try {
+    const collection = type === 'series' ? 'seriesNarratives' : 'narratives';
+    const data = await adminDb.query({
+      [collection]: { $: { where: { id: narrativeId } } }
+    });
+
+    const narrative = (data as any)[collection]?.[0];
+    if (!narrative) throw new Error("Project not found");
+
+    let analysis: any;
+    let updatePayload: any = {};
+
+    if (type === 'series') {
+      const input: SeriesNarrativeInput = {
+        genre: narrative.genre || "",
+        worldSetting: narrative.worldSetting || "",
+        conflictType: narrative.conflictType || "",
+        protagonistArchetype: narrative.protagonistArchetype || "",
+        centralTheme: narrative.centralTheme || "",
+        narrativeTone: narrative.narrativeTone || "",
+        visualStyle: narrative.visualStyle || "",
+        episodeHooks: narrative.episodeHooks || "",
+      };
+
+      const { analysis: storyAnalysis, totalCost } = await analyzeStoryNarrative(input);
+      
+      // Calculate narrative strength for series
+      const strength = await scoreSeriesNarrativeStrength(input);
+
+      updatePayload = {
+        title: storyAnalysis.title,
+        logline: storyAnalysis.logline,
+        characterDynamics: storyAnalysis.characterDynamics,
+        plotBeats: storyAnalysis.plotBeats,
+        worldRules: storyAnalysis.worldRules,
+        visualMoat: storyAnalysis.visualMoat,
+        narrativeStrength: strength,
+        aiPositioning: {
+          villain: storyAnalysis.villain,
+          hero: storyAnalysis.hero,
+          mechanism: storyAnalysis.mechanism,
+          promise: storyAnalysis.logline,
+          stakes: storyAnalysis.characterDynamics
+        },
+        totalCost: (narrative.totalCost || 0) + totalCost + strength.cost,
+        updatedAt: Date.now(),
+      };
+    } else {
+      const input: NarrativeInput = {
+        audience: narrative.audience || "",
+        currentState: narrative.currentState || "",
+        problem: narrative.problem || "",
+        costOfInaction: narrative.costOfInaction || "",
+        solution: narrative.solution || "",
+        afterState: narrative.afterState || "",
+        identityShift: narrative.identityShift || "",
+        voice: narrative.voice || "calm",
+      };
+
+      const { positioning: p, angles: a, framework: f, narrativeStrength: s, totalCost: cost } = await analyzeNarrative(input);
+      
+      updatePayload = {
+        aiPositioning: p,
+        angles: a,
+        narrativeStrength: s,
+        positioningStatement: f.positioningStatement,
+        coreMessage: f.coreMessage,
+        brandVoice: f.brandVoice,
+        totalCost: (narrative.totalCost || 0) + cost,
+        updatedAt: Date.now(),
+      };
+    }
+
+    await adminDb.transact([
+      adminDb.tx[collection][narrativeId].update(updatePayload)
+    ]);
+
+    return updatePayload;
+  } catch (error) {
+    console.error(`[Action] Failed to regenerate ${type} intelligence:`, error);
+    throw error;
   }
 }
 

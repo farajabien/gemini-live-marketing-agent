@@ -287,6 +287,22 @@ export interface SeriesNarrative {
   characterDynamics?: any;
   plotBeats?: string[];
   
+  // Intelligence & Progress
+  aiPositioning?: {
+    villain: string;
+    hero: string;
+    mechanism: string;
+    promise: string;
+    stakes: string;
+  };
+  narrativeStrength?: {
+    overallScore: number;
+    narrativeScore: number;
+    formatScore: number;
+    behaviorScore: number;
+    evolutionScore: number;
+  };
+
   createdAt: number;
   updatedAt: number;
   totalCost?: number;

@@ -404,7 +404,7 @@ Rules:
 
   let response: string;
   try {
-    const result = await generateText(prompt, "You are a visual storytelling director. Output only valid JSON.", "gemini-2.0-flash", 0.7);
+    const result = await generateText(prompt, "You are a visual storytelling director. Output only valid JSON.", "gemini-2.5-flash", 0.7);
     response = result.text;
   } catch (err) {
     console.warn("[generateSubScenesForEpisode] AI call failed, returning flat scenes:", err);

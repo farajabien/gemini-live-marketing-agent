@@ -300,9 +300,20 @@ Be honest. Score based on the actual inputs provided.
   try {
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found");
-    const scores = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonMatch[0]);
 
-    // Calculate overall score if not provided
+    const scores = {
+      specificityScore: Number(parsed.specificityScore) || 0,
+      emotionalClarity: Number(parsed.emotionalClarity) || 0,
+      tensionStrength: Number(parsed.tensionStrength) || 0,
+      contrastScore: Number(parsed.contrastScore) || 0,
+      narrativeScore: Number(parsed.narrativeScore) || 0,
+      formatScore: Number(parsed.formatScore) || 0,
+      behaviorScore: Number(parsed.behaviorScore) || 0,
+      evolutionScore: Number(parsed.evolutionScore) || 0,
+      overallScore: Number(parsed.overallScore) || 0,
+    };
+
     if (!scores.overallScore) {
       scores.overallScore = Math.round(
         (scores.narrativeScore * 0.4 +
@@ -314,10 +325,99 @@ Be honest. Score based on the actual inputs provided.
 
     return { ...scores, cost };
   } catch (e) {
-
     console.error("Failed to parse strength scores. Raw response:", response);
-    console.error("Error details:", e);
     throw new Error("Failed to score narrative strength");
+  }
+}
+
+export async function scoreSeriesNarrativeStrength(input: SeriesNarrativeInput): Promise<NarrativeStrength & { cost: number }> {
+  const prompt = `
+You are a master story analyst. Score the depth and structural strength of this series narrative.
+
+INPUTS:
+- Genre: ${input.genre}
+- Setting: ${input.worldSetting}
+- Conflict: ${input.conflictType}
+- Hero: ${input.protagonistArchetype}
+- Theme: ${input.centralTheme}
+- Tone: ${input.narrativeTone}
+- Visuals: ${input.visualStyle}
+- Hooks: ${input.episodeHooks}
+
+SCORING CRITERIA (0-100 for each):
+
+1. specificityScore: How unique and specific is this world and hook?
+2. emotionalClarity: How clearly defined is the hero's internal struggle?
+3. tensionStrength: How strong is the central conflict or "Villain"?
+4. contrastScore: How distinct is the visual style and tone?
+
+5. narrativeScore: Weighted average of the above 4 (40%)
+6. formatScore: Based on the clarity of episode hooks (20%)
+7. behaviorScore: Based on protagonist archetype depth (20%)
+8. evolutionScore: Based on the "World Rules" or "Pillars" defined (20%)
+
+OUTPUT JSON ONLY:
+{
+  "specificityScore": 85,
+  "emotionalClarity": 78,
+  "tensionStrength": 82,
+  "contrastScore": 90,
+  "narrativeScore": 80,
+  "formatScore": 40,
+  "behaviorScore": 30,
+  "evolutionScore": 10,
+  "overallScore": 60
+}
+`;
+
+  const { text: response, cost } = await generateText(
+    prompt,
+    "You are a story analyst. Output JSON only.",
+    "gemini-2.5-pro",
+    0.5
+  );
+
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found");
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const scores = {
+      specificityScore: Number(parsed.specificityScore) || 0,
+      emotionalClarity: Number(parsed.emotionalClarity) || 0,
+      tensionStrength: Number(parsed.tensionStrength) || 0,
+      contrastScore: Number(parsed.contrastScore) || 0,
+      narrativeScore: Number(parsed.narrativeScore) || 0,
+      formatScore: Number(parsed.formatScore) || 0,
+      behaviorScore: Number(parsed.behaviorScore) || 0,
+      evolutionScore: Number(parsed.evolutionScore) || 0,
+      overallScore: Number(parsed.overallScore) || 0,
+    };
+
+    if (!scores.overallScore) {
+      scores.overallScore = Math.round(
+        (scores.narrativeScore * 0.4 +
+        scores.formatScore * 0.2 +
+        scores.behaviorScore * 0.2 +
+        scores.evolutionScore * 0.2)
+      );
+    }
+
+    return { ...scores, cost };
+  } catch (e) {
+    console.error("Failed to parse series strength scores:", response);
+    return {
+      specificityScore: 0,
+      emotionalClarity: 0,
+      tensionStrength: 0,
+      contrastScore: 0,
+      narrativeScore: 0,
+      formatScore: 0,
+      behaviorScore: 0,
+      evolutionScore: 0,
+      overallScore: 0,
+      cost: 0
+    };
   }
 }
 
@@ -479,6 +579,9 @@ TASK:
 
 OUTPUT JSON ONLY:
 {
+  "villain": "The core conflict/opposition/internal struggle",
+  "hero": "The protagonist's transformation/identity shift",
+  "mechanism": "The unique world logic/story mechanism",
   "characterDynamics": "Description of internal/external tension",
   "plotBeats": ["Beat 1", "Beat 2", "Beat 3", "Beat 4", "Beat 5"],
   "worldRules": ["Rule 1", "Rule 2", "Rule 3"],
@@ -775,7 +878,7 @@ Refine the core narrative fields.
 OUTPUT JSON ONLY (Expanded Structure):
 {
   "audience": "...",
-  "identityAnchor": { "mission": "...", "villain": "...", "transformation": "...", "promise": "..." },
+  "aiPositioning": { "villain": "...", "hero": "...", "mechanism": "...", "promise": "...", "stakes": "..." },
   "problem": "...",
   "solution": "...",
   "voice": "..."
@@ -785,7 +888,7 @@ OUTPUT JSON ONLY (Expanded Structure):
   const { text: response } = await generateText(
     prompt,
     "You are a narrative strategist. Output JSON only.",
-    "gemini-2.0-flash",
+    "gemini-2.5-flash",
     0.5
   );
 
